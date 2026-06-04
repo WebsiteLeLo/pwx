@@ -75,22 +75,38 @@ export interface VideoContent {
   };
 }
 
+export interface Attachment {
+  _id: string;
+  baseUrl: string;
+  key?: string;
+  name?: string;
+}
+
+export interface HomeworkItem {
+  _id: string;
+  topic?: string;
+  note?: string;
+  slug?: string;
+  status?: string;
+  actions?: string[];
+  attachmentIds?: Attachment[];
+}
+
 export interface NoteContent {
   _id: string;
   topic: string;
   contentType: string;
-  homeworkIds?: {
-    _id: string;
-    name: string;
-    attachmentIds?: {
-      baseUrl: string;
-      key: string;
-      name?: string;
-    }[];
-  }[];
+  date?: string;
+  status?: string;
+  homeworkIds?: HomeworkItem[];
   urls?: { url: string; name?: string }[];
   name?: string;
-  attachmentIds?: { baseUrl: string; key: string; name?: string }[];
+  attachmentIds?: Attachment[];
+}
+
+export function getPdfUrl(attachment: Attachment): string {
+  if (attachment.key) return `${attachment.baseUrl}${attachment.key}`;
+  return `${attachment.baseUrl}${attachment._id}`;
 }
 
 export type ContentItem = VideoContent & NoteContent;

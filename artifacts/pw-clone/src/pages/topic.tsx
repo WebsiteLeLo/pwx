@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTopicContents, useBatchDetails, useTopics, ContentType } from "@/hooks/usePWApi";
+import { useTopicContents, useBatchDetails, useTopics, ContentType, getPdfUrl } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -139,15 +139,17 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
   return (
     <div className="mt-6 space-y-3">
       {items.map((content, index) => {
-        const attachments =
-          content.homeworkIds?.flatMap(h => h.attachmentIds ?? []) ??
-          content.attachmentIds ??
-          [];
-        const pdfUrl = attachments[0]
-          ? `${attachments[0].baseUrl}${attachments[0].key}`
+        const firstHomework = content.homeworkIds?.[0];
+        const firstAttachment =
+          firstHomework?.attachmentIds?.[0] ??
+          content.attachmentIds?.[0] ??
+          null;
+        const pdfUrl = firstAttachment
+          ? getPdfUrl(firstAttachment)
           : content.urls?.[0]?.url ?? null;
         const title =
-          content.homeworkIds?.[0]?.name ??
+          firstHomework?.topic ??
+          firstHomework?.note ??
           content.name ??
           (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
 
