@@ -82,7 +82,7 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
           return (
             <Link
               key={content._id}
-              href={`/watch?batchId=${batchId}&childId=${content._id}&ContentId=${content._id}`}
+              href={`/schedule-watch?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${content._id}`}
             >
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
