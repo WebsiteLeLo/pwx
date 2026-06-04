@@ -9,6 +9,7 @@ import Batch from "@/pages/batch";
 import Subject from "@/pages/subject";
 import Topic from "@/pages/topic";
 import Watch from "@/pages/watch";
+import ScheduleWatch from "@/pages/schedule-watch";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
       <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
       <Route path="/watch" component={Watch} />
+      <Route path="/schedule-watch" component={ScheduleWatch} />
       <Route component={NotFound} />
     </Switch>
   );

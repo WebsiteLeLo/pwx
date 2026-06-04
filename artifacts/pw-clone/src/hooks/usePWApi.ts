@@ -116,6 +116,91 @@ export function getPdfUrl(attachment: Attachment): string {
 
 export type ContentItem = VideoContent & NoteContent;
 
+export interface ScheduleDetails {
+  _id: string;
+  topic: string;
+  date?: string;
+  startTime?: string;
+  urlType?: string;
+  scheduleType?: string;
+  videoDetails?: {
+    _id: string;
+    id?: string;
+    name?: string;
+    duration?: string;
+    image?: string;
+  };
+  homeworkIds?: Array<{
+    _id: string;
+    topic?: string;
+    note?: string;
+    actions?: string[];
+    attachmentIds?: Attachment[];
+  }>;
+  dpp?: {
+    _id: string;
+    topic?: string;
+    lectureType?: string;
+    homeworkIds?: Array<{
+      _id: string;
+      topic?: string;
+      attachmentIds?: Attachment[];
+    }>;
+  };
+  subject?: { _id: string; subject?: string };
+}
+
+export interface VideoDetails {
+  _id: string;
+  name?: string;
+  videoUrl?: string;
+  duration?: string;
+  image?: string;
+  types?: string[];
+  drmProtected?: boolean;
+}
+
+export function useScheduleDetails(batchId: string, subjectId: string, scheduleId: string) {
+  return useQuery({
+    queryKey: ["scheduleDetails", batchId, subjectId, scheduleId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v1/batches/${batchId}/subject/${subjectId}/schedule/${scheduleId}/schedule-details`
+      );
+      if (!res.ok) throw new Error("Failed to fetch schedule details");
+      return res.json() as Promise<{ success: boolean; data: ScheduleDetails }>;
+    },
+    enabled: !!batchId && !!subjectId && !!scheduleId,
+  });
+}
+
+export function useVideoDetails(videoId: string) {
+  return useQuery({
+    queryKey: ["videoDetails", videoId],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/v1/videos/${videoId}`);
+      if (!res.ok) throw new Error("Failed to fetch video details");
+      return res.json() as Promise<{ success: boolean; data: VideoDetails }>;
+    },
+    enabled: !!videoId,
+  });
+}
+
+export function useVideoOtp(hexKey: string) {
+  return useQuery({
+    queryKey: ["videoOtp", hexKey],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v1/videos/get-otp?key=${encodeURIComponent(hexKey)}&isEncoded=true`
+      );
+      if (!res.ok) throw new Error("Failed to fetch OTP");
+      return res.json() as Promise<{ success: boolean; data: { otp: string } }>;
+    },
+    enabled: !!hexKey,
+    retry: false,
+  });
+}
+
 export function useBatches() {
   return useQuery({
     queryKey: ["batches"],
