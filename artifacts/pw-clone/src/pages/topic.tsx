@@ -13,16 +13,10 @@ const TABS: { key: ContentType; label: string; icon: typeof Play }[] = [
   { key: "DppNotes", label: "DPP Notes", icon: BookOpen },
 ];
 
-function formatDuration(seconds: number) {
-  if (!seconds) return "";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function getVideoThumb(imageId: any): string | null {
+function getVideoThumb(vid: any): string | null {
+  if (!vid) return null;
+  if (vid.image) return vid.image;
+  const imageId = vid.imageId;
   if (!imageId) return null;
   if (typeof imageId === "string") return imageId;
   if (imageId.baseUrl && imageId.key) return `${imageId.baseUrl}${imageId.key}`;
@@ -81,15 +75,14 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
         {items.map((content, index) => {
           const vid = content.videoDetails;
-          const videoId = vid?.videoId;
-          if (!videoId) return null;
-          const thumb = getVideoThumb(vid?.imageId);
-          const dur = formatDuration(vid?.duration ?? 0);
+          const thumb = getVideoThumb(vid);
+          const dur = vid?.duration ? String(vid.duration) : "";
+          const title = vid?.name ?? content.topic ?? "Lecture Video";
 
           return (
             <Link
               key={content._id}
-              href={`/watch?batchId=${batchId}&childId=${videoId}&ContentId=${content.scheduleId || content._id}`}
+              href={`/watch?batchId=${batchId}&childId=${content._id}&ContentId=${content._id}`}
             >
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
@@ -102,7 +95,7 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
                   {thumb ? (
                     <img
                       src={thumb}
-                      alt={vid?.name}
+                      alt={title}
                       loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
@@ -125,7 +118,7 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                    {vid?.name || "Lecture Video"}
+                    {title}
                   </h3>
                 </div>
               </motion.div>

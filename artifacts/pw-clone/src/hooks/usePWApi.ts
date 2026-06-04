@@ -64,13 +64,18 @@ export interface VideoContent {
   _id: string;
   topic: string;
   contentType: string;
-  scheduleId: string;
+  scheduleId?: string;
   batchId?: string;
   videoDetails?: {
-    videoId: string;
-    name: string;
-    duration: number;
+    _id?: string;
+    name?: string;
+    duration?: string | number;
+    image?: string;
     imageId?: { baseUrl?: string; key?: string } | string;
+    video_id?: string;
+    vimeoId?: string;
+    hls_url?: string;
+    videoUrl?: string;
     description?: string;
   };
 }
