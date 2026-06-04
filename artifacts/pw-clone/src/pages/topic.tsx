@@ -1,42 +1,201 @@
-import { useTopicContents, useBatchDetails, useTopics } from "@/hooks/usePWApi";
+import { useState } from "react";
+import { useTopicContents, useBatchDetails, useTopics, ContentType } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, CalendarDays } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink } from "lucide-react";
+
+const TABS: { key: ContentType; label: string; icon: typeof Play }[] = [
+  { key: "videos", label: "Videos", icon: Play },
+  { key: "notes", label: "Notes", icon: FileText },
+  { key: "DppNotes", label: "DPP Notes", icon: BookOpen },
+];
+
+function formatDuration(seconds: number) {
+  if (!seconds) return "";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function getVideoThumb(imageId: any): string | null {
+  if (!imageId) return null;
+  if (typeof imageId === "string") return imageId;
+  if (imageId.baseUrl && imageId.key) return `${imageId.baseUrl}${imageId.key}`;
+  return null;
+}
+
+interface TabContentProps {
+  batchId: string;
+  subjectId: string;
+  topicId: string;
+  contentType: ContentType;
+}
+
+function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
+  const { data, isLoading, isError, refetch } = useTopicContents(batchId, subjectId, topicId, contentType);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-3">
+            <Skeleton className="w-full aspect-video rounded-xl" />
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-muted-foreground">Failed to load content.</p>
+        <Button onClick={() => refetch()} variant="outline" size="sm">Retry</Button>
+      </div>
+    );
+  }
+
+  const items = data?.data ?? [];
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+        {contentType === "videos"
+          ? <Play className="w-12 h-12 mb-4 opacity-30" />
+          : <FileText className="w-12 h-12 mb-4 opacity-30" />}
+        <p className="text-lg font-medium">No {contentType === "DppNotes" ? "DPP Notes" : contentType} available for this topic.</p>
+      </div>
+    );
+  }
+
+  if (contentType === "videos") {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+        {items.map((content, index) => {
+          const vid = content.videoDetails;
+          const videoId = vid?.videoId;
+          if (!videoId) return null;
+          const thumb = getVideoThumb(vid?.imageId);
+          const dur = formatDuration(vid?.duration ?? 0);
+
+          return (
+            <Link
+              key={content._id}
+              href={`/watch?batchId=${batchId}&childId=${videoId}&ContentId=${content.scheduleId || content._id}`}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.04 }}
+                className="group flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+                data-testid={`card-video-${content._id}`}
+              >
+                <div className="relative aspect-video bg-muted overflow-hidden">
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt={vid?.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center">
+                      <Play className="w-10 h-10 text-muted-foreground opacity-40" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="w-11 h-11 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                      <Play className="w-5 h-5 fill-current" />
+                    </div>
+                  </div>
+                  {dur && (
+                    <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-xs font-medium text-white flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {dur}
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                    {vid?.name || "Lecture Video"}
+                  </h3>
+                </div>
+              </motion.div>
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {items.map((content, index) => {
+        const attachments =
+          content.homeworkIds?.flatMap(h => h.attachmentIds ?? []) ??
+          content.attachmentIds ??
+          [];
+        const pdfUrl = attachments[0]
+          ? `${attachments[0].baseUrl}${attachments[0].key}`
+          : content.urls?.[0]?.url ?? null;
+        const title =
+          content.homeworkIds?.[0]?.name ??
+          content.name ??
+          (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
+
+        return (
+          <motion.div
+            key={content._id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2, delay: index * 0.04 }}
+            className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all"
+            data-testid={`card-note-${content._id}`}
+          >
+            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+              {contentType === "DppNotes"
+                ? <BookOpen className="w-5 h-5" />
+                : <FileText className="w-5 h-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate">{title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
+            </div>
+            {pdfUrl ? (
+              <Button size="sm" variant="outline" asChild>
+                <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open
+                </a>
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Unavailable</span>
+            )}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Topic() {
   const { batchId, subjectId, topicId } = useParams<{ batchId: string; subjectId: string; topicId: string }>();
+  const [activeTab, setActiveTab] = useState<ContentType>("videos");
 
-  // Fetch parents for breadcrumbs
   const { data: batchData } = useBatchDetails(batchId!);
   const { data: topicsData } = useTopics(batchId!, subjectId!, 1);
-  const { data, isLoading, isError, refetch } = useTopicContents(batchId!, subjectId!, topicId!);
 
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
   const topicName = topicsData?.data.find(t => t._id === topicId)?.name || "Topic";
-
-  if (isError) {
-    return (
-      <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: "Error" }]}>
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center gap-4">
-          <AlertCircle className="w-12 h-12 text-destructive" />
-          <h2 className="text-2xl font-bold">Content Unavailable</h2>
-          <p className="text-muted-foreground max-w-md">
-            We couldn't retrieve the contents for this topic. They might not be available yet.
-          </p>
-          <Button onClick={() => refetch()} variant="outline">
-            Retry Connection
-          </Button>
-        </div>
-      </Layout>
-    );
-  }
-
-  const videos = data?.data.filter(c => c.videoDetails || c.contentType?.toLowerCase().includes("video")) || [];
-  const notes = data?.data.filter(c => c.notes || c.contentType?.toLowerCase().includes("notes")) || [];
 
   return (
     <Layout
@@ -44,125 +203,49 @@ export default function Topic() {
         { label: "Home", href: "/" },
         { label: batchName, href: `/batch/${batchId}` },
         { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
-        { label: topicName }
+        { label: topicName },
       ]}
     >
-      <div className="mb-10">
+      <div className="mb-8">
         <h1 className="text-4xl font-extrabold tracking-tight mb-2">{topicName}</h1>
-        <p className="text-lg text-muted-foreground">Watch lectures and review class notes.</p>
+        <p className="text-lg text-muted-foreground">Watch lectures, review notes, and practice DPP sheets.</p>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="w-full aspect-video rounded-xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-12">
-          {/* VIDEOS SECTION */}
-          <section>
-            <h2 className="text-2xl font-bold flex items-center gap-2 mb-6">
-              <Play className="w-6 h-6 text-primary" /> Lectures
-            </h2>
-            
-            {videos.length === 0 ? (
-              <div className="p-8 text-center bg-card rounded-xl border border-border/50 text-muted-foreground">
-                No video lectures available for this topic.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {videos.map((content, index) => {
-                  const videoId = content.videoDetails?.videoId;
-                  if (!videoId) return null;
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit mb-2">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            data-testid={`tab-${key}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
 
-                  return (
-                    <Link
-                      key={content._id}
-                      href={`/watch?batchId=${batchId}&childId=${videoId}&ContentId=${content.scheduleId || content._id}`}
-                    >
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                        className="group relative flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
-                      >
-                        <div className="relative aspect-video bg-muted overflow-hidden">
-                          {content.videoDetails?.imageId ? (
-                            <img
-                              src={content.videoDetails.imageId}
-                              alt={content.videoDetails.name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center">
-                              <Play className="w-12 h-12 text-muted-foreground opacity-50" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                              <Play className="w-6 h-6 fill-current" />
-                            </div>
-                          </div>
-                          
-                          {content.videoDetails?.duration && (
-                            <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {content.videoDetails.duration}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="p-4 flex flex-col flex-1">
-                          <h3 className="font-bold text-sm leading-tight mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                            {content.videoDetails?.name || "Lecture Video"}
-                          </h3>
-                        </div>
-                      </motion.div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* NOTES SECTION */}
-          {notes.length > 0 && (
-            <section>
-              <h2 className="text-2xl font-bold flex items-center gap-2 mb-6">
-                <FileText className="w-6 h-6 text-accent" /> Study Notes
-              </h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {notes.map((content, index) => (
-                  <motion.div
-                    key={content._id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
-                    className="flex items-center p-4 bg-card rounded-xl border border-border/50 hover:bg-secondary/50 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded bg-accent/10 text-accent flex items-center justify-center mr-4">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm truncate">
-                        {content.notes?.[0]?.name || "Class Notes"}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">PDF Document</p>
-                    </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={content.notes?.[0]?.url || "#"} target="_blank" rel="noopener noreferrer">
-                        View
-                      </a>
-                    </Button>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          <TabContent
+            batchId={batchId!}
+            subjectId={subjectId!}
+            topicId={topicId!}
+            contentType={activeTab}
+          />
+        </motion.div>
+      </AnimatePresence>
     </Layout>
   );
 }
