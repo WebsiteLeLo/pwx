@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+  `import { useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecureapi.onrender.com/api/pw";
 
