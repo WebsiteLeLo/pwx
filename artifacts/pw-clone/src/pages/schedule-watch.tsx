@@ -85,7 +85,7 @@ export default function ScheduleWatch() {
     batchId: "", subjectId: "", scheduleId: "", otpKey: "",
   });
   const [materialsOpen, setMaterialsOpen] = useState(true);
-  const [playerMode, setPlayerMode] = useState<"hls" | "otp">("hls");
+  const [playerMode, setPlayerMode] = useState<"pw" | "hls" | "otp" | "auto">("auto");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -153,24 +153,36 @@ export default function ScheduleWatch() {
         </div>
 
         <div className="flex items-center gap-2">
-          {otp && (
+          {!videoLoading && (video?.videoUrl || otp) && (
             <div className="flex items-center gap-1 bg-zinc-800 rounded-full p-0.5">
               <button
-                onClick={() => setPlayerMode("hls")}
+                onClick={() => setPlayerMode("pw")}
                 className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                  playerMode === "hls" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
+                  playerMode === "pw" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
                 }`}
               >
-                HLS
+                PW
               </button>
-              <button
-                onClick={() => setPlayerMode("otp")}
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                  playerMode === "otp" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                VdoCipher
-              </button>
+              {video?.videoUrl && (
+                <button
+                  onClick={() => setPlayerMode("hls")}
+                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                    playerMode === "hls" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  HLS
+                </button>
+              )}
+              {otp && (
+                <button
+                  onClick={() => setPlayerMode("otp")}
+                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                    playerMode === "otp" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  VdoCipher
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -190,14 +202,15 @@ export default function ScheduleWatch() {
                 </div>
               ) : playerMode === "otp" && otp ? (
                 <OtpPlayer otp={otp} />
-              ) : video?.videoUrl ? (
+              ) : (playerMode === "hls" || (playerMode === "auto" && video?.videoUrl)) && video?.videoUrl ? (
                 <HlsPlayer
                   videoUrl={video.videoUrl}
                   poster={schedule?.videoDetails?.image}
                 />
               ) : schedule?.videoDetails?._id ? (
                 <iframe
-                  src={`https://videoplayerofpw.onrender.com/?batchId=${params.batchId}&childId=${schedule.videoDetails._id}&ContentId=${schedule.videoDetails._id}`}
+                  key={`pw-${schedule.videoDetails._id}-${params.batchId}-${params.subjectId}`}
+                  src={`https://videoplayerofpw.onrender.com/?video_id=${schedule.videoDetails._id}&batch_id=${params.batchId}&subject_id=${params.subjectId}`}
                   allowFullScreen
                   className="w-full h-full border-0"
                   title="PW Video Player"
