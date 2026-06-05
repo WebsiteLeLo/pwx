@@ -3,9 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LoadingBar } from "@/components/loading-bar";
-import { useDevToolsDetection } from "@/hooks/useDevToolsDetection";
 import DevToolsBlocked from "@/pages/devtools-blocked";
 
 // Pages
@@ -69,7 +68,21 @@ function Router() {
 }
 
 function App() {
-  const { detected, strikes, dismiss } = useDevToolsDetection();
+  const [dtState, setDtState] = useState<{ detected: boolean; strikes: number }>({
+    detected: false,
+    strikes: 0,
+  });
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { strikes } = (e as CustomEvent<{ strikes: number }>).detail;
+      setDtState({ detected: true, strikes });
+    };
+    window.addEventListener("pwx-devtools-open", handler);
+    return () => window.removeEventListener("pwx-devtools-open", handler);
+  }, []);
+
+  const dismiss = () => setDtState((s) => ({ ...s, detected: false }));
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -79,7 +92,9 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
-        {detected && <DevToolsBlocked strikes={strikes} onDismiss={dismiss} />}
+        {dtState.detected && (
+          <DevToolsBlocked strikes={dtState.strikes} onDismiss={dismiss} />
+        )}
       </TooltipProvider>
     </QueryClientProvider>
   );
