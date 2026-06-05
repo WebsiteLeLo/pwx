@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -108,6 +108,8 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
   );
 }
 
+const MAX_NOTE_PAGES = 50;
+
 interface TabContentProps {
   batchId: string;
   subjectId: string;
@@ -115,12 +117,101 @@ interface TabContentProps {
   contentType: ContentType;
 }
 
-function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
-  const isNotes = contentType === "notes" || contentType === "DppNotes";
+/* ── Notes: sequential page-walker ── */
+function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
+  const [fetchPage, setFetchPage] = useState(1);
+  const [allItems, setAllItems] = useState<ContentItem[]>([]);
+  const [done, setDone] = useState(false);
+  const seenIds = useRef<Set<string>>(new Set());
 
-  const videos = useTopicContents(batchId, subjectId, topicId, contentType);
-  const notes = useAllTopicContents(batchId, subjectId, topicId, contentType);
-  const { data, isLoading, isError, refetch } = isNotes ? notes : videos;
+  // Reset when topic / type changes
+  useEffect(() => {
+    setFetchPage(1);
+    setAllItems([]);
+    setDone(false);
+    seenIds.current = new Set();
+  }, [batchId, subjectId, topicId, contentType]);
+
+  const { data, isLoading, isError, refetch } = useTopicContents(
+    batchId, subjectId, topicId, contentType, fetchPage
+  );
+
+  useEffect(() => {
+    if (!data) return;
+    const incoming = data.data ?? [];
+
+    // De-duplicate by _id in case the API repeats items across pages
+    const fresh = incoming.filter(item => !seenIds.current.has(item._id));
+    fresh.forEach(item => seenIds.current.add(item._id));
+
+    if (fresh.length > 0) {
+      setAllItems(prev => [...prev, ...fresh]);
+      if (fetchPage < MAX_NOTE_PAGES) {
+        setFetchPage(p => p + 1); // advance to next page
+      } else {
+        setDone(true);
+      }
+    } else {
+      setDone(true); // empty page → all items fetched
+    }
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isFetchingMore = !done && (isLoading || fetchPage > 1);
+
+  if (isLoading && allItems.length === 0) {
+    return (
+      <div className="mt-6 space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (isError && allItems.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-muted-foreground">Failed to load content.</p>
+        <Button onClick={() => refetch()} variant="outline" size="sm">Retry</Button>
+      </div>
+    );
+  }
+
+  if (done && allItems.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+        <FileText className="w-12 h-12 mb-4 opacity-30" />
+        <p className="text-lg font-medium">No {contentType === "DppNotes" ? "DPP Notes" : "Notes"} available for this topic.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {allItems.map((content, index) => (
+        <NoteItem
+          key={content._id}
+          batchId={batchId}
+          subjectId={subjectId}
+          content={content}
+          contentType={contentType}
+          baseIndex={index}
+        />
+      ))}
+      {isFetchingMore && (
+        <div className="flex items-center gap-3 py-3 text-sm text-muted-foreground">
+          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          Loading more…
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Videos ── */
+function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
+  const { data, isLoading, isError, refetch } = useTopicContents(batchId, subjectId, topicId, contentType);
 
   if (isLoading) {
     return (
@@ -151,87 +242,75 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-        {contentType === "videos"
-          ? <Play className="w-12 h-12 mb-4 opacity-30" />
-          : <FileText className="w-12 h-12 mb-4 opacity-30" />}
-        <p className="text-lg font-medium">No {contentType === "DppNotes" ? "DPP Notes" : contentType} available for this topic.</p>
-      </div>
-    );
-  }
-
-  if (contentType === "videos") {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
-        {items.map((content, index) => {
-          const vid = content.videoDetails;
-          const thumb = getVideoThumb(vid);
-          const dur = vid?.duration ? String(vid.duration) : "";
-          const title = vid?.name ?? content.topic ?? "Lecture Video";
-
-          return (
-            <Link
-              key={content._id}
-              href={`/schedule-watch?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${content._id}`}
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: index * 0.04 }}
-                className="group flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
-                data-testid={`card-video-${content._id}`}
-              >
-                <div className="relative aspect-video bg-muted overflow-hidden">
-                  {thumb ? (
-                    <img
-                      src={thumb}
-                      alt={title}
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center">
-                      <Play className="w-10 h-10 text-muted-foreground opacity-40" />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <div className="w-11 h-11 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                      <Play className="w-5 h-5 fill-current" />
-                    </div>
-                  </div>
-                  {dur && (
-                    <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-xs font-medium text-white flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {dur}
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                    {title}
-                  </h3>
-                </div>
-              </motion.div>
-            </Link>
-          );
-        })}
+        <Play className="w-12 h-12 mb-4 opacity-30" />
+        <p className="text-lg font-medium">No videos available for this topic.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-6 space-y-3">
-      {items.map((content, index) => (
-        <NoteItem
-          key={content._id}
-          batchId={batchId}
-          subjectId={subjectId}
-          content={content}
-          contentType={contentType}
-          baseIndex={index}
-        />
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+      {items.map((content, index) => {
+        const vid = content.videoDetails;
+        const thumb = getVideoThumb(vid);
+        const dur = vid?.duration ? String(vid.duration) : "";
+        const title = vid?.name ?? content.topic ?? "Lecture Video";
+
+        return (
+          <Link
+            key={content._id}
+            href={`/schedule-watch?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${content._id}`}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: index * 0.04 }}
+              className="group flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+              data-testid={`card-video-${content._id}`}
+            >
+              <div className="relative aspect-video bg-muted overflow-hidden">
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt={title}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center">
+                    <Play className="w-10 h-10 text-muted-foreground opacity-40" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                    <Play className="w-5 h-5 fill-current" />
+                  </div>
+                </div>
+                {dur && (
+                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-xs font-medium text-white flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {dur}
+                  </div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  {title}
+                </h3>
+              </div>
+            </motion.div>
+          </Link>
+        );
+      })}
     </div>
   );
+}
+
+function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
+  if (contentType === "videos") {
+    return <VideosTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={contentType} />;
+  }
+  return <NotesTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={contentType} />;
 }
 
 export default function Topic() {

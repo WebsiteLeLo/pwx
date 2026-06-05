@@ -295,12 +295,13 @@ export function useTopicContents(
   batchId: string,
   subjectId: string,
   topicId: string,
-  contentType: ContentType
+  contentType: ContentType,
+  page = 1
 ) {
   return useQuery({
-    queryKey: ["topicContents", batchId, subjectId, topicId, contentType],
+    queryKey: ["topicContents", batchId, subjectId, topicId, contentType, page],
     queryFn: async () => {
-      const url = `${API_BASE}/v2/batches/${batchId}/subject/${subjectId}/contents?page=1&contentType=${contentType}&tag=${topicId}`;
+      const url = `${API_BASE}/v2/batches/${batchId}/subject/${subjectId}/contents?page=${page}&contentType=${contentType}&tag=${topicId}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch ${contentType}`);
       return res.json() as Promise<{ success: boolean; data: ContentItem[] }>;
@@ -318,45 +319,52 @@ export function useAllTopicContents(
   contentType: ContentType
 ) {
   return useQuery({
-    queryKey: ["allTopicContents", batchId, subjectId, topicId, contentType],
+    queryKey: ["allTopicContentsV3", batchId, subjectId, topicId, contentType],
     queryFn: async () => {
       const baseUrl = `${API_BASE}/v2/batches/${batchId}/subject/${subjectId}/contents`;
       const makeUrl = (page: number) =>
         `${baseUrl}?page=${page}&contentType=${contentType}&tag=${topicId}`;
 
-      // Fetch page 1 first to learn the total count
+      const fetchPage = async (page: number): Promise<ContentItem[]> => {
+        const r = await fetch(makeUrl(page));
+        if (!r.ok) return [];
+        const j = await r.json() as Record<string, unknown>;
+        return (j.data as ContentItem[]) ?? [];
+      };
+
+      // Fetch page 1 first — inspect whatever paginate/pagination field exists
       const firstRes = await fetch(makeUrl(1));
       if (!firstRes.ok) throw new Error(`Failed to fetch ${contentType}`);
-      const firstJson = (await firstRes.json()) as {
-        success: boolean;
-        data: ContentItem[];
-        paginate?: { limit: number; totalCount: number };
-      };
+      const firstJson = await firstRes.json() as Record<string, unknown>;
+      const firstData: ContentItem[] = (firstJson.data as ContentItem[]) ?? [];
 
-      const firstData: ContentItem[] = firstJson.data ?? [];
-      const paginate = firstJson.paginate;
+      // Try to read total count from any common paginate shape
+      const pag = (firstJson.paginate ?? firstJson.pagination ?? firstJson.meta ?? {}) as Record<string, unknown>;
+      const rawTotal = (pag.totalCount ?? pag.total ?? pag.totalDocs ?? pag.count ?? 0) as number;
+      const rawLimit = (pag.limit ?? pag.pageSize ?? pag.size ?? firstData.length) as number;
 
-      if (!paginate || paginate.totalCount <= firstData.length) {
-        return { success: true, data: firstData };
+      if (rawTotal > 0 && rawLimit > 0 && rawTotal > firstData.length) {
+        // We know the total — fetch all remaining pages in parallel
+        const totalPages = Math.ceil(rawTotal / rawLimit);
+        const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+        const rest = await Promise.all(pageNums.map(fetchPage));
+        return { success: true, data: [...firstData, ...rest.flat()] };
       }
 
-      const totalPages = Math.ceil(paginate.totalCount / paginate.limit);
+      // No reliable paginate info — keep fetching pages sequentially until empty
+      // Cap at 50 pages (500–1000 items) as a safety limit
+      const allData = [...firstData];
+      const MAX_PAGES = 50;
 
-      // Fetch all remaining pages in parallel
-      const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-      const rest = await Promise.all(
-        pageNums.map(async (page) => {
-          const r = await fetch(makeUrl(page));
-          if (!r.ok) return [] as ContentItem[];
-          const j = (await r.json()) as { data: ContentItem[] };
-          return j.data ?? [];
-        })
-      );
+      for (let page = 2; page <= MAX_PAGES; page++) {
+        const items = await fetchPage(page);
+        if (items.length === 0) break;
+        allData.push(...items);
+        // If we got fewer items than the first page, it's probably the last page
+        if (items.length < firstData.length) break;
+      }
 
-      return {
-        success: true,
-        data: [...firstData, ...rest.flat()] as ContentItem[],
-      };
+      return { success: true, data: allData };
     },
     enabled: !!batchId && !!subjectId && !!topicId,
     staleTime: MIN * 15,
