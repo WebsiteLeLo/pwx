@@ -404,6 +404,9 @@ importers:
       hls.js:
         specifier: ^1.6.16
         version: 1.6.16
+      shaka-player:
+        specifier: ^5.1.7
+        version: 5.1.7
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -2517,7 +2520,7 @@ packages:
     resolution: {integrity: sha512-3qT/88Y3FbH/Kx4szpQQ4HzUbVrHPKTLVpVocKiLfoYvw9XSGOX2FmD2d6DrXbVYyAQTF2HeF6My8jmzx7/CRw==}
 
   npm-run-path@6.0.0:
-    resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==}
+    resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==, tarball: https://registry.npmjs.org/npm-run-path/-/npm-run-path-6.0.0.tgz}
     engines: {node: '>=18'}
 
   object-assign@4.1.1:
@@ -2876,6 +2879,10 @@ packages:
 
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
+
+  shaka-player@5.1.7:
+    resolution: {integrity: sha512-NVWsrJlwsefAwLgd5N8e2rOOflZuTqW3YOxsJyW/iv/uaE1Ao7eiF5UZBoYx7ZVP4uWfHLA3RMJa1gFHHkwZVg==}
+    engines: {node: '>=18'}
 
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
@@ -5460,6 +5467,8 @@ snapshots:
       - supports-color
 
   setprototypeof@1.2.0: {}
+
+  shaka-player@5.1.7: {}
 
   shebang-command@2.0.0:
     dependencies:

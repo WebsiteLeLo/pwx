@@ -4,6 +4,7 @@ import { ArrowLeft, PlaySquare, FileText, BookOpen, Download, Clock, Calendar, C
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Hls from "hls.js";
+import { DrmPlayer } from "@/components/DrmPlayer";
 
 function formatDate(iso?: string) {
   if (!iso) return "";
@@ -80,12 +81,14 @@ function PdfItem({ name, url }: { name?: string; url: string }) {
   );
 }
 
+type PlayerMode = "drm" | "hls" | "pw" | "otp";
+
 export default function ScheduleWatch() {
   const [params, setParams] = useState({
     batchId: "", subjectId: "", scheduleId: "", otpKey: "",
   });
   const [materialsOpen, setMaterialsOpen] = useState(true);
-  const [playerMode, setPlayerMode] = useState<"pw" | "hls" | "otp" | "auto">("auto");
+  const [playerMode, setPlayerMode] = useState<PlayerMode>("drm");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -127,7 +130,57 @@ export default function ScheduleWatch() {
     });
   });
 
-  const isLoading = scheduleLoading || videoLoading;
+  const scheduleLoaded = !scheduleLoading && !!videoId;
+
+  function renderPlayer() {
+    if (scheduleLoading) {
+      return (
+        <div className="flex flex-col items-center gap-3 text-zinc-500">
+          <Loader2 className="w-10 h-10 animate-spin" />
+          <span className="text-sm">Loading…</span>
+        </div>
+      );
+    }
+
+    if (!videoId) {
+      return <div className="text-zinc-500 text-sm">No video available</div>;
+    }
+
+    if (playerMode === "otp" && otp) {
+      return <OtpPlayer otp={otp} />;
+    }
+
+    if (playerMode === "hls" && video?.videoUrl) {
+      return (
+        <HlsPlayer
+          videoUrl={video.videoUrl}
+          poster={schedule?.videoDetails?.image}
+        />
+      );
+    }
+
+    if (playerMode === "pw") {
+      return (
+        <iframe
+          key={`pw-${videoId}-${params.batchId}-${params.subjectId}`}
+          src={`https://videoplayerofpw.onrender.com/?video_id=${videoId}&batch_id=${params.batchId}&subject_id=${params.subjectId}`}
+          allowFullScreen
+          className="w-full h-full border-0"
+          title="PW Video Player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        />
+      );
+    }
+
+    return (
+      <DrmPlayer
+        batchId={params.batchId}
+        subjectId={params.subjectId}
+        childId={params.scheduleId}
+        poster={schedule?.videoDetails?.image}
+      />
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-zinc-950 text-white">
@@ -153,15 +206,15 @@ export default function ScheduleWatch() {
         </div>
 
         <div className="flex items-center gap-2">
-          {!videoLoading && (video?.videoUrl || otp) && (
+          {scheduleLoaded && (
             <div className="flex items-center gap-1 bg-zinc-800 rounded-full p-0.5">
               <button
-                onClick={() => setPlayerMode("pw")}
+                onClick={() => setPlayerMode("drm")}
                 className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                  playerMode === "pw" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
+                  playerMode === "drm" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
                 }`}
               >
-                PW
+                PWX
               </button>
               {video?.videoUrl && (
                 <button
@@ -173,6 +226,14 @@ export default function ScheduleWatch() {
                   HLS
                 </button>
               )}
+              <button
+                onClick={() => setPlayerMode("pw")}
+                className={`text-xs px-3 py-1 rounded-full transition-colors ${
+                  playerMode === "pw" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                PW
+              </button>
               {otp && (
                 <button
                   onClick={() => setPlayerMode("otp")}
@@ -180,7 +241,7 @@ export default function ScheduleWatch() {
                     playerMode === "otp" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  VdoCipher
+                  VDO
                 </button>
               )}
             </div>
@@ -195,30 +256,7 @@ export default function ScheduleWatch() {
           {/* Video */}
           <div className="relative w-full bg-black" style={{ paddingBottom: "56.25%" }}>
             <div className="absolute inset-0 flex items-center justify-center">
-              {isLoading ? (
-                <div className="flex flex-col items-center gap-3 text-zinc-500">
-                  <Loader2 className="w-10 h-10 animate-spin" />
-                  <span className="text-sm">Loading video…</span>
-                </div>
-              ) : playerMode === "otp" && otp ? (
-                <OtpPlayer otp={otp} />
-              ) : (playerMode === "hls" || (playerMode === "auto" && video?.videoUrl)) && video?.videoUrl ? (
-                <HlsPlayer
-                  videoUrl={video.videoUrl}
-                  poster={schedule?.videoDetails?.image}
-                />
-              ) : schedule?.videoDetails?._id ? (
-                <iframe
-                  key={`pw-${schedule.videoDetails._id}-${params.batchId}-${params.subjectId}`}
-                  src={`https://videoplayerofpw.onrender.com/?video_id=${schedule.videoDetails._id}&batch_id=${params.batchId}&subject_id=${params.subjectId}`}
-                  allowFullScreen
-                  className="w-full h-full border-0"
-                  title="PW Video Player"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                />
-              ) : (
-                <div className="text-zinc-500 text-sm">No video available</div>
-              )}
+              {renderPlayer()}
             </div>
           </div>
 
@@ -258,9 +296,14 @@ export default function ScheduleWatch() {
                       Fetching OTP…
                     </span>
                   )}
-                  {video?.drmProtected === false && (
+                  {video?.drmProtected === false && playerMode === "hls" && (
                     <Badge variant="outline" className="text-blue-400 border-blue-700 text-[10px] py-0">
                       Direct Stream
+                    </Badge>
+                  )}
+                  {playerMode === "drm" && (
+                    <Badge variant="outline" className="text-purple-400 border-purple-700 text-[10px] py-0">
+                      ClearKey DRM
                     </Badge>
                   )}
                 </div>
@@ -329,7 +372,6 @@ export default function ScheduleWatch() {
               </div>
             )}
 
-            {/* OTP Debug Info */}
             {otp && (
               <div className="mt-4 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
                 <p className="text-xs font-semibold text-green-400 mb-1">VdoCipher OTP Active</p>

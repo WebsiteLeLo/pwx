@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "hls.js": "^1.6.16"
+    "hls.js": "^1.6.16",
+    "shaka-player": "^5.1.7"
   }
 }
