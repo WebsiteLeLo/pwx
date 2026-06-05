@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-const API_BASE = "https://pwsecureapi.onrender.com/api/pw";
+const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const LEARNBYAKP_BASE = "https://learnbyakp.onrender.com/api/pw";
 const MIN = 1000 * 60;
 
