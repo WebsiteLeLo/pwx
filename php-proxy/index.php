@@ -160,7 +160,7 @@ if ($path === '/proxy') {
             echo $body;
         }
     } catch (Exception $e) {
-        json_error(502, 'Upstream fetch failed');
+        json_error(502, $e->getMessage());
     }
     exit;
 }
@@ -186,7 +186,7 @@ if (preg_match('#^/dash-seg/([^/]+)/(.+)$#', $path, $m)) {
         header('Cache-Control: public, max-age=3600, immutable');
         echo $body;
     } catch (Exception $e) {
-        json_error(502, 'Segment fetch failed');
+        json_error(502, $e->getMessage());
     }
     exit;
 }
