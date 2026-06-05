@@ -174,7 +174,7 @@ proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", "public, max-age=3600, immutable");
     res.status(status);
     res.end(Buffer.from(buffer));
   } catch (err) {
