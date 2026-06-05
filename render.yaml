@@ -1,13 +1,26 @@
 services:
   - type: web
-    name: pw-clone
+    name: pw-clone-api
     runtime: node
     nodeVersion: 22
-    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/pw-clone run build && pnpm --filter @workspace/api-server run build
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
+        sync: false
+
+  - type: web
+    name: pw-clone-frontend
+    runtime: static
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/pw-clone run build
+    staticPublishPath: artifacts/pw-clone/dist/public
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
         sync: false

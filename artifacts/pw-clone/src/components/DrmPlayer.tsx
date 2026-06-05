@@ -5,8 +5,10 @@ import {
   ChevronRight, Bookmark, BookmarkCheck, Trash2, X,
 } from "lucide-react";
 
+import { apiUrl } from "@/lib/apiUrl";
+
 const API_BASE = "https://learnbyakp.onrender.com/api/pw";
-const PROXY_BASE = "/api";
+const PROXY_BASE = apiUrl("/api");
 
 interface DrmCache {
   mpdUrl: string;

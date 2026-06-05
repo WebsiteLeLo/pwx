@@ -26,8 +26,8 @@ interface BreadcrumbEntry {
 }
 
 async function fetchDriveItems(folderId: string): Promise<DriveItem[]> {
-  // Use our API server proxy to bypass Google Drive's referrer restriction
-  const url = `/api/drive/files?folderId=${encodeURIComponent(folderId)}`;
+  const { apiUrl } = await import("@/lib/apiUrl");
+  const url = apiUrl(`/api/drive/files?folderId=${encodeURIComponent(folderId)}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Drive API error: ${res.status}`);
   const json = await res.json() as { files?: DriveItem[] };
