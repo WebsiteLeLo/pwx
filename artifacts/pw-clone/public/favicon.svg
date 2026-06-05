@@ -1,3 +1,5 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#09090f"/>
+  <text x="256" y="220" font-family="Arial Black, Arial" font-weight="900" font-size="160" fill="#00ccff" text-anchor="middle" dominant-baseline="middle">PW</text>
+  <text x="256" y="350" font-family="Arial, sans-serif" font-weight="700" font-size="68" fill="#ffffff" text-anchor="middle" dominant-baseline="middle" opacity="0.65">PLAYER</text>
 </svg>
