@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecureapi.onrender.com/api/pw";
+const MIN = 1000 * 60;
 
 export interface Batch {
   _id: string;
@@ -171,6 +172,8 @@ export function useScheduleDetails(batchId: string, subjectId: string, scheduleI
       return res.json() as Promise<{ success: boolean; data: ScheduleDetails }>;
     },
     enabled: !!batchId && !!subjectId && !!scheduleId,
+    staleTime: MIN * 30,
+    gcTime: MIN * 120,
   });
 }
 
@@ -183,6 +186,8 @@ export function useVideoDetails(videoId: string) {
       return res.json() as Promise<{ success: boolean; data: VideoDetails }>;
     },
     enabled: !!videoId,
+    staleTime: MIN * 30,
+    gcTime: MIN * 120,
   });
 }
 
@@ -198,6 +203,8 @@ export function useVideoOtp(hexKey: string) {
     },
     enabled: !!hexKey,
     retry: false,
+    staleTime: MIN * 20,
+    gcTime: MIN * 60,
   });
 }
 
@@ -209,6 +216,8 @@ export function useBatches() {
       if (!res.ok) throw new Error("Failed to fetch batches");
       return res.json() as Promise<{ success: boolean; batches: Batch[] }>;
     },
+    staleTime: MIN * 60,
+    gcTime: MIN * 120,
   });
 }
 
@@ -221,6 +230,8 @@ export function useBatchDetails(batchId: string) {
       return res.json() as Promise<{ success: boolean; data: BatchDetailsData }>;
     },
     enabled: !!batchId,
+    staleTime: MIN * 30,
+    gcTime: MIN * 120,
   });
 }
 
@@ -233,6 +244,8 @@ export function useTopics(batchId: string, subjectId: string, page: number) {
       return res.json() as Promise<{ success: boolean; data: Topic[]; paginate: TopicsPaginate }>;
     },
     enabled: !!batchId && !!subjectId,
+    staleTime: MIN * 15,
+    gcTime: MIN * 60,
   });
 }
 
@@ -251,5 +264,7 @@ export function useTopicContents(
       return res.json() as Promise<{ success: boolean; data: ContentItem[] }>;
     },
     enabled: !!batchId && !!subjectId && !!topicId,
+    staleTime: MIN * 15,
+    gcTime: MIN * 60,
   });
 }

@@ -7,6 +7,14 @@ import {
 
 const API_BASE = "https://learnbyakp.onrender.com/api/pw";
 
+interface DrmCache {
+  mpdUrl: string;
+  kid: string;
+  keyHex: string;
+}
+
+const drmCache = new Map<string, DrmCache>();
+
 function hexToBase64url(hex: string): string {
   const pairs = hex.match(/.{1,2}/g) ?? [];
   const bytes = new Uint8Array(pairs.map((b) => parseInt(b, 16)));
@@ -120,30 +128,42 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
       setActiveQuality("auto");
 
       try {
-        setStatusMsg("Fetching video URL…");
-        const urlRes = await fetch(
-          `${API_BASE}/video-url-details?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}&subjectId=${encodeURIComponent(subjectId)}`
-        );
-        if (!urlRes.ok) throw new Error(`video-url-details failed (${urlRes.status})`);
-        const urlData = await urlRes.json();
-        const mpdUrl: string | undefined = urlData?.data?.[0]?.url;
-        if (!mpdUrl) throw new Error("No MPD URL returned from server");
+        const cacheKey = `${batchId}:${subjectId}:${childId}`;
+        let cached = drmCache.get(cacheKey);
 
-        if (cancelled) return;
-        setStatusMsg("Extracting encryption key ID…");
-        const kidRes = await fetch(`${API_BASE}/kid?mpdUrl=${encodeURIComponent(mpdUrl)}`);
-        if (!kidRes.ok) throw new Error(`KID extraction failed (${kidRes.status})`);
-        const kidData = await kidRes.json();
-        const kid: string | undefined = kidData?.kid;
-        if (!kid) throw new Error("No KID found in MPD");
+        if (!cached) {
+          setStatusMsg("Fetching video URL…");
+          const urlRes = await fetch(
+            `${API_BASE}/video-url-details?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}&subjectId=${encodeURIComponent(subjectId)}`
+          );
+          if (!urlRes.ok) throw new Error(`video-url-details failed (${urlRes.status})`);
+          const urlData = await urlRes.json();
+          const mpdUrl: string | undefined = urlData?.data?.[0]?.url;
+          if (!mpdUrl) throw new Error("No MPD URL returned from server");
 
-        if (cancelled) return;
-        setStatusMsg("Decrypting license key…");
-        const otpRes = await fetch(`${API_BASE}/otp?kid=${encodeURIComponent(kid)}`);
-        if (!otpRes.ok) throw new Error(`OTP fetch failed (${otpRes.status})`);
-        const otpData = await otpRes.json();
-        const keyHex: string | undefined = otpData?.key;
-        if (!keyHex) throw new Error("No decryption key returned");
+          if (cancelled) return;
+          setStatusMsg("Extracting encryption key ID…");
+          const kidRes = await fetch(`${API_BASE}/kid?mpdUrl=${encodeURIComponent(mpdUrl)}`);
+          if (!kidRes.ok) throw new Error(`KID extraction failed (${kidRes.status})`);
+          const kidData = await kidRes.json();
+          const kid: string | undefined = kidData?.kid;
+          if (!kid) throw new Error("No KID found in MPD");
+
+          if (cancelled) return;
+          setStatusMsg("Decrypting license key…");
+          const otpRes = await fetch(`${API_BASE}/otp?kid=${encodeURIComponent(kid)}`);
+          if (!otpRes.ok) throw new Error(`OTP fetch failed (${otpRes.status})`);
+          const otpData = await otpRes.json();
+          const keyHex: string | undefined = otpData?.key;
+          if (!keyHex) throw new Error("No decryption key returned");
+
+          cached = { mpdUrl, kid, keyHex };
+          drmCache.set(cacheKey, cached);
+        } else {
+          setStatusMsg("Loading from cache…");
+        }
+
+        const { mpdUrl, kid, keyHex } = cached;
 
         if (cancelled) return;
         setStatus("decrypting");
