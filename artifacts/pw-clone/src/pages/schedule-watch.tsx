@@ -1,65 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { useScheduleDetails, useVideoDetails, useVideoOtp, getPdfUrl } from "@/hooks/usePWApi";
+import { useEffect, useState } from "react";
+import { useScheduleDetails, useVideoDetails, getPdfUrl } from "@/hooks/usePWApi";
 import { ArrowLeft, PlaySquare, FileText, BookOpen, Download, Clock, Calendar, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import Hls from "hls.js";
 import { DrmPlayer } from "@/components/DrmPlayer";
 
 function formatDate(iso?: string) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function HlsPlayer({ videoUrl, poster }: { videoUrl: string; poster?: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoUrl) return;
-
-    const hlsUrl = videoUrl.replace("master.mpd", "master.m3u8");
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
-      hlsRef.current = hls;
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-      return () => {
-        hls.destroy();
-        hlsRef.current = null;
-      };
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = hlsUrl;
-      video.play().catch(() => {});
-    }
-  }, [videoUrl]);
-
-  return (
-    <video
-      ref={videoRef}
-      poster={poster}
-      controls
-      className="w-full h-full object-contain bg-black"
-      style={{ maxHeight: "100%" }}
-    />
-  );
-}
-
-function OtpPlayer({ otp }: { otp: string }) {
-  return (
-    <iframe
-      src={`https://player.vdocipher.com/v2/?otp=${encodeURIComponent(otp)}&playerKey=qm0CJa7WbLFi6q3E&v=3`}
-      allowFullScreen
-      allow="encrypted-media"
-      className="w-full h-full border-0"
-      title="VdoCipher Player"
-    />
-  );
 }
 
 function PdfItem({ name, url }: { name?: string; url: string }) {
@@ -81,14 +29,11 @@ function PdfItem({ name, url }: { name?: string; url: string }) {
   );
 }
 
-type PlayerMode = "drm" | "hls" | "pw" | "otp";
-
 export default function ScheduleWatch() {
   const [params, setParams] = useState({
-    batchId: "", subjectId: "", scheduleId: "", otpKey: "",
+    batchId: "", subjectId: "", scheduleId: "",
   });
   const [materialsOpen, setMaterialsOpen] = useState(true);
-  const [playerMode, setPlayerMode] = useState<PlayerMode>("drm");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -96,7 +41,6 @@ export default function ScheduleWatch() {
       batchId: sp.get("batchId") || "",
       subjectId: sp.get("subjectId") || "",
       scheduleId: sp.get("scheduleId") || "",
-      otpKey: sp.get("key") || "",
     });
   }, []);
 
@@ -106,11 +50,8 @@ export default function ScheduleWatch() {
   const schedule = scheduleData?.data;
   const videoId = schedule?.videoDetails?._id || "";
 
-  const { data: videoData, isLoading: videoLoading } = useVideoDetails(videoId);
+  const { data: videoData } = useVideoDetails(videoId);
   const video = videoData?.data;
-
-  const { data: otpData, isLoading: otpLoading } = useVideoOtp(params.otpKey);
-  const otp = otpData?.data?.otp || "";
 
   const allPdfs: { name?: string; url: string }[] = [];
   (schedule?.homeworkIds || []).forEach((hw) => {
@@ -130,8 +71,6 @@ export default function ScheduleWatch() {
     });
   });
 
-  const scheduleLoaded = !scheduleLoading && !!videoId;
-
   function renderPlayer() {
     if (scheduleLoading) {
       return (
@@ -144,32 +83,6 @@ export default function ScheduleWatch() {
 
     if (!videoId) {
       return <div className="text-zinc-500 text-sm">No video available</div>;
-    }
-
-    if (playerMode === "otp" && otp) {
-      return <OtpPlayer otp={otp} />;
-    }
-
-    if (playerMode === "hls" && video?.videoUrl) {
-      return (
-        <HlsPlayer
-          videoUrl={video.videoUrl}
-          poster={schedule?.videoDetails?.image}
-        />
-      );
-    }
-
-    if (playerMode === "pw") {
-      return (
-        <iframe
-          key={`pw-${videoId}-${params.batchId}-${params.subjectId}`}
-          src={`https://videoplayerofpw.onrender.com/?video_id=${videoId}&batch_id=${params.batchId}&subject_id=${params.subjectId}`}
-          allowFullScreen
-          className="w-full h-full border-0"
-          title="PW Video Player"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        />
-      );
     }
 
     return (
@@ -205,48 +118,7 @@ export default function ScheduleWatch() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {scheduleLoaded && (
-            <div className="flex items-center gap-1 bg-zinc-800 rounded-full p-0.5">
-              <button
-                onClick={() => setPlayerMode("drm")}
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                  playerMode === "drm" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                PWX
-              </button>
-              {video?.videoUrl && (
-                <button
-                  onClick={() => setPlayerMode("hls")}
-                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                    playerMode === "hls" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  HLS
-                </button>
-              )}
-              <button
-                onClick={() => setPlayerMode("pw")}
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                  playerMode === "pw" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                PW
-              </button>
-              {otp && (
-                <button
-                  onClick={() => setPlayerMode("otp")}
-                  className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                    playerMode === "otp" ? "bg-primary text-white" : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  VDO
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <div className="w-16" />
       </header>
 
       {/* Main Content */}
@@ -285,27 +157,9 @@ export default function ScheduleWatch() {
                       {video?.duration || schedule?.videoDetails?.duration}
                     </span>
                   )}
-                  {otp && (
-                    <Badge variant="outline" className="text-green-400 border-green-700 text-[10px] py-0">
-                      OTP Ready
-                    </Badge>
-                  )}
-                  {otpLoading && params.otpKey && (
-                    <span className="flex items-center gap-1 text-yellow-500">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Fetching OTP…
-                    </span>
-                  )}
-                  {video?.drmProtected === false && playerMode === "hls" && (
-                    <Badge variant="outline" className="text-blue-400 border-blue-700 text-[10px] py-0">
-                      Direct Stream
-                    </Badge>
-                  )}
-                  {playerMode === "drm" && (
-                    <Badge variant="outline" className="text-purple-400 border-purple-700 text-[10px] py-0">
-                      ClearKey DRM
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="text-purple-400 border-purple-700 text-[10px] py-0">
+                    PWX Player
+                  </Badge>
                 </div>
               </>
             )}
@@ -325,7 +179,6 @@ export default function ScheduleWatch() {
           </button>
 
           <div className={`flex-1 overflow-y-auto p-3 space-y-4 ${!materialsOpen ? "hidden lg:block" : ""}`}>
-            {/* Class Notes */}
             {allPdfs.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2 px-1">
@@ -341,7 +194,6 @@ export default function ScheduleWatch() {
               </div>
             )}
 
-            {/* DPP PDFs */}
             {dppPdfs.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2 px-1">
@@ -357,7 +209,6 @@ export default function ScheduleWatch() {
               </div>
             )}
 
-            {/* Empty state while loading */}
             {scheduleLoading && (
               <div className="space-y-2 p-2">
                 {[1, 2, 3].map((i) => (
@@ -369,13 +220,6 @@ export default function ScheduleWatch() {
             {!scheduleLoading && allPdfs.length === 0 && dppPdfs.length === 0 && (
               <div className="text-center py-8 text-zinc-600 text-sm">
                 No study materials for this class
-              </div>
-            )}
-
-            {otp && (
-              <div className="mt-4 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                <p className="text-xs font-semibold text-green-400 mb-1">VdoCipher OTP Active</p>
-                <p className="text-[10px] text-zinc-500 font-mono break-all">{otp.substring(0, 32)}…</p>
               </div>
             )}
           </div>
