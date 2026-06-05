@@ -184,6 +184,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      hono:
+        specifier: ^4.12.23
+        version: 4.12.23
       pino:
         specifier: ^9.14.0
         version: 9.14.0
@@ -2304,6 +2307,10 @@ packages:
 
   hls.js@1.6.16:
     resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
+
+  hono@4.12.23:
+    resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
+    engines: {node: '>=16.9.0'}
 
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
@@ -4908,6 +4915,8 @@ snapshots:
   help-me@5.0.0: {}
 
   hls.js@1.6.16: {}
+
+  hono@4.12.23: {}
 
   http-errors@2.0.1:
     dependencies:
