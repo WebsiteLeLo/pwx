@@ -1,7 +1,10 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect } from "react";
+import { LoadingBar } from "@/components/loading-bar";
 
 // Pages
 import Home from "@/pages/home";
@@ -25,17 +28,41 @@ const queryClient = new QueryClient({
   },
 });
 
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [location]);
+  return null;
+}
+
 function Router() {
+  const [location] = useLocation();
+
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/batch/:batchId" component={Batch} />
-      <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
-      <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
-      <Route path="/watch" component={Watch} />
-      <Route path="/schedule-watch" component={ScheduleWatch} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={location}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="contents"
+        >
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/batch/:batchId" component={Batch} />
+            <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
+            <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
+            <Route path="/watch" component={Watch} />
+            <Route path="/schedule-watch" component={ScheduleWatch} />
+            <Route component={NotFound} />
+          </Switch>
+        </motion.div>
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -43,6 +70,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <LoadingBar />
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>

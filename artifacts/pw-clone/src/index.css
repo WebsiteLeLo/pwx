@@ -84,8 +84,39 @@
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(240 10% 20%);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(240 10% 28%);
+  }
+
+  /* Smooth interactive transitions */
+  a, button {
+    @apply transition-[color,background-color,border-color,opacity,box-shadow] duration-150;
+  }
+
+  /* Image rendering */
+  img {
+    image-rendering: auto;
   }
 }
 

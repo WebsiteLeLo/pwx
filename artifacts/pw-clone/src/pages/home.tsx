@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Layout } from "@/components/layout";
+import { LazyImage } from "@/components/lazy-image";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,10 +49,10 @@ function BatchCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.35, delay: (index % PAGE_SIZE) * 0.06 }}
+      transition={{ duration: 0.22, delay: (index % PAGE_SIZE) * 0.035 }}
       className="group relative flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors h-full"
       data-testid={`card-batch-${batch._id}`}
     >
@@ -59,14 +60,11 @@ function BatchCard({
       <Link href={`/batch/${batch._id}`} className="block">
         <div className="relative aspect-video bg-muted overflow-hidden">
           {batch.previewImage ? (
-            <img
+            <LazyImage
               src={`${batch.previewImage.baseUrl}${batch.previewImage.key}`}
               alt={batch.name}
-              loading="lazy"
+              fallbackText={batch.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://placehold.co/600x400/1a1a1a/00ffff?text=${encodeURIComponent(batch.name)}`;
-              }}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center p-6 text-center">

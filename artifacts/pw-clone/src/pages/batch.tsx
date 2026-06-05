@@ -1,5 +1,6 @@
 import { useBatchDetails } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
+import { LazyImage } from "@/components/lazy-image";
 import { Link, useParams } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,20 +60,18 @@ export default function Batch() {
           {data?.data.subjects.map((subject, index) => (
             <Link key={subject._id} href={`/batch/${batchId}/subject/${subject._id}`}>
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, delay: index * 0.03 }}
                 className="group flex gap-5 p-5 bg-card rounded-xl border border-border/50 hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5"
               >
                 <div className="w-24 h-24 rounded-lg bg-muted overflow-hidden flex-shrink-0 relative">
                   {subject.imageId ? (
-                    <img
+                    <LazyImage
                       src={`${subject.imageId.baseUrl}${subject.imageId.key}`}
                       alt={subject.subject}
+                      fallbackText={subject.subject[0]}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://placehold.co/200x200/1a1a1a/00ffff?text=${encodeURIComponent(subject.subject[0])}`;
-                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-background">

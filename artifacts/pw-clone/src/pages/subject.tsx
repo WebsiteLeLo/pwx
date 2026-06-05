@@ -63,9 +63,9 @@ export default function Subject() {
           {data?.data.map((topic, index) => (
             <Link key={topic._id} href={`/batch/${batchId}/subject/${subjectId}/topic/${topic._id}`}>
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
+                transition={{ duration: 0.18, delay: index * 0.03 }}
                 className="group flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer"
               >
                 <div className="flex items-start gap-4 mb-4 sm:mb-0">
