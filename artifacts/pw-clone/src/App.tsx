@@ -14,6 +14,7 @@ import Subject from "@/pages/subject";
 import Topic from "@/pages/topic";
 import Watch from "@/pages/watch";
 import ScheduleWatch from "@/pages/schedule-watch";
+import Materials from "@/pages/materials";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -59,6 +60,7 @@ function Router() {
             <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
             <Route path="/watch" component={Watch} />
             <Route path="/schedule-watch" component={ScheduleWatch} />
+            <Route path="/materials" component={Materials} />
             <Route component={NotFound} />
           </Switch>
         </motion.div>

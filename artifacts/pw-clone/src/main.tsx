@@ -23,7 +23,6 @@ if (import.meta.env.PROD) {
       disableMenu: true,
       clearLog: true,
       detectors: [0, 1, 2, 3, 4, 5, 6, 7],
-      clearIntervalTime: 200,
       ondevtoolopen: () => {
         const strikes = addStrike();
         window.dispatchEvent(

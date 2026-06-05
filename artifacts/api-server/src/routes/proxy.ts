@@ -181,4 +181,37 @@ proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
   }
 });
 
+// ── Google Drive proxy (bypasses referrer restriction) ──────────────────────
+const DRIVE_API_KEY = "AIzaSyBJNDZ_fWVo04YD-_1dxpdWk2SUdmmN_6M";
+
+proxyRouter.get("/drive/files", async (req, res) => {
+  const { folderId } = req.query as { folderId?: string };
+  if (!folderId) {
+    res.status(400).json({ error: "Missing folderId" });
+    return;
+  }
+
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime,size)");
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&key=${DRIVE_API_KEY}&orderBy=folder,name&pageSize=200`;
+
+  try {
+    const upstream = await fetch(url, {
+      headers: {
+        "Referer": "https://materialforjee.onrender.com/",
+        "Origin": "https://materialforjee.onrender.com",
+        "User-Agent": "Mozilla/5.0 (compatible; PWX/1.0)",
+      },
+    });
+
+    const data = await upstream.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.status(upstream.status).json(data);
+  } catch (err) {
+    req.log.error({ err }, "drive proxy fetch failed");
+    res.status(502).json({ error: "Drive API fetch failed" });
+  }
+});
+
 export default proxyRouter;
