@@ -1,63 +1,80 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
 import { ArrowLeft, PlaySquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DrmPlayer } from "@/components/DrmPlayer";
 
 export default function Watch() {
   const [params, setParams] = useState({
     batchId: "",
     childId: "",
-    ContentId: "",
+    subjectId: "",
+    title: "",
   });
 
   useEffect(() => {
-    // Parse URL params
-    const searchParams = new URLSearchParams(window.location.search);
+    const sp = new URLSearchParams(window.location.search);
     setParams({
-      batchId: searchParams.get("batchId") || "",
-      childId: searchParams.get("childId") || "",
-      ContentId: searchParams.get("ContentId") || "",
+      batchId: sp.get("batchId") || "",
+      childId: sp.get("childId") || sp.get("ContentId") || "",
+      subjectId: sp.get("subjectId") || "",
+      title: sp.get("title") || "Lecture Video",
     });
   }, []);
 
-  const iframeSrc = `https://videoplayerofpw.onrender.com/?batchId=${params.batchId}&childId=${params.childId}&ContentId=${params.ContentId}`;
+  const hasParams = !!(params.batchId && params.childId);
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-black text-white">
-      {/* Minimal Chrome Nav */}
-      <header className="absolute top-0 w-full z-50 p-4 bg-gradient-to-b from-black/80 to-transparent flex items-center justify-between pointer-events-none">
-        <Button 
-          variant="ghost" 
-          className="text-white hover:bg-white/20 hover:text-white pointer-events-auto"
+      <header className="absolute top-0 w-full z-50 p-3 sm:p-4 bg-gradient-to-b from-black/90 to-transparent flex items-center justify-between pointer-events-none">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-white hover:bg-white/20 hover:text-white pointer-events-auto gap-1.5"
           onClick={() => window.history.back()}
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Back</span>
         </Button>
 
         <div className="flex items-center gap-2 pointer-events-auto">
           <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-primary-foreground">
             <PlaySquare className="w-3.5 h-3.5 fill-current" />
           </div>
-          <span className="font-bold tracking-tight">
+          <span className="font-bold tracking-tight text-sm">
             PW<span className="text-primary">X</span>
           </span>
         </div>
+
+        {params.title && (
+          <div className="hidden md:block max-w-xs truncate text-xs text-zinc-400 pointer-events-none">
+            {params.title}
+          </div>
+        )}
+        <div className="w-20 md:hidden" />
       </header>
 
-      {/* Player Container */}
-      <main className="flex-1 w-full h-[100dvh] flex items-center justify-center bg-black">
-        {params.childId ? (
-          <iframe
-            src={iframeSrc}
-            allowFullScreen
-            className="w-full h-full border-0"
-            title="PW Video Player"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
+      <main className="flex-1 w-full h-[100dvh] flex flex-col items-center justify-center bg-black">
+        {hasParams ? (
+          <div className="w-full h-full">
+            <DrmPlayer
+              batchId={params.batchId}
+              subjectId={params.subjectId}
+              childId={params.childId}
+              title={params.title}
+            />
+          </div>
         ) : (
-          <div className="text-center text-muted-foreground">
-            <p>Invalid video parameters. Please return and select a video.</p>
+          <div className="text-center text-muted-foreground px-4">
+            <PlaySquare className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p>Invalid video parameters. Please go back and select a video.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => window.history.back()}
+            >
+              Go Back
+            </Button>
           </div>
         )}
       </main>
