@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, PlaySquare } from "lucide-react";
+import { ArrowLeft, PlaySquare, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DrmPlayer } from "@/components/DrmPlayer";
+
+type PlayerMode = "drm" | "extern";
 
 export default function Watch() {
   const [params, setParams] = useState({
@@ -9,7 +11,10 @@ export default function Watch() {
     childId: "",
     subjectId: "",
     title: "",
+    subjectSlug: "",
+    topicSlug: "",
   });
+  const [player, setPlayer] = useState<PlayerMode>("drm");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -18,10 +23,25 @@ export default function Watch() {
       childId: sp.get("childId") || sp.get("ContentId") || "",
       subjectId: sp.get("subjectId") || "",
       title: sp.get("title") || "Lecture Video",
+      subjectSlug: sp.get("subjectSlug") || "",
+      topicSlug: sp.get("topicSlug") || "",
     });
   }, []);
 
   const hasParams = !!(params.batchId && params.childId);
+
+  const externUrl = (() => {
+    const p = new URLSearchParams({
+      batchSubjectId: params.subjectId,
+      video_id: params.childId,
+      subject_slug: params.subjectSlug,
+      batch_id: params.batchId,
+      schedule_id: params.childId,
+      subject_id: params.subjectId,
+      topicSlug: params.topicSlug,
+    });
+    return `https://stream.studyratna.cc/play.php?${p.toString()}`;
+  })();
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-black text-white">
@@ -53,15 +73,53 @@ export default function Watch() {
         <div className="w-20 md:hidden" />
       </header>
 
+      {/* Player toggle — sits above the video */}
+      {hasParams && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex gap-1 bg-black/70 backdrop-blur-sm rounded-full px-1 py-1 border border-white/10 pointer-events-auto">
+          <button
+            onClick={() => setPlayer("drm")}
+            className={`text-xs px-3 py-1 rounded-full transition-colors ${
+              player === "drm"
+                ? "bg-primary text-primary-foreground font-semibold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Player 1
+          </button>
+          <button
+            onClick={() => setPlayer("extern")}
+            className={`text-xs px-3 py-1 rounded-full transition-colors ${
+              player === "extern"
+                ? "bg-primary text-primary-foreground font-semibold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Player 2
+          </button>
+        </div>
+      )}
+
       <main className="flex-1 w-full h-[100dvh] flex flex-col items-center justify-center bg-black">
         {hasParams ? (
           <div className="w-full h-full">
-            <DrmPlayer
-              batchId={params.batchId}
-              subjectId={params.subjectId}
-              childId={params.childId}
-              title={params.title}
-            />
+            {player === "drm" ? (
+              <DrmPlayer
+                batchId={params.batchId}
+                subjectId={params.subjectId}
+                childId={params.childId}
+                title={params.title}
+              />
+            ) : (
+              <iframe
+                key={externUrl}
+                src={externUrl}
+                className="w-full h-full border-0"
+                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                title={params.title}
+              />
+            )}
           </div>
         ) : (
           <div className="text-center text-muted-foreground px-4">
