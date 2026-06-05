@@ -50,19 +50,24 @@ function fetch_upstream(string $url, array $extra_headers = []): array {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_TIMEOUT        => 30,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_ENCODING       => '',
         CURLOPT_HTTPHEADER     => array_merge([
-            'User-Agent: Mozilla/5.0 (compatible; PWX/1.0)',
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Referer: https://www.pw.live/',
             'Origin: https://www.pw.live',
+            'Accept: */*',
         ], $extra_headers),
     ]);
     $body         = curl_exec($ch);
     $status       = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $content_type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
     $err          = curl_error($ch);
+    $errno        = curl_errno($ch);
     curl_close($ch);
 
-    if ($body === false) throw new RuntimeException("cURL error: $err");
+    if ($body === false || $errno !== 0) throw new RuntimeException("cURL error $errno: $err");
     return [$status, $content_type, $body];
 }
 
@@ -88,7 +93,30 @@ $path  = preg_replace('#^/api#', '', $path);   // strip /api prefix
 // Health check
 if ($path === '/health' || $path === '') {
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'ok']);
+    echo json_encode(['status' => 'ok', 'curl' => function_exists('curl_init') ? 'yes' : 'no']);
+    exit;
+}
+
+// Debug — tests outbound cURL to PW's CDN
+if ($path === '/test') {
+    header('Content-Type: application/json');
+    $test_url = 'https://sec-prod-mediacdn.pw.live/';
+    $ch = curl_init($test_url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_NOBODY         => true,
+    ]);
+    curl_exec($ch);
+    echo json_encode([
+        'url'    => $test_url,
+        'errno'  => curl_errno($ch),
+        'error'  => curl_error($ch),
+        'status' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
+    ]);
+    curl_close($ch);
     exit;
 }
 
