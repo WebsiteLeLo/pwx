@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Loader2, AlertCircle, RefreshCw, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipForward, SkipBack, Settings, ChevronRight } from "lucide-react";
 
 const API_BASE = "https://learnbyakp.onrender.com/api/pw";
 
@@ -11,32 +11,71 @@ function hexToBase64url(hex: string): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
+function formatTime(secs: number): string {
+  if (!isFinite(secs)) return "0:00";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 interface DrmPlayerProps {
   batchId: string;
   subjectId: string;
-  /** scheduleId — used as childId in the video-url-details API */
   childId: string;
   poster?: string;
 }
 
 type Status = "loading" | "decrypting" | "ready" | "error";
 
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<unknown>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const seekBarRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [status, setStatus] = useState<Status>("loading");
   const [statusMsg, setStatusMsg] = useState("Fetching video info…");
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
 
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [seeking, setSeeking] = useState(false);
+  const [skipIndicator, setSkipIndicator] = useState<null | { dir: "fwd" | "bwd"; key: number }>(null);
+  const [volumeVisible, setVolumeVisible] = useState(false);
+
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      if (!showSettings) setShowControls(false);
+    }, 3000);
+  }, [showSettings]);
+
   useEffect(() => {
     if (!batchId || !subjectId || !childId) return;
-
     let cancelled = false;
 
     async function setup() {
       setStatus("loading");
       setError("");
+      setPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
 
       try {
         setStatusMsg("Fetching video URL…");
@@ -76,7 +115,6 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
         const shaka = (shakaModule as any).default ?? shakaModule;
 
         if (cancelled) return;
-
         shaka.polyfill.installAll();
 
         const video = videoRef.current;
@@ -92,24 +130,17 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
         await player.attach(video);
         playerRef.current = player;
 
-        player.configure({
-          drm: { clearKeys: { [kidB64]: keyB64 } },
-        });
+        player.configure({ drm: { clearKeys: { [kidB64]: keyB64 } } });
 
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const detail = (event as any).detail ?? (event as any);
-          const code = detail?.code;
-          const msg = detail?.message || `Playback error (code ${code ?? "?"})`;
-          console.error("[DrmPlayer] Shaka error event:", detail);
           setStatus("error");
-          setError(msg);
+          setError(detail?.message || `Playback error (code ${detail?.code ?? "?"})`);
         });
 
-        const proxiedMpdUrl = `/api/proxy?url=${encodeURIComponent(mpdUrl)}`;
-        console.log("[DrmPlayer] Loading DASH stream via proxy:", proxiedMpdUrl);
-        await player.load(proxiedMpdUrl);
+        await player.load(`/api/proxy?url=${encodeURIComponent(mpdUrl)}`);
 
         if (!cancelled) {
           setStatus("ready");
@@ -119,18 +150,8 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
         if (!cancelled) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const e = err as any;
-          const code = e?.code;
-          const msg: string =
-            e instanceof Error
-              ? e.message
-              : e?.message
-              ? String(e.message)
-              : code != null
-              ? `Shaka error code ${code}`
-              : "Unknown error";
-          console.error("[DrmPlayer] catch error:", err);
           setStatus("error");
-          setError(msg);
+          setError(e instanceof Error ? e.message : e?.message ? String(e.message) : "Unknown error");
         }
       }
     }
@@ -147,11 +168,178 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
     };
   }, [batchId, subjectId, childId, attempt]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onTimeUpdate = () => setCurrentTime(video.currentTime);
+    const onDuration = () => setDuration(video.duration);
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onVolumeChange = () => { setVolume(video.volume); setMuted(video.muted); };
+    const onProgress = () => {
+      if (video.buffered.length > 0) {
+        setBuffered(video.buffered.end(video.buffered.length - 1));
+      }
+    };
+
+    video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("durationchange", onDuration);
+    video.addEventListener("loadedmetadata", onDuration);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("volumechange", onVolumeChange);
+    video.addEventListener("progress", onProgress);
+
+    return () => {
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("durationchange", onDuration);
+      video.removeEventListener("loadedmetadata", onDuration);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("volumechange", onVolumeChange);
+      video.removeEventListener("progress", onProgress);
+    };
+  }, [status]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case " ":
+        case "k":
+          e.preventDefault();
+          video.paused ? video.play() : video.pause();
+          resetHideTimer();
+          break;
+        case "ArrowRight":
+        case "l":
+          e.preventDefault();
+          video.currentTime = Math.min(video.currentTime + 10, video.duration);
+          setSkipIndicator({ dir: "fwd", key: Date.now() });
+          resetHideTimer();
+          break;
+        case "ArrowLeft":
+        case "j":
+          e.preventDefault();
+          video.currentTime = Math.max(video.currentTime - 10, 0);
+          setSkipIndicator({ dir: "bwd", key: Date.now() });
+          resetHideTimer();
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          video.volume = Math.min(video.volume + 0.1, 1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          video.volume = Math.max(video.volume - 0.1, 0);
+          break;
+        case "m":
+          video.muted = !video.muted;
+          break;
+        case "f":
+          toggleFullscreen();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [status, resetHideTimer]);
+
+  function togglePlay() {
+    const v = videoRef.current;
+    if (!v) return;
+    v.paused ? v.play() : v.pause();
+    resetHideTimer();
+  }
+
+  function toggleMute() {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+  }
+
+  function setVideoVolume(val: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.volume = val;
+    v.muted = val === 0;
+  }
+
+  function setVideoSpeed(s: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = s;
+    setSpeed(s);
+    setShowSpeedMenu(false);
+    setShowSettings(false);
+  }
+
+  function toggleFullscreen() {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  function skip(secs: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, Math.min(v.currentTime + secs, v.duration));
+    setSkipIndicator({ dir: secs > 0 ? "fwd" : "bwd", key: Date.now() });
+    resetHideTimer();
+  }
+
+  function onSeekClick(e: React.MouseEvent<HTMLDivElement>) {
+    const bar = seekBarRef.current;
+    const v = videoRef.current;
+    if (!bar || !v || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    v.currentTime = ratio * duration;
+    resetHideTimer();
+  }
+
+  function onSeekMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!seeking) return;
+    const bar = seekBarRef.current;
+    const v = videoRef.current;
+    if (!bar || !v || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+    v.currentTime = ratio * duration;
+  }
+
+  const played = duration ? currentTime / duration : 0;
+  const buf = duration ? buffered / duration : 0;
+
   return (
-    <div className="relative w-full h-full bg-black">
+    <div
+      ref={containerRef}
+      className="relative w-full h-full bg-black select-none overflow-hidden"
+      onMouseMove={resetHideTimer}
+      onMouseLeave={() => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); setShowControls(false); }}
+      onClick={() => { if (status === "ready") togglePlay(); }}
+    >
       <video
         ref={videoRef}
-        controls
         poster={poster}
         className="w-full h-full object-contain"
         style={{ opacity: status === "ready" ? 1 : 0, transition: "opacity 0.3s" }}
@@ -159,27 +347,216 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
 
       {(status === "loading" || status === "decrypting") && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-          <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          <span className="text-sm text-zinc-400">{statusMsg}</span>
+          <div className="w-16 h-16 rounded-full border-4 border-zinc-700 border-t-primary animate-spin" />
+          <span className="text-sm text-zinc-300 font-medium mt-2">{statusMsg}</span>
           {status === "decrypting" && (
-            <span className="text-[11px] text-zinc-600">Setting up DRM playback…</span>
+            <span className="text-[11px] text-zinc-500">Setting up DRM playback…</span>
           )}
         </div>
       )}
 
       {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-          <AlertCircle className="w-10 h-10 text-red-500" />
+          <AlertCircle className="w-12 h-12 text-red-500" />
           <p className="text-zinc-300 text-sm text-center max-w-xs px-4">{error}</p>
           <button
-            onClick={() => setAttempt((a) => a + 1)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-200 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setAttempt((a) => a + 1); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Try again
+            Retry
           </button>
         </div>
       )}
+
+      {skipIndicator && (
+        <SkipFlash key={skipIndicator.key} dir={skipIndicator.dir} />
+      )}
+
+      {status === "ready" && (
+        <>
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none ${!playing ? "opacity-100" : "opacity-0"}`}
+          >
+            <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+              <Play className="w-7 h-7 text-white fill-white ml-1" />
+            </div>
+          </div>
+
+          <div
+            className={`absolute inset-x-0 bottom-0 transition-opacity duration-300 ${showControls || !playing ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-28 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
+
+            <div className="absolute bottom-0 inset-x-0 px-4 pb-4 space-y-2">
+              <div
+                ref={seekBarRef}
+                className="group relative h-1 hover:h-3 bg-white/20 rounded-full cursor-pointer transition-all duration-150"
+                onClick={onSeekClick}
+                onMouseDown={() => setSeeking(true)}
+                onMouseUp={() => setSeeking(false)}
+                onMouseMove={onSeekMouseMove}
+              >
+                <div
+                  className="absolute inset-y-0 left-0 bg-white/30 rounded-full"
+                  style={{ width: `${buf * 100}%` }}
+                />
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
+                  style={{ width: `${played * 100}%` }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `calc(${played * 100}% - 6px)` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1">
+                  <ControlBtn onClick={() => skip(-10)} title="Rewind 10s">
+                    <SkipBack className="w-4 h-4" />
+                  </ControlBtn>
+
+                  <ControlBtn onClick={togglePlay} title={playing ? "Pause (k)" : "Play (k)"}>
+                    {playing
+                      ? <Pause className="w-5 h-5 fill-white" />
+                      : <Play className="w-5 h-5 fill-white ml-0.5" />}
+                  </ControlBtn>
+
+                  <ControlBtn onClick={() => skip(10)} title="Forward 10s">
+                    <SkipForward className="w-4 h-4" />
+                  </ControlBtn>
+
+                  <div
+                    className="relative flex items-center gap-1"
+                    onMouseEnter={() => setVolumeVisible(true)}
+                    onMouseLeave={() => setVolumeVisible(false)}
+                  >
+                    <ControlBtn onClick={toggleMute} title="Toggle mute (m)">
+                      {muted || volume === 0
+                        ? <VolumeX className="w-4 h-4" />
+                        : <Volume2 className="w-4 h-4" />}
+                    </ControlBtn>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${volumeVisible ? "w-20 opacity-100" : "w-0 opacity-0"}`}
+                    >
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={muted ? 0 : volume}
+                        onChange={(e) => setVideoVolume(parseFloat(e.target.value))}
+                        className="w-20 h-1 accent-primary cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <span className="text-xs text-zinc-300 tabular-nums ml-1">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <ControlBtn
+                      onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setShowSpeedMenu(false); }}
+                      title="Settings"
+                    >
+                      <Settings className={`w-4 h-4 transition-transform duration-300 ${showSettings ? "rotate-45" : ""}`} />
+                    </ControlBtn>
+
+                    {showSettings && (
+                      <div
+                        className="absolute bottom-10 right-0 w-48 bg-zinc-900/95 backdrop-blur-md rounded-xl border border-zinc-700/60 shadow-2xl overflow-hidden z-50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-3 py-2 border-b border-zinc-700/50">
+                          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Settings</p>
+                        </div>
+
+                        {!showSpeedMenu ? (
+                          <button
+                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-zinc-800/80 transition-colors text-sm text-zinc-200"
+                            onClick={() => setShowSpeedMenu(true)}
+                          >
+                            <span>Playback speed</span>
+                            <span className="flex items-center gap-1 text-primary text-xs font-semibold">
+                              {speed === 1 ? "Normal" : `${speed}×`}
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </span>
+                          </button>
+                        ) : (
+                          <div>
+                            <button
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-white transition-colors"
+                              onClick={() => setShowSpeedMenu(false)}
+                            >
+                              <ChevronRight className="w-3 h-3 rotate-180" />
+                              Playback speed
+                            </button>
+                            {SPEEDS.map((s) => (
+                              <button
+                                key={s}
+                                className={`w-full text-left px-4 py-2 text-sm transition-colors ${speed === s ? "text-primary font-semibold bg-primary/10" : "text-zinc-200 hover:bg-zinc-800/80"}`}
+                                onClick={() => setVideoSpeed(s)}
+                              >
+                                {s === 1 ? "Normal" : `${s}×`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <ControlBtn onClick={toggleFullscreen} title="Fullscreen (f)">
+                    {fullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  </ControlBtn>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {speed !== 1 && (
+            <div className="absolute top-4 right-4 pointer-events-none">
+              <span className="text-xs font-bold text-primary bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full">
+                {speed}×
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ControlBtn({ onClick, title, children }: { onClick?: (e: React.MouseEvent) => void; title?: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="w-8 h-8 flex items-center justify-center rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
+function SkipFlash({ dir }: { dir: "fwd" | "bwd" }) {
+  return (
+    <div
+      className={`absolute inset-y-0 ${dir === "fwd" ? "right-0 left-1/2" : "left-0 right-1/2"} flex items-center justify-center pointer-events-none animate-fade-out`}
+    >
+      <div className="flex flex-col items-center gap-1 text-white">
+        <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+          {dir === "fwd"
+            ? <SkipForward className="w-7 h-7 fill-white" />
+            : <SkipBack className="w-7 h-7 fill-white" />}
+        </div>
+        <span className="text-xs font-semibold drop-shadow">10s</span>
+      </div>
     </div>
   );
 }

@@ -88,3 +88,13 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@keyframes fade-out {
+  0%   { opacity: 1; transform: scale(1); }
+  70%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(0.95); }
+}
+
+.animate-fade-out {
+  animation: fade-out 0.8s ease-out forwards;
+}
