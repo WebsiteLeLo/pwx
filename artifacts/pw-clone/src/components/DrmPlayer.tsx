@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = "https://learnbyakp.onrender.com/api/pw";
-const PROXY_BASE = "https://learnbyakp.onrender.com/api";
+const PROXY_BASE = "/api";
 
 interface DrmCache {
   mpdUrl: string;
