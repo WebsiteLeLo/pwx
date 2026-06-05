@@ -16,6 +16,17 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Batch } from "@/hooks/usePWApi";
 
 const PAGE_SIZE = 8;
@@ -100,21 +111,42 @@ function BatchCard({
           </div>
         </div>
 
-        {/* Enroll button */}
+        {/* Enroll / Unenroll button */}
         <div className="mt-4 pt-4 border-t border-border/40">
           {enrolled ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                onUnenroll(batch._id);
-              }}
-            >
-              <X className="w-4 h-4 mr-1" />
-              Unenroll
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Unenroll
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Unenroll from this batch?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You are about to unenroll from{" "}
+                    <span className="font-semibold text-foreground">{batch.name}</span>.
+                    It will be removed from your <strong>My Batches</strong> list.
+                    You can always re-enroll later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => onUnenroll(batch._id)}
+                  >
+                    Yes, Unenroll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ) : (
             <Button
               size="sm"
