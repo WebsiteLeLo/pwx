@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 import { LoadingBar } from "@/components/loading-bar";
+import { useDevToolsDetection } from "@/hooks/useDevToolsDetection";
+import DevToolsBlocked from "@/pages/devtools-blocked";
 
 // Pages
 import Home from "@/pages/home";
@@ -67,6 +69,8 @@ function Router() {
 }
 
 function App() {
+  const { detected, strikes, dismiss } = useDevToolsDetection();
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -75,6 +79,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
+        {detected && <DevToolsBlocked strikes={strikes} onDismiss={dismiss} />}
       </TooltipProvider>
     </QueryClientProvider>
   );
