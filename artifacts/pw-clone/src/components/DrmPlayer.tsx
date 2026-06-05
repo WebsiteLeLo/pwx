@@ -211,7 +211,7 @@ export function DrmPlayer({ batchId, subjectId, childId, poster, title }: DrmPla
           setQualities(tracks);
         });
 
-        await player.load(`${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`);
+        await player.load(mpdUrl);
 
         if (!cancelled) {
           setStatus("ready");
