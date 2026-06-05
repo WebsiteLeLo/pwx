@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = "https://learnbyakp.onrender.com/api/pw";
+const PROXY_BASE = "https://learnbyakp.onrender.com/api";
 
 interface DrmCache {
   mpdUrl: string;
@@ -218,7 +219,7 @@ export function DrmPlayer({ batchId, subjectId, childId, poster }: DrmPlayerProp
           setQualities(tracks);
         });
 
-        await player.load(`/api/proxy?url=${encodeURIComponent(mpdUrl)}`);
+        await player.load(`${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`);
 
         if (!cancelled) {
           setStatus("ready");

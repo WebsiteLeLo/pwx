@@ -125,7 +125,9 @@ proxyRouter.get("/proxy", async (req, res) => {
       const uuid = pathParts[0] ?? "";
       const sigQs = parsed.search.slice(1);
       const sigB64 = Buffer.from(sigQs).toString("base64url");
-      const baseUrl = `/api/dash-seg/${sigB64}/${uuid}/`;
+      const proto = req.get("x-forwarded-proto") || req.protocol;
+      const host = req.get("x-forwarded-host") || req.get("host") || "";
+      const baseUrl = `${proto}://${host}/api/dash-seg/${sigB64}/${uuid}/`;
 
       const rewritten = injectBaseUrl(mpdText, baseUrl);
       res.setHeader("Content-Type", "application/dash+xml");
