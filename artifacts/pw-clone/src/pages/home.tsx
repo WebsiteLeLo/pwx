@@ -120,7 +120,6 @@ function BatchCard({
                   variant="outline"
                   size="sm"
                   className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                  onClick={(e) => e.preventDefault()}
                 >
                   <X className="w-4 h-4 mr-1" />
                   Unenroll
