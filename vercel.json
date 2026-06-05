@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "installCommand": "npm install -g pnpm && pnpm install --frozen-lockfile",
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index.ts" }
+  ]
+}
