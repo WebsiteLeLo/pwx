@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -116,7 +116,11 @@ interface TabContentProps {
 }
 
 function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
-  const { data, isLoading, isError, refetch } = useTopicContents(batchId, subjectId, topicId, contentType);
+  const isNotes = contentType === "notes" || contentType === "DppNotes";
+
+  const videos = useTopicContents(batchId, subjectId, topicId, contentType);
+  const notes = useAllTopicContents(batchId, subjectId, topicId, contentType);
+  const { data, isLoading, isError, refetch } = isNotes ? notes : videos;
 
   if (isLoading) {
     return (

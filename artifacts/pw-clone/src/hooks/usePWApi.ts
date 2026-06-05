@@ -310,3 +310,56 @@ export function useTopicContents(
     gcTime: MIN * 60,
   });
 }
+
+export function useAllTopicContents(
+  batchId: string,
+  subjectId: string,
+  topicId: string,
+  contentType: ContentType
+) {
+  return useQuery({
+    queryKey: ["allTopicContents", batchId, subjectId, topicId, contentType],
+    queryFn: async () => {
+      const baseUrl = `${API_BASE}/v2/batches/${batchId}/subject/${subjectId}/contents`;
+      const makeUrl = (page: number) =>
+        `${baseUrl}?page=${page}&contentType=${contentType}&tag=${topicId}`;
+
+      // Fetch page 1 first to learn the total count
+      const firstRes = await fetch(makeUrl(1));
+      if (!firstRes.ok) throw new Error(`Failed to fetch ${contentType}`);
+      const firstJson = (await firstRes.json()) as {
+        success: boolean;
+        data: ContentItem[];
+        paginate?: { limit: number; totalCount: number };
+      };
+
+      const firstData: ContentItem[] = firstJson.data ?? [];
+      const paginate = firstJson.paginate;
+
+      if (!paginate || paginate.totalCount <= firstData.length) {
+        return { success: true, data: firstData };
+      }
+
+      const totalPages = Math.ceil(paginate.totalCount / paginate.limit);
+
+      // Fetch all remaining pages in parallel
+      const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+      const rest = await Promise.all(
+        pageNums.map(async (page) => {
+          const r = await fetch(makeUrl(page));
+          if (!r.ok) return [] as ContentItem[];
+          const j = (await r.json()) as { data: ContentItem[] };
+          return j.data ?? [];
+        })
+      );
+
+      return {
+        success: true,
+        data: [...firstData, ...rest.flat()] as ContentItem[],
+      };
+    },
+    enabled: !!batchId && !!subjectId && !!topicId,
+    staleTime: MIN * 15,
+    gcTime: MIN * 60,
+  });
+}
