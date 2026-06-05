@@ -184,9 +184,14 @@ proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
 });
 
 // ── Google Drive proxy (bypasses referrer restriction) ──────────────────────
-const DRIVE_API_KEY = "AIzaSyBJNDZ_fWVo04YD-_1dxpdWk2SUdmmN_6M";
+const DRIVE_API_KEY = process.env.DRIVE_API_KEY ?? "";
 
 proxyRouter.get("/drive/files", async (req, res) => {
+  if (!DRIVE_API_KEY) {
+    res.status(503).json({ error: "Drive API not configured" });
+    return;
+  }
+
   const { folderId } = req.query as { folderId?: string };
   if (!folderId) {
     res.status(400).json({ error: "Missing folderId" });
