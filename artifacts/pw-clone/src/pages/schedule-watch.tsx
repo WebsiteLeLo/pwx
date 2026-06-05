@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useScheduleDetails, useVideoDetails, getPdfUrl } from "@/hooks/usePWApi";
+import { useEffect, useMemo, useState } from "react";
+import { useScheduleDetails, useVideoDetails, useAttachmentUrls } from "@/hooks/usePWApi";
 import { ArrowLeft, PlaySquare, FileText, BookOpen, Download, Clock, Calendar, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,23 +53,11 @@ export default function ScheduleWatch() {
   const { data: videoData } = useVideoDetails(videoId);
   const video = videoData?.data;
 
-  const allPdfs: { name?: string; url: string }[] = [];
-  (schedule?.homeworkIds || []).forEach((hw) => {
-    (hw.attachmentIds || []).forEach((att) => {
-      if (att.key || att.baseUrl) {
-        allPdfs.push({ name: att.name, url: getPdfUrl(att) });
-      }
-    });
-  });
+  const { data: attachmentData, isLoading: attachmentLoading } = useAttachmentUrls(
+    params.batchId, params.subjectId, params.scheduleId
+  );
 
-  const dppPdfs: { name?: string; url: string }[] = [];
-  (schedule?.dpp?.homeworkIds || []).forEach((hw) => {
-    (hw.attachmentIds || []).forEach((att) => {
-      if (att.key || att.baseUrl) {
-        dppPdfs.push({ name: att.name, url: getPdfUrl(att) });
-      }
-    });
-  });
+  const allPdfs = useMemo(() => attachmentData ?? [], [attachmentData]);
 
   function renderPlayer() {
     if (scheduleLoading) {
@@ -183,33 +171,18 @@ export default function ScheduleWatch() {
               <div>
                 <div className="flex items-center gap-2 mb-2 px-1">
                   <FileText className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Class Notes</span>
+                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Study Materials</span>
                   <span className="text-xs text-zinc-600">({allPdfs.length})</span>
                 </div>
                 <div className="space-y-1.5">
                   {allPdfs.map((pdf, i) => (
-                    <PdfItem key={i} name={pdf.name} url={pdf.url} />
+                    <PdfItem key={i} name={pdf.topic} url={pdf.url} />
                   ))}
                 </div>
               </div>
             )}
 
-            {dppPdfs.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">DPP Practice</span>
-                  <span className="text-xs text-zinc-600">({dppPdfs.length})</span>
-                </div>
-                <div className="space-y-1.5">
-                  {dppPdfs.map((pdf, i) => (
-                    <PdfItem key={i} name={pdf.name} url={pdf.url} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {scheduleLoading && (
+            {(scheduleLoading || attachmentLoading) && (
               <div className="space-y-2 p-2">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-12 rounded-lg bg-zinc-800 animate-pulse" />
@@ -217,7 +190,7 @@ export default function ScheduleWatch() {
               </div>
             )}
 
-            {!scheduleLoading && allPdfs.length === 0 && dppPdfs.length === 0 && (
+            {!scheduleLoading && !attachmentLoading && allPdfs.length === 0 && (
               <div className="text-center py-8 text-zinc-600 text-sm">
                 No study materials for this class
               </div>

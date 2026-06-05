@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useTopicContents, useBatchDetails, useTopics, ContentType, getPdfUrl } from "@/hooks/usePWApi";
+import { useMemo, useState } from "react";
+import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,6 +21,91 @@ function getVideoThumb(vid: any): string | null {
   if (typeof imageId === "string") return imageId;
   if (imageId.baseUrl && imageId.key) return `${imageId.baseUrl}${imageId.key}`;
   return null;
+}
+
+interface NoteItemProps {
+  batchId: string;
+  subjectId: string;
+  content: ContentItem;
+  contentType: ContentType;
+  baseIndex: number;
+}
+
+function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
+  const { data, isLoading } = useAttachmentUrls(batchId, subjectId, content._id);
+
+  const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
+
+  const pdfs = useMemo(() => {
+    if (data && data.length > 0) {
+      return data.map(item => ({ title: item.topic || baseTitle, url: item.url }));
+    }
+    const rows: { title: string; url: string | null }[] = [];
+    if (content.homeworkIds && content.homeworkIds.length > 0) {
+      content.homeworkIds.forEach(hw => {
+        const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
+        if (hw.attachmentIds && hw.attachmentIds.length > 0) {
+          hw.attachmentIds.forEach(() => {
+            rows.push({ title: hwTitle, url: null });
+          });
+        } else {
+          rows.push({ title: hwTitle, url: null });
+        }
+      });
+    } else if (content.urls && content.urls.length > 0) {
+      content.urls.forEach(u => {
+        rows.push({ title: u.name ?? baseTitle, url: u.url });
+      });
+    } else {
+      rows.push({ title: baseTitle, url: null });
+    }
+    return rows;
+  }, [data, content, baseTitle]);
+
+  if (isLoading) {
+    return (
+      <>
+        {[1, 2].map(i => (
+          <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {pdfs.map(({ title, url }, i) => (
+        <motion.div
+          key={url ?? `${content._id}-${i}`}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.2, delay: (baseIndex + i) * 0.04 }}
+          className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all"
+          data-testid={`card-note-${content._id}-${i}`}
+        >
+          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+            {contentType === "DppNotes"
+              ? <BookOpen className="w-5 h-5" />
+              : <FileText className="w-5 h-5" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm truncate">{title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
+          </div>
+          {url ? (
+            <Button size="sm" variant="outline" asChild>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open
+              </a>
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Unavailable</span>
+          )}
+        </motion.div>
+      ))}
+    </>
+  );
 }
 
 interface TabContentProps {
@@ -129,66 +214,17 @@ function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProp
     );
   }
 
-  // Flatten all PDFs across all content items and all their homework/attachment arrays
-  const pdfRows: { key: string; title: string; pdfUrl: string | null }[] = [];
-  items.forEach((content) => {
-    const baseTitle = content.name ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
-
-    if (content.homeworkIds && content.homeworkIds.length > 0) {
-      content.homeworkIds.forEach((hw) => {
-        const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-        if (hw.attachmentIds && hw.attachmentIds.length > 0) {
-          hw.attachmentIds.forEach((att) => {
-            pdfRows.push({ key: `${content._id}-hw-${hw._id}-att-${att._id}`, title: hwTitle, pdfUrl: getPdfUrl(att) });
-          });
-        } else {
-          pdfRows.push({ key: `${content._id}-hw-${hw._id}`, title: hwTitle, pdfUrl: null });
-        }
-      });
-    } else if (content.attachmentIds && content.attachmentIds.length > 0) {
-      content.attachmentIds.forEach((att) => {
-        pdfRows.push({ key: `${content._id}-att-${att._id}`, title: att.name ?? baseTitle, pdfUrl: getPdfUrl(att) });
-      });
-    } else if (content.urls && content.urls.length > 0) {
-      content.urls.forEach((u, i) => {
-        pdfRows.push({ key: `${content._id}-url-${i}`, title: u.name ?? baseTitle, pdfUrl: u.url });
-      });
-    } else {
-      pdfRows.push({ key: content._id, title: baseTitle, pdfUrl: null });
-    }
-  });
-
   return (
     <div className="mt-6 space-y-3">
-      {pdfRows.map(({ key, title, pdfUrl }, index) => (
-        <motion.div
-          key={key}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.2, delay: index * 0.04 }}
-          className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all"
-          data-testid={`card-note-${key}`}
-        >
-          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-            {contentType === "DppNotes"
-              ? <BookOpen className="w-5 h-5" />
-              : <FileText className="w-5 h-5" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate">{title}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
-          </div>
-          {pdfUrl ? (
-            <Button size="sm" variant="outline" asChild>
-              <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open
-              </a>
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">Unavailable</span>
-          )}
-        </motion.div>
+      {items.map((content, index) => (
+        <NoteItem
+          key={content._id}
+          batchId={batchId}
+          subjectId={subjectId}
+          content={content}
+          contentType={contentType}
+          baseIndex={index}
+        />
       ))}
     </div>
   );
@@ -219,7 +255,6 @@ export default function Topic() {
         <p className="text-lg text-muted-foreground">Watch lectures, review notes, and practice DPP sheets.</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit mb-2">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button

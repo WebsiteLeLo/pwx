@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecureapi.onrender.com/api/pw";
+const LEARNBYAKP_BASE = "https://learnbyakp.onrender.com/api/pw";
 const MIN = 1000 * 60;
 
 export interface Batch {
@@ -111,8 +112,49 @@ export interface NoteContent {
 }
 
 export function getPdfUrl(attachment: Attachment): string {
-  if (attachment.key) return `${attachment.baseUrl}${attachment.key}`;
-  return `${attachment.baseUrl}${attachment._id}`;
+  let raw = "";
+  if (attachment.key) {
+    raw = attachment.baseUrl
+      ? `${attachment.baseUrl}${attachment.key}`
+      : attachment.key;
+  } else {
+    raw = attachment.baseUrl
+      ? `${attachment.baseUrl}${attachment._id}`
+      : attachment._id;
+  }
+  if (!raw.startsWith("http")) raw = `https://${raw}`;
+  return raw;
+}
+
+export interface AttachmentUrlItem {
+  topic: string;
+  baseUrl: string;
+  key: string;
+  url: string;
+}
+
+export function useAttachmentUrls(batchId: string, subjectId: string, contentId: string) {
+  return useQuery({
+    queryKey: ["attachmentUrls", batchId, subjectId, contentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${LEARNBYAKP_BASE}/attachment-url?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&ContentId=${encodeURIComponent(contentId)}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch attachment URLs");
+      const json = await res.json() as { success: boolean; upstreamStatus: number; data: AttachmentUrlItem[] };
+      if (!json.success || !Array.isArray(json.data)) return [];
+      const seen = new Set<string>();
+      return json.data.filter(item => {
+        if (!item.url || seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+      });
+    },
+    enabled: !!batchId && !!subjectId && !!contentId,
+    staleTime: MIN * 30,
+    gcTime: MIN * 120,
+    retry: 1,
+  });
 }
 
 export type ContentItem = VideoContent & NoteContent;

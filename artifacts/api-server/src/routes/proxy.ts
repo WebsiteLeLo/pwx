@@ -3,6 +3,7 @@ import { Router } from "express";
 const proxyRouter = Router();
 
 const CDN_HOSTS = ["sec-prod-mediacdn.pw.live", "prod-mediacdn.pw.live", "mediacdn.pw.live"];
+const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net"];
 
 function isAllowedCdnHost(hostname: string): boolean {
   return CDN_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
@@ -30,10 +31,60 @@ async function fetchCdn(url: string): Promise<{ status: number; contentType: str
   };
 }
 
-proxyRouter.options(["/proxy", "/dash-seg/*path"], (_req, res) => {
+function isAllowedPdfHost(hostname: string): boolean {
+  return PDF_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
+}
+
+proxyRouter.options(["/proxy", "/pdf", "/dash-seg/*path"], (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   res.status(204).end();
+});
+
+proxyRouter.get("/pdf", async (req, res) => {
+  const rawUrl = req.query.url as string | undefined;
+  if (!rawUrl) {
+    res.status(400).json({ error: "Missing url" });
+    return;
+  }
+
+  let fullUrl = rawUrl;
+  if (!fullUrl.startsWith("http")) fullUrl = `https://${fullUrl}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(fullUrl);
+  } catch {
+    res.status(400).json({ error: "Invalid URL" });
+    return;
+  }
+
+  if (!isAllowedPdfHost(parsed.hostname)) {
+    res.status(403).json({ error: "Host not allowed" });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(fullUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PWX/1.0)",
+        "Referer": "https://www.pw.live/",
+        "Origin": "https://www.pw.live",
+      },
+    });
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Content-Disposition", "inline");
+    res.status(upstream.status);
+
+    const buf = await upstream.arrayBuffer();
+    res.end(Buffer.from(buf));
+  } catch (err) {
+    req.log.error({ err }, "pdf proxy fetch failed");
+    res.status(502).json({ error: "Upstream fetch failed" });
+  }
 });
 
 proxyRouter.get("/proxy", async (req, res) => {
@@ -90,7 +141,7 @@ proxyRouter.get("/proxy", async (req, res) => {
 });
 
 proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
-  const { sig, path: pathParam } = req.params as { sig: string; path: string };
+  const { sig, path: pathParam } = req.params as unknown as { sig: string; path: string };
 
   let sigQs: string;
   try {
