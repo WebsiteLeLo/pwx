@@ -167,7 +167,7 @@ export default function Home() {
   const { data, isLoading, isError, refetch } = useBatches();
   const { enrolled, enroll, unenroll, isEnrolled } = useEnrolledBatches();
 
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
