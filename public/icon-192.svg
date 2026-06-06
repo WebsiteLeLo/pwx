@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#09090f"/>
+  <rect x="12" y="12" width="168" height="168" rx="24" fill="#0f0f1a"/>
+  <text x="96" y="78" font-family="Arial Black, Arial" font-weight="900" font-size="52" fill="#00ccff" text-anchor="middle" dominant-baseline="middle">PW</text>
+  <text x="96" y="128" font-family="Arial, sans-serif" font-weight="700" font-size="24" fill="#ffffff" text-anchor="middle" dominant-baseline="middle" opacity="0.7">PLAYER</text>
+  <circle cx="154" cy="42" r="16" fill="#00ccff" opacity="0.15"/>
+  <polygon points="148,42 158,36 158,48" fill="#00ccff" opacity="0.8"/>
+</svg>
