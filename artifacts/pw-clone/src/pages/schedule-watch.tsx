@@ -228,11 +228,14 @@ function SidePanel({
   );
 }
 
+type PlayerMode = "drm" | "rarestudy";
+
 export default function ScheduleWatch() {
   const [params, setParams] = useState({ batchId: "", subjectId: "", scheduleId: "" });
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>("att");
   const [isMobile, setIsMobile] = useState(false);
+  const [playerMode, setPlayerMode] = useState<PlayerMode>("drm");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -265,6 +268,10 @@ export default function ScheduleWatch() {
 
   const hasParams = !!(params.batchId && params.scheduleId);
 
+  const rarestudyUrl = hasParams
+    ? `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&scheduleId=${encodeURIComponent(params.scheduleId)}&tap=video`
+    : "";
+
   function openPanel(tab: PanelTab) {
     setActiveTab(tab);
     setPanelOpen(true);
@@ -280,15 +287,53 @@ export default function ScheduleWatch() {
         {/* Video column */}
         <div className="flex-1 min-w-0 relative flex flex-col overflow-hidden" style={{ background: "#000" }}>
           {hasParams ? (
-            <DrmPlayer
-              batchId={params.batchId}
-              subjectId={params.subjectId}
-              childId={params.scheduleId}
-              poster={schedule?.videoDetails?.image}
-              title={videoTitle}
-              onOpenTimeline={() => openPanel("tl")}
-              onOpenAttachments={() => openPanel("att")}
-            />
+            <>
+              {/* Player toggle */}
+              <div
+                className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex gap-1 rounded-full px-1 py-1"
+                style={{ background: "rgba(0,0,0,.70)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.1)" }}
+              >
+                {(["drm", "rarestudy"] as PlayerMode[]).map((mode, i) => (
+                  <button
+                    key={mode}
+                    onClick={() => setPlayerMode(mode)}
+                    className="text-xs px-3 py-1 rounded-full transition-colors font-medium"
+                    style={{
+                      background: playerMode === mode ? ACCENT : "transparent",
+                      color: playerMode === mode ? "#fff" : "rgba(255,255,255,.5)",
+                    }}
+                  >
+                    Player {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              {/* DRM player */}
+              <div className="absolute inset-0" style={{ display: playerMode === "drm" ? "block" : "none" }}>
+                <DrmPlayer
+                  batchId={params.batchId}
+                  subjectId={params.subjectId}
+                  childId={params.scheduleId}
+                  poster={schedule?.videoDetails?.image}
+                  title={videoTitle}
+                  onOpenTimeline={() => openPanel("tl")}
+                  onOpenAttachments={() => openPanel("att")}
+                />
+              </div>
+
+              {/* Rarestudy.in player */}
+              {playerMode === "rarestudy" && (
+                <iframe
+                  key={rarestudyUrl}
+                  src={rarestudyUrl}
+                  className="absolute inset-0 w-full h-full border-0"
+                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="no-referrer"
+                  title={videoTitle}
+                />
+              )}
+            </>
           ) : scheduleLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: "rgba(0,0,0,.82)" }}>
               <div className="w-10 h-10 rounded-full border-[3px] animate-spin" style={{ borderColor: "rgba(90,75,218,.18)", borderTopColor: ACCENT }} />
