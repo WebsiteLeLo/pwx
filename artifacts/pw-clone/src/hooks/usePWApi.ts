@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/apiUrl";
 
 const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const MIN = 1000 * 60;
@@ -133,56 +132,21 @@ export interface AttachmentUrlItem {
   url: string;
 }
 
-function extractPdfUrl(data: Record<string, unknown>): string | null {
-  const candidates = [
-    data?.url, data?.attachmentUrl, data?.pdfUrl, data?.fileUrl, data?.link,
-    (data?.data as Record<string, unknown>)?.url,
-    (data?.data as Record<string, unknown>)?.attachmentUrl,
-    (data?.data as Record<string, unknown>)?.pdfUrl,
-    (data?.data as Record<string, unknown>)?.fileUrl,
-    (data?.data as Record<string, unknown>)?.link,
-  ];
-  for (const c of candidates) {
-    if (typeof c === "string" && c.startsWith("http")) return c;
-  }
-  return null;
-}
-
-function extractPdfName(data: Record<string, unknown>): string {
-  const d = (data?.data ?? data) as Record<string, unknown>;
-  return (d?.name ?? d?.topic ?? d?.title ?? "") as string;
-}
-
 export function useAttachmentUrls(batchId: string, subjectId: string, contentId: string, count = 1, isDpp = false) {
-  const proxyBase = apiUrl("/api");
   return useQuery({
-    queryKey: ["attachmentUrlsV2", batchId, subjectId, contentId, count, isDpp],
-    queryFn: async () => {
+    queryKey: ["attachmentUrlsV3", batchId, subjectId, contentId, count, isDpp],
+    queryFn: () => {
       const indices = Array.from({ length: Math.max(count, 1) }, (_, i) => i);
-      const results = await Promise.allSettled(
-        indices.map(i =>
-          fetch(
-            `${proxyBase}/rarestudy-pdf?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(contentId)}&noteIndex=${i}&isDpp=${isDpp}`
-          ).then(r => r.json() as Promise<Record<string, unknown>>)
-        )
-      );
-      const urls: AttachmentUrlItem[] = [];
-      const seen = new Set<string>();
-      results.forEach(r => {
-        if (r.status === "fulfilled" && r.value?.success) {
-          const url = extractPdfUrl(r.value);
-          if (url && !seen.has(url)) {
-            seen.add(url);
-            urls.push({ topic: extractPdfName(r.value), baseUrl: "", key: "", url });
-          }
-        }
-      });
-      return urls;
+      return indices.map(i => ({
+        topic: "",
+        baseUrl: "",
+        key: "",
+        url: `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(contentId)}&tap=note&noteIndex=${i}&isDpp=${isDpp}`,
+      })) as AttachmentUrlItem[];
     },
     enabled: !!batchId && !!subjectId && !!contentId,
-    staleTime: MIN * 30,
+    staleTime: Infinity,
     gcTime: MIN * 120,
-    retry: 1,
   });
 }
 
