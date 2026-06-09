@@ -32,7 +32,9 @@ interface NoteItemProps {
 }
 
 function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
-  const { data, isLoading } = useAttachmentUrls(batchId, subjectId, content._id);
+  const count = content.homeworkIds?.length || 1;
+  const isDpp = contentType === "DppNotes";
+  const { data, isLoading } = useAttachmentUrls(batchId, subjectId, content._id, count, isDpp);
 
   const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
 

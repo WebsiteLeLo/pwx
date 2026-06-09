@@ -183,6 +183,43 @@ proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
   }
 });
 
+// ── RareStudy PDF proxy ──────────────────────────────────────────────────────
+proxyRouter.options("/rarestudy-pdf", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.status(204).end();
+});
+
+proxyRouter.get("/rarestudy-pdf", async (req, res) => {
+  const { batchId, subjectId, scheduleId, noteIndex = "0", isDpp = "false" } = req.query as Record<string, string>;
+
+  if (!batchId || !subjectId || !scheduleId) {
+    res.status(400).json({ error: "Missing required params" });
+    return;
+  }
+
+  const url = `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=note&noteIndex=${encodeURIComponent(noteIndex)}&isDpp=${encodeURIComponent(isDpp)}`;
+
+  try {
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://rarestudy.in/",
+        "Origin": "https://rarestudy.in",
+        "Accept": "application/json, text/plain, */*",
+      },
+    });
+
+    const data = await upstream.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=1800");
+    res.status(upstream.status).json(data);
+  } catch (err) {
+    req.log.error({ err }, "rarestudy-pdf fetch failed");
+    res.status(502).json({ error: "Upstream fetch failed" });
+  }
+});
+
 // ── Google Drive proxy (bypasses referrer restriction) ──────────────────────
 const DRIVE_API_KEY = process.env.DRIVE_API_KEY ?? "";
 
