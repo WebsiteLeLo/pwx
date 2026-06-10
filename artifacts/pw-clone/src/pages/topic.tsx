@@ -99,11 +99,14 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
             <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
           </div>
           {url ? (
-            <Button size="sm" variant="outline" asChild>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open
-              </a>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-1.5"
+              onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground">Unavailable</span>
