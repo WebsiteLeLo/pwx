@@ -305,6 +305,43 @@ export function useTopicContents(
   });
 }
 
+export interface ScheduleItem {
+  type: string;
+  _id: string;
+  data: {
+    _id: string;
+    topic: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    lectureType: string;
+    batchId: string;
+    batchSubjectId: string;
+    subjectId: { _id: string; name: string; slug: string };
+    tags?: { _id: string; name: string }[];
+    scheduleCode?: string;
+    teachers?: string[];
+    isVideoLecture?: boolean;
+  };
+}
+
+export function useTodaysSchedule(batchId: string) {
+  return useQuery({
+    queryKey: ["todaysSchedule", batchId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v2/batches/${batchId}/todays-schedule?batchId=${batchId}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch schedule");
+      return res.json() as Promise<{ success: boolean; data: ScheduleItem[] }>;
+    },
+    enabled: !!batchId,
+    staleTime: MIN * 2,
+    gcTime: MIN * 30,
+    refetchInterval: MIN * 2,
+  });
+}
+
 export function useAllTopicContents(
   batchId: string,
   subjectId: string,
