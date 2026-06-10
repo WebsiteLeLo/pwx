@@ -226,7 +226,7 @@ function MixDetailPage({ mixId }: { mixId: string }) {
               transition={{ duration: 0.18, delay: index * 0.03 }}
               className="group bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-colors"
             >
-              <Link href={`/batch/${subject.batchId}/subject/${subject.subjectId}`} className="flex gap-4 p-5">
+              <Link href={`/batch/${subject.batchId}/subject/${subject.subjectId}?fromMix=${mix.id}&fromMixName=${encodeURIComponent(mix.name)}`} className="flex gap-4 p-5">
                 <div className="w-20 h-20 rounded-lg bg-muted overflow-hidden flex-shrink-0">
                   <SubjectAvatar imageUrl={subject.imageUrl} name={subject.subjectName} />
                 </div>

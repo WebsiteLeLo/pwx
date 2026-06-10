@@ -11,12 +11,35 @@ export default function Subject() {
   const { batchId, subjectId } = useParams<{ batchId: string; subjectId: string }>();
   const [page, setPage] = useState(1);
 
-  // Fetch batch details just to get the names for breadcrumbs (optional, but good UX)
+  const searchParams = new URLSearchParams(window.location.search);
+  const fromMix = searchParams.get("fromMix") ?? "";
+  const fromMixName = decodeURIComponent(searchParams.get("fromMixName") ?? "");
+
   const { data: batchData } = useBatchDetails(batchId!);
   const { data, isLoading, isError, refetch } = useTopics(batchId!, subjectId!, page);
 
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
+
+  const breadcrumbs = fromMix
+    ? [
+        { label: "Home", href: "/" },
+        { label: "My Mix", href: "/my-mix" },
+        { label: fromMixName || "Mix", href: `/my-mix/${fromMix}` },
+        { label: subjectName },
+      ]
+    : [
+        { label: "Home", href: "/" },
+        { label: batchName, href: `/batch/${batchId}` },
+        { label: subjectName },
+      ];
+
+  const topicHref = (topicId: string) => {
+    const base = `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`;
+    return fromMix
+      ? `${base}?fromMix=${fromMix}&fromMixName=${encodeURIComponent(fromMixName)}&fromMixSubject=${encodeURIComponent(subjectName)}`
+      : base;
+  };
 
   if (isError) {
     return (
@@ -38,13 +61,7 @@ export default function Subject() {
   const totalPages = data ? Math.ceil(data.paginate.totalCount / data.paginate.limit) : 0;
 
   return (
-    <Layout
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: batchName, href: `/batch/${batchId}` },
-        { label: subjectName }
-      ]}
-    >
+    <Layout breadcrumbs={breadcrumbs}>
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight mb-2">Chapters & Topics</h1>
@@ -61,7 +78,7 @@ export default function Subject() {
       ) : (
         <div className="space-y-4">
           {data?.data.map((topic, index) => (
-            <Link key={topic._id} href={`/batch/${batchId}/subject/${subjectId}/topic/${topic._id}`}>
+            <Link key={topic._id} href={topicHref(topic._id)}>
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
+import { useCustomBatches } from "@/hooks/useCustomBatches";
 import { Layout } from "@/components/layout";
 import { LazyImage } from "@/components/lazy-image";
 import { Link } from "wouter";
@@ -16,6 +17,7 @@ import {
   BookOpen,
   CheckCircle2,
   X,
+  Layers,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -163,9 +165,60 @@ function BatchCard({
   );
 }
 
+function MixCard({ mix, index }: { mix: { id: string; name: string; createdAt: number; subjects: { subjectName: string; batchName: string }[] }; index: number }) {
+  const previewSubjects = mix.subjects.slice(0, 3);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.22, delay: (index % PAGE_SIZE) * 0.035 }}
+      className="group relative flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors h-full"
+    >
+      <Link href={`/my-mix/${mix.id}`} className="block">
+        <div className="relative aspect-video bg-gradient-to-br from-primary/20 via-primary/10 to-background flex flex-col items-center justify-center gap-2 p-4">
+          <Layers className="w-10 h-10 text-primary" />
+          <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Layers className="w-3 h-3" />
+            My Mix
+          </div>
+        </div>
+      </Link>
+      <div className="p-5 flex flex-col flex-1">
+        <Link href={`/my-mix/${mix.id}`}>
+          <h3 className="font-bold text-lg leading-tight mb-2 line-clamp-2 hover:text-primary transition-colors">
+            {mix.name}
+          </h3>
+        </Link>
+        <div className="space-y-1 mb-3">
+          {previewSubjects.length > 0 ? previewSubjects.map((s, i) => (
+            <div key={i} className="text-xs text-muted-foreground truncate">
+              · {s.subjectName} <span className="opacity-60">({s.batchName})</span>
+            </div>
+          )) : (
+            <div className="text-xs text-muted-foreground italic">No subjects added yet</div>
+          )}
+          {mix.subjects.length > 3 && (
+            <div className="text-xs text-muted-foreground">+{mix.subjects.length - 3} more</div>
+          )}
+        </div>
+        <div className="mt-auto pt-3 border-t border-border/40">
+          <Link href={`/my-mix/${mix.id}`}>
+            <Button size="sm" variant="outline" className="w-full gap-2">
+              <Layers className="w-4 h-4" />
+              Open Mix
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Home() {
   const { data, isLoading, isError, refetch } = useBatches();
   const { enrolled, enroll, unenroll, isEnrolled } = useEnrolledBatches();
+  const { mixes } = useCustomBatches();
 
   const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
@@ -183,6 +236,10 @@ export default function Home() {
         b.byName?.toLowerCase().includes(query.toLowerCase())
       )
     : sourceBatches;
+
+  const filteredMixes = query.trim()
+    ? mixes.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
+    : mixes;
 
   const visibleBatches = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
@@ -271,9 +328,9 @@ export default function Home() {
             }`}
           >
             My Batches
-            {enrolled.length > 0 && (
+            {(enrolled.length + mixes.length) > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                {enrolled.length}
+                {enrolled.length + mixes.length}
               </span>
             )}
           </button>
@@ -300,8 +357,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Empty state for enrolled tab */}
-      {tab === "enrolled" && enrolled.length === 0 && (
+      {/* Empty state for enrolled tab — only when no batches AND no mixes */}
+      {tab === "enrolled" && enrolled.length === 0 && mixes.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[40vh] text-center gap-4">
           <BookOpen className="w-14 h-14 text-muted-foreground/40" />
           <h2 className="text-xl font-bold">No enrolled batches yet</h2>
@@ -315,7 +372,7 @@ export default function Home() {
       )}
 
       {/* No search results */}
-      {query && filtered.length === 0 && !isLoading && (
+      {query && filtered.length === 0 && !(tab === "enrolled" && filteredMixes.length > 0) && !isLoading && (
         <div className="flex flex-col items-center justify-center min-h-[30vh] text-center gap-3">
           <Search className="w-12 h-12 text-muted-foreground/40" />
           <h2 className="text-lg font-semibold">No results for "{query}"</h2>
@@ -339,11 +396,14 @@ export default function Home() {
             ))
           : (
             <AnimatePresence>
+              {tab === "enrolled" && filteredMixes.map((mix, index) => (
+                <MixCard key={`mix-${mix.id}`} mix={mix} index={index} />
+              ))}
               {visibleBatches.map((batch, index) => (
                 <BatchCard
                   key={batch._id}
                   batch={batch}
-                  index={index}
+                  index={tab === "enrolled" ? filteredMixes.length + index : index}
                   enrolled={isEnrolled(batch._id)}
                   onEnroll={enroll}
                   onUnenroll={unenroll}

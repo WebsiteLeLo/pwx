@@ -326,22 +326,39 @@ export default function Topic() {
   const { batchId, subjectId, topicId } = useParams<{ batchId: string; subjectId: string; topicId: string }>();
   const [activeTab, setActiveTab] = useState<ContentType>("videos");
 
+  const sp = new URLSearchParams(window.location.search);
+  const fromMix = sp.get("fromMix") ?? "";
+  const fromMixName = decodeURIComponent(sp.get("fromMixName") ?? "");
+  const fromMixSubject = decodeURIComponent(sp.get("fromMixSubject") ?? "");
+
   const { data: batchData } = useBatchDetails(batchId!);
   const { data: topicsData } = useTopics(batchId!, subjectId!, 1);
 
   const batchName = batchData?.data.name || "Batch";
-  const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
+  const subjectName = fromMixSubject || batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
   const topicName = topicsData?.data.find(t => t._id === topicId)?.name || "Topic";
 
-  return (
-    <Layout
-      breadcrumbs={[
+  const subjectHref = fromMix
+    ? `/batch/${batchId}/subject/${subjectId}?fromMix=${fromMix}&fromMixName=${encodeURIComponent(fromMixName)}&fromMixSubject=${encodeURIComponent(subjectName)}`
+    : `/batch/${batchId}/subject/${subjectId}`;
+
+  const breadcrumbs = fromMix
+    ? [
+        { label: "Home", href: "/" },
+        { label: "My Mix", href: "/my-mix" },
+        { label: fromMixName || "Mix", href: `/my-mix/${fromMix}` },
+        { label: subjectName, href: subjectHref },
+        { label: topicName },
+      ]
+    : [
         { label: "Home", href: "/" },
         { label: batchName, href: `/batch/${batchId}` },
         { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
         { label: topicName },
-      ]}
-    >
+      ];
+
+  return (
+    <Layout breadcrumbs={breadcrumbs}>
       <div className="mb-8">
         <h1 className="text-4xl font-extrabold tracking-tight mb-2">{topicName}</h1>
         <p className="text-lg text-muted-foreground">Watch lectures, review notes, and practice DPP sheets.</p>
