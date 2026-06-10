@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams, useLocation } from "wouter";
+import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -116,14 +116,12 @@ function MixListPage() {
   const { mixes, createMix, deleteMix, renameMix } = useCustomBatches();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  const [, navigate] = useLocation();
 
   const handleCreate = () => {
     if (!newName.trim()) return;
-    const id = createMix(newName.trim());
+    createMix(newName.trim());
     setNewName("");
     setCreating(false);
-    navigate(`/my-mix/${id}`);
   };
 
   return (
