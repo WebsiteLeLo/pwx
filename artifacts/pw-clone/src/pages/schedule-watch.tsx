@@ -64,7 +64,8 @@ export default function ScheduleWatch() {
       if (now > endMs) return "ended";
       return "upcoming";
     }
-    return "live";
+    // No status/time info means it's a recorded lecture — not live
+    return "ended";
   }
 
   const view = getViewState();
@@ -77,45 +78,6 @@ export default function ScheduleWatch() {
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col">
-      {/* Top bar */}
-      {hasParams && (
-        <div className="flex items-center gap-3 px-4 h-12 border-b border-white/10 z-20 flex-shrink-0" style={{ background: "#0d0d14" }}>
-          <button
-            onClick={() => window.history.back()}
-            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
-            style={{ color: "rgba(255,255,255,.45)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,.9)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,.45)")}
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-            Back
-          </button>
-          <div className="w-px h-4 bg-white/10" />
-          {params.subjectName && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: `${ACCENT}22`, color: ACCENT }}>
-              {params.subjectName}
-            </span>
-          )}
-          {params.topic && (
-            <span className="text-xs text-white/50 truncate max-w-xs">{params.topic}</span>
-          )}
-          <div className="flex-1" />
-          {view === "live" && (
-            <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: RED, color: "#fff" }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              LIVE
-            </span>
-          )}
-          {view === "upcoming" && params.startTime && (
-            <span className="text-xs font-medium tabular-nums" style={{ color: "rgba(255,255,255,.5)" }}>
-              Starts at {formatTime(params.startTime)}
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Content */}
       <div className="flex-1 relative overflow-hidden">
 
