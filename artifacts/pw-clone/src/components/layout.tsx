@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link } from "wouter";
-import { ChevronRight, PlaySquare, BookOpen } from "lucide-react";
+import { ChevronRight, PlaySquare, BookOpen, Layers } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -34,6 +34,13 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
             >
               <BookOpen className="w-4 h-4" />
               JEE Materials
+            </Link>
+            <Link
+              href="/my-mix"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Layers className="w-4 h-4" />
+              My Mix
             </Link>
           </nav>
         </div>

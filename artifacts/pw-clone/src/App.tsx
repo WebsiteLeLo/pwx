@@ -15,6 +15,7 @@ import Topic from "@/pages/topic";
 import Watch from "@/pages/watch";
 import ScheduleWatch from "@/pages/schedule-watch";
 import Materials from "@/pages/materials";
+import { MyMixList, MyMixDetail } from "@/pages/my-mix";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -61,6 +62,8 @@ function Router() {
             <Route path="/watch" component={Watch} />
             <Route path="/schedule-watch" component={ScheduleWatch} />
             <Route path="/materials" component={Materials} />
+            <Route path="/my-mix" component={MyMixList} />
+            <Route path="/my-mix/:mixId" component={MyMixDetail} />
             <Route component={NotFound} />
           </Switch>
         </motion.div>
