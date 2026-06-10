@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
+import { useWatchHistory, WatchHistoryItem } from "@/hooks/useWatchHistory";
 import { Layout } from "@/components/layout";
 import { LazyImage } from "@/components/lazy-image";
 import { Link } from "wouter";
@@ -18,6 +19,9 @@ import {
   CheckCircle2,
   X,
   Layers,
+  History,
+  Play,
+  Trash2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -35,6 +39,96 @@ import type { Batch } from "@/hooks/usePWApi";
 const PAGE_SIZE = 8;
 
 type Tab = "all" | "enrolled";
+
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function ContinueWatchingSection({
+  history,
+  onRemove,
+  onClear,
+}: {
+  history: WatchHistoryItem[];
+  onRemove: (id: string) => void;
+  onClear: () => void;
+}) {
+  if (history.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-primary" />
+          <h2 className="text-base font-bold">Continue Watching</h2>
+        </div>
+        <button
+          onClick={onClear}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Trash2 className="w-3 h-3" />
+          Clear all
+        </button>
+      </div>
+
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+        {history.map((item) => {
+          const watchUrl = `/schedule-watch?batchId=${item.batchId}&subjectId=${item.subjectId}&scheduleId=${item.scheduleId}&title=${encodeURIComponent(item.title)}${item.thumbnail ? `&thumbnail=${encodeURIComponent(item.thumbnail)}` : ""}${item.subjectName ? `&subjectName=${encodeURIComponent(item.subjectName)}` : ""}`;
+          return (
+            <motion.div
+              key={item.scheduleId}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex-shrink-0 w-52 sm:w-60 group relative"
+            >
+              <Link href={watchUrl} className="block">
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-muted mb-2">
+                  {item.thumbnail ? (
+                    <img
+                      src={item.thumbnail}
+                      alt={item.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary flex items-center justify-center">
+                      <Play className="w-8 h-8 text-primary/60" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-primary/90 flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
+                      <Play className="w-4 h-4 fill-white text-white" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                  {item.title}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {item.subjectName ? `${item.subjectName} · ` : ""}{timeAgo(item.watchedAt)}
+                </p>
+              </Link>
+              <button
+                onClick={() => onRemove(item.scheduleId)}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+                title="Remove from history"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function BatchCard({
   batch,
@@ -219,6 +313,7 @@ export default function Home() {
   const { data, isLoading, isError, refetch } = useBatches();
   const { enrolled, enroll, unenroll, isEnrolled } = useEnrolledBatches();
   const { mixes } = useCustomBatches();
+  const { history, removeFromHistory, clearHistory } = useWatchHistory();
 
   const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
@@ -288,6 +383,13 @@ export default function Home() {
 
   return (
     <Layout>
+      {/* Continue Watching */}
+      <ContinueWatchingSection
+        history={history}
+        onRemove={removeFromHistory}
+        onClear={clearHistory}
+      />
+
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">

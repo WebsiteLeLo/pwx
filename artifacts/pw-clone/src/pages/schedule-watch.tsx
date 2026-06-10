@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useWatchHistory } from "@/hooks/useWatchHistory";
 
 const ACCENT = "#5a4bda";
 const RED = "#ef4444";
@@ -27,9 +28,11 @@ export default function ScheduleWatch() {
   const [params, setParams] = useState({
     batchId: "", subjectId: "", scheduleId: "",
     status: "", startTime: "", endTime: "", topic: "", subjectName: "",
+    title: "", thumbnail: "",
   });
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const { addToHistory } = useWatchHistory();
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -42,6 +45,8 @@ export default function ScheduleWatch() {
       endTime: sp.get("endTime") || "",
       topic: sp.get("topic") || "",
       subjectName: sp.get("subjectName") || "",
+      title: sp.get("title") || sp.get("topic") || "Lecture Video",
+      thumbnail: sp.get("thumbnail") || "",
     });
   }, []);
 
@@ -75,6 +80,21 @@ export default function ScheduleWatch() {
   const rarestudyUrl = hasParams
     ? `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&scheduleId=${encodeURIComponent(params.scheduleId)}&tap=video`
     : "";
+
+  function handleIframeLoad() {
+    setIframeLoaded(true);
+    if (hasParams && params.scheduleId) {
+      addToHistory({
+        scheduleId: params.scheduleId,
+        batchId: params.batchId,
+        subjectId: params.subjectId,
+        title: params.title || params.topic || "Lecture Video",
+        subjectName: params.subjectName || undefined,
+        thumbnail: params.thumbnail || undefined,
+        watchedAt: Date.now(),
+      });
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col">
@@ -150,7 +170,7 @@ export default function ScheduleWatch() {
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               allowFullScreen
               referrerPolicy="no-referrer"
-              onLoad={() => setIframeLoaded(true)}
+              onLoad={handleIframeLoad}
             />
           </>
         )}
