@@ -333,15 +333,19 @@ export interface ScheduleItem {
 export function getScheduleItemKind(
   item: ScheduleItem
 ): "video" | "notes" | "dpp" | "exercise" | "other" {
-  if (item.data.isVideoLecture === true) return "video";
   const t = (typeof item.type === "string" ? item.type : "").toLowerCase();
   const lt = (typeof item.data.lectureType === "string" ? item.data.lectureType : "").toLowerCase();
   const ct = (typeof item.data.contentType === "string" ? item.data.contentType : "").toLowerCase();
-  if (t === "videolecture" || lt === "videolecture" || ct === "video") return "video";
-  if (t === "notes" || lt === "notes" || ct === "notes") return "notes";
-  if (t === "dppnotes" || lt === "dpp" || t.includes("dpp") || ct.includes("dpp")) return "dpp";
+
+  // Only classify as non-video when EXPLICITLY marked — PW uses many different
+  // casing/naming conventions for video items (LIVELECTURES, Live, recording, etc.)
+  // so we check non-video types first and default everything else to video.
   if (t === "exercise" || lt === "exercise") return "exercise";
-  return "other";
+  if (t === "dppnotes" || t === "dpp" || lt === "dpp" || ct === "dpp") return "dpp";
+  if (t === "notes" || lt === "notes" || ct === "notes") return "notes";
+
+  // Default: treat as video (covers LIVELECTURES, Live, recording, videolecture, isVideoLecture, etc.)
+  return "video";
 }
 
 export function useTodaysSchedule(batchId: string) {
