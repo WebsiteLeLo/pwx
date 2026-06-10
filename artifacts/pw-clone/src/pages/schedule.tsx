@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
-import { useTodaysSchedule, getScheduleItemKind, type ScheduleItem } from "@/hooks/usePWApi";
+import { useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -105,9 +105,8 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
       return;
     }
     const att = item.data.attachmentIds?.[0];
-    if (att?.baseUrl) {
-      const url = att.key ? `${att.baseUrl}/${att.key}` : att.baseUrl;
-      window.open(url, "_blank", "noopener,noreferrer");
+    if (att) {
+      window.open(getPdfUrl(att), "_blank", "noopener,noreferrer");
       return;
     }
     navigate(`/batch/${batchId}/subject/${subjectId}`);

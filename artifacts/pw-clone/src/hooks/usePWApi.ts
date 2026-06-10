@@ -325,7 +325,7 @@ export interface ScheduleItem {
     urlType?: string;
     contentType?: string;
     url?: string;
-    attachmentIds?: { _id: string; baseUrl: string; key?: string; name?: string }[];
+    attachmentIds?: Attachment[];
   };
 }
 
