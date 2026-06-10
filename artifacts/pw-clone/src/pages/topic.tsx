@@ -40,7 +40,11 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
 
   const pdfs = useMemo(() => {
     if (data && data.length > 0) {
-      return data.map(item => ({ title: item.topic || baseTitle, url: item.url }));
+      return data.map((item, i) => {
+        const hw = content.homeworkIds?.[i];
+        const title = hw?.topic ?? hw?.note ?? hw?.slug ?? content.name ?? content.topic ?? baseTitle;
+        return { title, url: item.url };
+      });
     }
     const rows: { title: string; url: string | null }[] = [];
     if (content.homeworkIds && content.homeworkIds.length > 0) {
