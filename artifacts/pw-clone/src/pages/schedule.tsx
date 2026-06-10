@@ -178,20 +178,24 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
           </span>
 
           {isVideo ? (
-            <Button
-              size="sm"
-              variant={status === "live" ? "default" : "outline"}
-              className={`h-7 text-xs gap-1 flex-shrink-0 ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
-              onClick={handleVideoWatch}
-            >
-              {status === "live" ? (
-                <><Radio className="w-3 h-3" /> Watch Live</>
-              ) : status === "completed" ? (
-                <><PlayCircle className="w-3 h-3" /> Recording</>
-              ) : (
-                <><PlayCircle className="w-3 h-3" /> Watch</>
-              )}
-            </Button>
+            status === "upcoming" ? (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+                <Clock className="w-3 h-3" /> Starts at {formatTime(item.data.startTime)}
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                variant={status === "live" ? "default" : "outline"}
+                className={`h-7 text-xs gap-1 flex-shrink-0 ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
+                onClick={handleVideoWatch}
+              >
+                {status === "live" ? (
+                  <><Radio className="w-3 h-3" /> Watch Live</>
+                ) : (
+                  <><PlayCircle className="w-3 h-3" /> Recording</>
+                )}
+              </Button>
+            )
           ) : (
             <Button
               size="sm"
