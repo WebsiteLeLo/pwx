@@ -323,29 +323,39 @@ export interface ScheduleItem {
     teachers?: string[];
     isVideoLecture?: boolean;
     urlType?: string;
-    contentType?: string;
+    contentType?: string | string[] | unknown;
     url?: string;
     attachmentIds?: Attachment[];
   };
 }
 
-/** Returns the canonical kind of a schedule item */
+/** Returns the canonical kind of a schedule item.
+ *  PW API sets isVideoLecture reliably: true = video, false = non-video (DPP_QUIZ, notes, etc.)
+ *  contentType is an array in the API — never call .toLowerCase() on it.
+ */
 export function getScheduleItemKind(
   item: ScheduleItem
 ): "video" | "notes" | "dpp" | "exercise" | "other" {
-  const t = (typeof item.type === "string" ? item.type : "").toLowerCase();
+  // Primary signal: isVideoLecture is explicitly set by PW's API
+  if (item.data.isVideoLecture === true) return "video";
+
+  const t = (typeof item.type === "string" ? item.type : "").toUpperCase();
   const lt = (typeof item.data.lectureType === "string" ? item.data.lectureType : "").toLowerCase();
-  const ct = (typeof item.data.contentType === "string" ? item.data.contentType : "").toLowerCase();
 
-  // Only classify as non-video when EXPLICITLY marked — PW uses many different
-  // casing/naming conventions for video items (LIVELECTURES, Live, recording, etc.)
-  // so we check non-video types first and default everything else to video.
-  if (t === "exercise" || lt === "exercise") return "exercise";
-  if (t === "dppnotes" || t === "dpp" || lt === "dpp" || ct === "dpp") return "dpp";
-  if (t === "notes" || lt === "notes" || ct === "notes") return "notes";
+  if (item.data.isVideoLecture === false) {
+    // Explicitly non-video — classify by type
+    if (t === "DPP_QUIZ" || t.includes("DPP")) return "dpp";
+    if (t === "EXERCISE") return "exercise";
+    return "notes";
+  }
 
-  // Default: treat as video (covers LIVELECTURES, Live, recording, videolecture, isVideoLecture, etc.)
-  return "video";
+  // isVideoLecture undefined — fall back to type/lectureType strings
+  if (t === "LECTURE" || lt.includes("live") || lt.includes("record") || lt.includes("video")) return "video";
+  if (t === "DPP_QUIZ" || t.includes("DPP")) return "dpp";
+  if (t === "EXERCISE" || lt === "exercise") return "exercise";
+  if (t === "NOTES" || lt === "notes") return "notes";
+
+  return "video"; // safe default — most schedule items are lectures
 }
 
 export function useTodaysSchedule(batchId: string) {

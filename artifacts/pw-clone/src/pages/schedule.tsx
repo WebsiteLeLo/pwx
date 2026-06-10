@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
-import { useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem } from "@/hooks/usePWApi";
+import { useTodaysSchedule, getScheduleItemKind, type ScheduleItem } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -100,16 +100,10 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   };
 
   const handleMaterialOpen = () => {
-    if (item.data.url) {
-      window.open(item.data.url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    const att = item.data.attachmentIds?.[0];
-    if (att) {
-      window.open(getPdfUrl(att), "_blank", "noopener,noreferrer");
-      return;
-    }
-    navigate(`/batch/${batchId}/subject/${subjectId}`);
+    // Use rarestudy's note viewer — same URL format as useAttachmentUrls in topic.tsx
+    const isDpp = kind === "dpp";
+    const url = `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=note&noteIndex=0&isDpp=${isDpp}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const borderClass = isVideo
