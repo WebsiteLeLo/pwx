@@ -219,9 +219,9 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
   const { data, isLoading, isError, refetch, isFetching } = useTodaysSchedule(batchId);
   const items = data?.data ?? [];
 
-  const sorted = [...items].sort(
-    (a, b) => new Date(a.data.startTime).getTime() - new Date(b.data.startTime).getTime()
-  );
+  const sorted = [...items]
+    .filter(i => getScheduleItemKind(i) === "video")
+    .sort((a, b) => new Date(a.data.startTime).getTime() - new Date(b.data.startTime).getTime());
 
   const liveCount = sorted.filter(i => getLectureStatus(i) === "live").length;
 
