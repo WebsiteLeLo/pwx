@@ -100,9 +100,10 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   };
 
   const handleMaterialOpen = () => {
-    // Use rarestudy's note viewer — same URL format as useAttachmentUrls in topic.tsx
-    const isDpp = kind === "dpp";
-    const url = `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=note&noteIndex=0&isDpp=${isDpp}`;
+    // DPP_QUIZ items are online quizzes → tap=dpp
+    // Notes/exercise items are PDFs → tap=note
+    const tap = kind === "dpp" ? "dpp" : "note";
+    const url = `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=${tap}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 

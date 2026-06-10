@@ -326,6 +326,14 @@ export interface ScheduleItem {
     contentType?: string | string[] | unknown;
     url?: string;
     attachmentIds?: Attachment[];
+    dppData?: {
+      _id: string;
+      title?: string;
+      slug?: string;
+      dppId?: string;
+      isSubjective?: boolean;
+      totalQuestions?: number;
+    };
   };
 }
 
