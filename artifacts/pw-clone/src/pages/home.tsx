@@ -40,6 +40,78 @@ const PAGE_SIZE = 8;
 
 type Tab = "all" | "enrolled";
 
+function TelegramModal({ batchName, onClose }: { batchName: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 20 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="relative bg-card border border-border/60 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top gradient bar */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#29a7e0] via-[#2196f3] to-[#29a7e0]" />
+
+        <div className="p-6">
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-7 h-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Icon */}
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-[#29a7e0]/15 flex items-center justify-center">
+              <svg className="w-9 h-9 text-[#29a7e0]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Text */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full mb-3">
+              <CheckCircle2 className="w-3 h-3" />
+              Enrolled in {batchName.length > 28 ? batchName.slice(0, 28) + "…" : batchName}
+            </div>
+            <h2 className="text-xl font-extrabold mb-2">Join the PWX Community!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Get updates, new batch alerts, study tips, and connect with fellow learners on our Telegram channel.
+            </p>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col gap-2">
+            <a
+              href="https://t.me/pwxonrender"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90 active:opacity-80"
+              style={{ background: "#29a7e0" }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+              Join Telegram Channel
+            </a>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Maybe Later
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
@@ -315,6 +387,13 @@ export default function Home() {
   const { mixes } = useCustomBatches();
   const { history, removeFromHistory, clearHistory } = useWatchHistory();
 
+  const [tgModal, setTgModal] = useState<{ batchName: string } | null>(null);
+
+  function handleEnroll(batch: Batch) {
+    enroll(batch);
+    setTgModal({ batchName: batch.name });
+  }
+
   const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -507,7 +586,7 @@ export default function Home() {
                   batch={batch}
                   index={tab === "enrolled" ? filteredMixes.length + index : index}
                   enrolled={isEnrolled(batch._id)}
-                  onEnroll={enroll}
+                  onEnroll={handleEnroll}
                   onUnenroll={unenroll}
                 />
               ))}
@@ -521,6 +600,16 @@ export default function Home() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         )}
       </div>
+
+      {/* Telegram enroll modal */}
+      <AnimatePresence>
+        {tgModal && (
+          <TelegramModal
+            batchName={tgModal.batchName}
+            onClose={() => setTgModal(null)}
+          />
+        )}
+      </AnimatePresence>
     </Layout>
   );
 }
