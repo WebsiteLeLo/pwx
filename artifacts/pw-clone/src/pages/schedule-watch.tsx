@@ -138,81 +138,8 @@ export default function ScheduleWatch() {
           </div>
         )}
 
-        {/* UPCOMING — countdown screen */}
-        {view === "upcoming" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 text-center">
-            <div className="relative flex items-center justify-center mb-2">
-              <span className="absolute w-28 h-28 rounded-full animate-ping" style={{ background: `${ACCENT}14` }} />
-              <span className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: `${ACCENT}18`, border: `2px solid ${ACCENT}44` }}>
-                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke={ACCENT} strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-              </span>
-            </div>
-
-            {params.subjectName && (
-              <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full" style={{ background: `${ACCENT}22`, color: ACCENT }}>
-                {params.subjectName}
-              </span>
-            )}
-
-            {params.topic && (
-              <h2 className="text-xl font-bold text-white max-w-lg leading-snug">{params.topic}</h2>
-            )}
-
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-sm" style={{ color: "rgba(255,255,255,.4)" }}>Class starts in</p>
-              <p className="text-4xl font-bold tabular-nums" style={{ color: "rgba(255,255,255,.9)" }}>{countdown}</p>
-              {params.startTime && (
-                <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,.35)" }}>
-                  at {formatTime(params.startTime)} — {formatTime(params.endTime)}
-                </p>
-              )}
-            </div>
-
-            <p className="text-xs max-w-xs" style={{ color: "rgba(255,255,255,.25)" }}>
-              The player will open automatically when the class goes live.
-            </p>
-          </div>
-        )}
-
-        {/* ENDED */}
-        {view === "ended" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 text-center">
-            <span className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.06)", border: "1.5px solid rgba(255,255,255,.12)" }}>
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="rgba(255,255,255,.4)" strokeWidth="1.5">
-                <path d="M9 12l2 2 4-4" />
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-            </span>
-            {params.subjectName && (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: `${ACCENT}1a`, color: ACCENT }}>
-                {params.subjectName}
-              </span>
-            )}
-            {params.topic && (
-              <h2 className="text-lg font-bold text-white/80 max-w-lg leading-snug">{params.topic}</h2>
-            )}
-            <p className="text-sm" style={{ color: "rgba(255,255,255,.35)" }}>
-              This class has ended.
-              {params.endTime && ` It finished at ${formatTime(params.endTime)}.`}
-            </p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,.2)" }}>
-              A recording may be available in the subject page shortly.
-            </p>
-            <button
-              className="px-5 py-2 rounded-lg text-sm font-medium"
-              style={{ background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}33` }}
-              onClick={() => window.history.back()}
-            >
-              ← Back to Schedule
-            </button>
-          </div>
-        )}
-
-        {/* LIVE — iframe player */}
-        {view === "live" && (
+        {/* Player — shown for all valid states */}
+        {view !== "invalid" && (
           <>
             {/* Loading overlay */}
             <div
@@ -220,21 +147,27 @@ export default function ScheduleWatch() {
               style={{ opacity: iframeLoaded ? 0 : 1 }}
             >
               <div className="relative flex items-center justify-center">
-                <span className="absolute w-20 h-20 rounded-full animate-ping" style={{ background: `${RED}22` }} />
-                <span className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: `${RED}18`, border: `2px solid ${RED}55` }}>
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill={RED}>
-                    <circle cx="12" cy="12" r="5" />
-                    <circle cx="12" cy="12" r="9" fill="none" stroke={RED} strokeWidth="1.5" />
-                  </svg>
+                <span className="absolute w-20 h-20 rounded-full animate-ping"
+                  style={{ background: view === "live" ? `${RED}22` : `${ACCENT}22` }} />
+                <span className="w-14 h-14 rounded-full flex items-center justify-center"
+                  style={{ background: view === "live" ? `${RED}18` : `${ACCENT}18`, border: `2px solid ${view === "live" ? RED : ACCENT}55` }}>
+                  {view === "live" ? (
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill={RED}>
+                      <circle cx="12" cy="12" r="5" />
+                      <circle cx="12" cy="12" r="9" fill="none" stroke={RED} strokeWidth="1.5" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill={ACCENT}>
+                      <path d="M6 4.75c0-1.087 1.2-1.7 2.11-1.1l11 7.25a1.3 1.3 0 010 2.2l-11 7.25C7.2 20.95 6 20.337 6 19.25V4.75z"/>
+                    </svg>
+                  )}
                 </span>
               </div>
               <div className="flex items-end gap-1" style={{ height: "22px" }}>
                 {[0, 1, 2, 3, 4].map((i) => (
-                  <span
-                    key={i}
-                    className="w-1 rounded-full"
+                  <span key={i} className="w-1 rounded-full"
                     style={{
-                      background: RED,
+                      background: view === "live" ? RED : ACCENT,
                       height: "100%",
                       animation: `barBounce 1s ease-in-out ${i * 0.12}s infinite`,
                       opacity: 0.8,
@@ -243,7 +176,7 @@ export default function ScheduleWatch() {
                 ))}
               </div>
               <p className="text-sm font-medium tracking-wide" style={{ color: "rgba(255,255,255,.4)" }}>
-                Connecting to live stream…
+                {view === "live" ? "Connecting to live stream…" : "Loading…"}
               </p>
             </div>
 
