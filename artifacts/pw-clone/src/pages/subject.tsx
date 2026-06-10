@@ -62,10 +62,10 @@ export default function Subject() {
 
   return (
     <Layout breadcrumbs={breadcrumbs}>
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight mb-2">Chapters & Topics</h1>
-          <p className="text-lg text-muted-foreground">Select a chapter to access lectures and notes.</p>
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Chapters & Topics</h1>
+          <p className="text-base sm:text-lg text-muted-foreground">Select a chapter to access lectures and notes.</p>
         </div>
       </div>
 

@@ -289,11 +289,11 @@ export default function Home() {
   return (
     <Layout>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">
           {tab === "enrolled" ? "My Enrolled Batches" : "Explore Batches"}
         </h1>
-        <p className="text-lg text-muted-foreground">
+        <p className="text-base sm:text-lg text-muted-foreground">
           {tab === "enrolled"
             ? `You have enrolled in ${enrolled.length} batch${enrolled.length !== 1 ? "es" : ""}.`
             : "Select a batch to start your preparation journey."}

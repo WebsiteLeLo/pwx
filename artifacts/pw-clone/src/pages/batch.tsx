@@ -134,9 +134,9 @@ export default function Batch() {
 
   return (
     <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: batchName }]}>
-      <div className="mb-10">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2">Subjects</h1>
-        <p className="text-lg text-muted-foreground">Master your concepts subject by subject.</p>
+      <div className="mb-6 sm:mb-10">
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Subjects</h1>
+        <p className="text-base sm:text-lg text-muted-foreground">Master your concepts subject by subject.</p>
       </div>
 
       {isLoading ? (

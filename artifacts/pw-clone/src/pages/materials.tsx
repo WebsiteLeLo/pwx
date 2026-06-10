@@ -242,8 +242,8 @@ export default function Materials() {
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">JEE Materials</h1>
-            <p className="text-muted-foreground">Free study resources for JEE aspirants</p>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">JEE Materials</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Free study resources for JEE aspirants</p>
           </div>
         </div>
       </div>

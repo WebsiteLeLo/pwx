@@ -359,24 +359,24 @@ export default function Topic() {
 
   return (
     <Layout breadcrumbs={breadcrumbs}>
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-2">{topicName}</h1>
-        <p className="text-lg text-muted-foreground">Watch lectures, review notes, and practice DPP sheets.</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">{topicName}</h1>
+        <p className="text-base sm:text-lg text-muted-foreground">Watch lectures, review notes, and practice DPP sheets.</p>
       </div>
 
-      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit mb-2">
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-full sm:w-fit mb-2 overflow-x-auto">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             data-testid={`tab-${key}`}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 sm:flex-none justify-center sm:justify-start ${
               activeTab === key
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-4 h-4 flex-shrink-0" />
             {label}
           </button>
         ))}
