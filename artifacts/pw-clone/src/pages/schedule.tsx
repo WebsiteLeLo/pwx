@@ -59,9 +59,17 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   const tag = item.data.tags?.[0]?.name;
 
   const handleWatch = () => {
-    navigate(
-      `/schedule-watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}`
-    );
+    const qs = new URLSearchParams({
+      batchId,
+      subjectId,
+      scheduleId,
+      status: item.data.status,
+      startTime: item.data.startTime,
+      endTime: item.data.endTime,
+      topic: item.data.topic.trim(),
+      subjectName: item.data.subjectId.name,
+    }).toString();
+    navigate(`/schedule-watch?${qs}`);
   };
 
   return (
