@@ -74,7 +74,7 @@ function MixCard({ mix, onDelete, onRename }: { mix: MixBatch; onDelete: () => v
         <div className="flex-1" />
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 cursor-pointer" onClick={e => e.preventDefault()}>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </Button>
           </AlertDialogTrigger>
