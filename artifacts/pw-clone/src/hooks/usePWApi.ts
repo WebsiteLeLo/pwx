@@ -334,9 +334,9 @@ export function getScheduleItemKind(
   item: ScheduleItem
 ): "video" | "notes" | "dpp" | "exercise" | "other" {
   if (item.data.isVideoLecture === true) return "video";
-  const t = (item.type ?? "").toLowerCase();
-  const lt = (item.data.lectureType ?? "").toLowerCase();
-  const ct = (item.data.contentType ?? "").toLowerCase();
+  const t = (typeof item.type === "string" ? item.type : "").toLowerCase();
+  const lt = (typeof item.data.lectureType === "string" ? item.data.lectureType : "").toLowerCase();
+  const ct = (typeof item.data.contentType === "string" ? item.data.contentType : "").toLowerCase();
   if (t === "videolecture" || lt === "videolecture" || ct === "video") return "video";
   if (t === "notes" || lt === "notes" || ct === "notes") return "notes";
   if (t === "dppnotes" || lt === "dpp" || t.includes("dpp") || ct.includes("dpp")) return "dpp";
