@@ -102,7 +102,7 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
             <Button
               size="sm"
               variant="outline"
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 cursor-pointer"
               onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
             >
               <ExternalLink className="w-3.5 h-3.5" />
