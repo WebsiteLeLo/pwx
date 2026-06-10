@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
-import { useTodaysSchedule, type ScheduleItem } from "@/hooks/usePWApi";
+import { useTodaysSchedule, getScheduleItemKind, type ScheduleItem } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Radio, Clock, ChevronRight, BookOpen, PlayCircle,
-  RefreshCw, AlertCircle, CheckCircle2, Loader2,
+  RefreshCw, AlertCircle, CheckCircle2, Loader2, FileText, Dumbbell,
 } from "lucide-react";
 
 function getLectureStatus(item: ScheduleItem): "live" | "upcoming" | "completed" {
@@ -50,15 +50,42 @@ interface ScheduleCardProps {
   now: number;
 }
 
+const KIND_META: Record<string, { label: string; icon: ReactNode; color: string }> = {
+  notes: {
+    label: "Notes",
+    icon: <FileText className="w-3 h-3" />,
+    color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  },
+  dpp: {
+    label: "DPP",
+    icon: <FileText className="w-3 h-3" />,
+    color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  },
+  exercise: {
+    label: "Exercise",
+    icon: <Dumbbell className="w-3 h-3" />,
+    color: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  },
+  other: {
+    label: "Material",
+    icon: <BookOpen className="w-3 h-3" />,
+    color: "bg-secondary text-muted-foreground border-border/40",
+  },
+};
+
 function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   const [, navigate] = useLocation();
   const status = getLectureStatus(item);
+  const kind = getScheduleItemKind(item);
+  const isVideo = kind === "video";
   const subjectId = item.data.subjectId._id;
   const scheduleId = item.data._id;
   const batchId = item.data.batchId;
   const tag = item.data.tags?.[0]?.name;
 
-  const handleWatch = () => {
+  const kindMeta = KIND_META[kind] ?? KIND_META.other;
+
+  const handleVideoWatch = () => {
     const qs = new URLSearchParams({
       batchId,
       subjectId,
@@ -72,20 +99,36 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
     navigate(`/schedule-watch?${qs}`);
   };
 
+  const handleMaterialOpen = () => {
+    if (item.data.url) {
+      window.open(item.data.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const att = item.data.attachmentIds?.[0];
+    if (att?.baseUrl) {
+      const url = att.key ? `${att.baseUrl}/${att.key}` : att.baseUrl;
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    navigate(`/batch/${batchId}/subject/${subjectId}`);
+  };
+
+  const borderClass = isVideo
+    ? status === "live"
+      ? "border-red-500/50 bg-red-950/10 hover:border-red-500/70"
+      : status === "completed"
+      ? "border-border/30 bg-card/50 opacity-70"
+      : "border-border/50 bg-card hover:border-primary/40"
+    : "border-border/40 bg-card/60 hover:border-amber-500/30";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      className={`relative rounded-xl border overflow-hidden transition-colors ${
-        status === "live"
-          ? "border-red-500/50 bg-red-950/10 hover:border-red-500/70"
-          : status === "completed"
-          ? "border-border/30 bg-card/50 opacity-70"
-          : "border-border/50 bg-card hover:border-primary/40"
-      }`}
+      className={`relative rounded-xl border overflow-hidden transition-colors ${borderClass}`}
     >
-      {status === "live" && (
+      {isVideo && status === "live" && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
       )}
 
@@ -95,18 +138,28 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${subjectColor(item.data.subjectId.name)}`}>
               {item.data.subjectId.name}
             </span>
-            {status === "live" && (
+
+            {/* Item kind badge for non-video items */}
+            {!isVideo && (
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${kindMeta.color}`}>
+                {kindMeta.icon}
+                {kindMeta.label}
+              </span>
+            )}
+
+            {/* Status badges only for video items */}
+            {isVideo && status === "live" && (
               <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 LIVE
               </span>
             )}
-            {status === "completed" && (
+            {isVideo && status === "completed" && (
               <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
                 <CheckCircle2 className="w-3 h-3" /> Ended
               </span>
             )}
-            {status === "upcoming" && (
+            {isVideo && status === "upcoming" && (
               <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
                 <Clock className="w-3 h-3" /> Upcoming
               </span>
@@ -118,7 +171,7 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
           </div>
         </div>
 
-        <h3 className={`font-semibold text-sm leading-snug mb-1 line-clamp-2 ${status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
+        <h3 className={`font-semibold text-sm leading-snug mb-1 line-clamp-2 ${!isVideo || status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
           {item.data.topic.trim()}
         </h3>
         {tag && tag !== item.data.topic.trim() && (
@@ -129,20 +182,33 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
           <span className="text-xs text-muted-foreground truncate max-w-[160px]">
             {batchName}
           </span>
-          <Button
-            size="sm"
-            variant={status === "live" ? "default" : "outline"}
-            className={`h-7 text-xs gap-1 flex-shrink-0 ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
-            onClick={handleWatch}
-          >
-            {status === "live" ? (
-              <><Radio className="w-3 h-3" /> Watch Live</>
-            ) : status === "completed" ? (
-              <><PlayCircle className="w-3 h-3" /> Recording</>
-            ) : (
-              <><PlayCircle className="w-3 h-3" /> Watch</>
-            )}
-          </Button>
+
+          {isVideo ? (
+            <Button
+              size="sm"
+              variant={status === "live" ? "default" : "outline"}
+              className={`h-7 text-xs gap-1 flex-shrink-0 ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
+              onClick={handleVideoWatch}
+            >
+              {status === "live" ? (
+                <><Radio className="w-3 h-3" /> Watch Live</>
+              ) : status === "completed" ? (
+                <><PlayCircle className="w-3 h-3" /> Recording</>
+              ) : (
+                <><PlayCircle className="w-3 h-3" /> Watch</>
+              )}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 flex-shrink-0 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+              onClick={handleMaterialOpen}
+            >
+              {kindMeta.icon}
+              Open {kindMeta.label}
+            </Button>
+          )}
         </div>
       </div>
     </motion.div>

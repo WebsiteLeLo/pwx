@@ -322,7 +322,26 @@ export interface ScheduleItem {
     scheduleCode?: string;
     teachers?: string[];
     isVideoLecture?: boolean;
+    urlType?: string;
+    contentType?: string;
+    url?: string;
+    attachmentIds?: { _id: string; baseUrl: string; key?: string; name?: string }[];
   };
+}
+
+/** Returns the canonical kind of a schedule item */
+export function getScheduleItemKind(
+  item: ScheduleItem
+): "video" | "notes" | "dpp" | "exercise" | "other" {
+  if (item.data.isVideoLecture === true) return "video";
+  const t = (item.type ?? "").toLowerCase();
+  const lt = (item.data.lectureType ?? "").toLowerCase();
+  const ct = (item.data.contentType ?? "").toLowerCase();
+  if (t === "videolecture" || lt === "videolecture" || ct === "video") return "video";
+  if (t === "notes" || lt === "notes" || ct === "notes") return "notes";
+  if (t === "dppnotes" || lt === "dpp" || t.includes("dpp") || ct.includes("dpp")) return "dpp";
+  if (t === "exercise" || lt === "exercise") return "exercise";
+  return "other";
 }
 
 export function useTodaysSchedule(batchId: string) {
