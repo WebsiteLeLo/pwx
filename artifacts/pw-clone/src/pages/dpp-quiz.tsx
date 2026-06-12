@@ -136,7 +136,7 @@ export default function DppQuiz() {
                 <button
                   onClick={() => window.history.back()}
                   className="w-12 h-12 flex items-center justify-center cursor-pointer pointer-events-auto"
-                  style={{ background: "#0d0f1e" }}
+                  style={{ background: "#0F172A" }}
                   title="Go back"
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#8b8fa8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
