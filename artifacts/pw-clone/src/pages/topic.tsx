@@ -366,12 +366,12 @@ function DppQuizTabContent({ batchId, subjectId, topicId }: DppQuizTabProps) {
         const t = item.dppQuizDetails.test;
         const tag = item.dppQuizDetails.tag;
         const params = new URLSearchParams({
-          testId: t._id,
           batchId,
           scheduleId: item.dppQuizDetails.scheduleId,
+          testId: t._id,
           tag,
-          title: encodeURIComponent(t.name),
-          back: `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`,
+          isFreeTest: String(item.dppQuizDetails.isFree),
+          title: t.name,
         });
         const quizUrl = `/dpp-quiz?${params}`;
 
