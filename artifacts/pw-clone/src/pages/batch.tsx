@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2 } from "lucide-react";
-import { apiUrl } from "@/lib/apiUrl";
+import { ogUrl } from "@/lib/apiUrl";
 
 function AddToMixDialog({
   open,
@@ -135,7 +135,7 @@ export default function Batch() {
   const batchName = data?.data.name || "Loading...";
 
   const handleShare = async () => {
-    const url = apiUrl(`/og/batch/${batchId}`);
+    const url = ogUrl(`/og/batch/${batchId}`);
     try {
       if (navigator.share) {
         await navigator.share({ title: batchName, url });

@@ -1,0 +1,7 @@
+name = "pwx-og"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+FRONTEND_URL = "https://pwx.onrender.com"
