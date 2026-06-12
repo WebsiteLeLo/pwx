@@ -134,7 +134,7 @@ export default function Batch() {
   const batchName = data?.data.name || "Loading...";
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/batch/${batchId}`;
+    const url = `${window.location.origin}/api/og/batch/${batchId}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: batchName, url });
