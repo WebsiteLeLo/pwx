@@ -132,10 +132,11 @@ export default function DppQuiz() {
             />
 
             {iframeLoaded && (
-              <div className="absolute top-3 left-3 z-20 pointer-events-none">
+              <div className="absolute top-0 left-0 z-20 pointer-events-none">
                 <button
                   onClick={() => window.history.back()}
-                  className="w-8 h-8 flex items-center justify-center cursor-pointer pointer-events-auto"
+                  className="w-12 h-12 flex items-center justify-center cursor-pointer pointer-events-auto"
+                  style={{ background: "#0d0f1e" }}
                   title="Go back"
                 >
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#8b8fa8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
