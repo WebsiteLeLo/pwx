@@ -5,7 +5,7 @@ import { Link, useParams } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check } from "lucide-react";
+import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X } from "lucide-react";
 
 const MAX_PAGES = 50;
 
@@ -50,6 +50,7 @@ function useAllTopics(batchId: string, subjectId: string) {
 export default function Subject() {
   const { batchId, subjectId } = useParams<{ batchId: string; subjectId: string }>();
   const [copied, setCopied] = useState(false);
+  const [search, setSearch] = useState("");
 
   const searchParams = new URLSearchParams(window.location.search);
   const fromMix = searchParams.get("fromMix") ?? "";
@@ -60,6 +61,10 @@ export default function Subject() {
 
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
+
+  const filteredTopics = search.trim()
+    ? allTopics.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : allTopics;
 
   const breadcrumbs = fromMix
     ? [
@@ -117,31 +122,56 @@ export default function Subject() {
 
   return (
     <Layout breadcrumbs={breadcrumbs}>
-      <div className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Chapters & Topics</h1>
-          <p className="text-base sm:text-lg text-muted-foreground">Select a chapter to access lectures and notes.</p>
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-1">Chapters & Topics</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Select a chapter to access lectures and notes.</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={handleShare}
-          className="flex items-center gap-2 self-start md:self-auto"
+          title="Share this page"
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all flex-shrink-0 mt-1
+            ${copied
+              ? "border-green-500/60 bg-green-500/10 text-green-400"
+              : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+            }`}
         >
           {copied ? (
             <>
-              <Check className="w-4 h-4 text-green-500" />
-              <span className="text-green-500">Copied!</span>
+              <Check className="w-4 h-4" />
+              <span className="hidden sm:inline">Copied!</span>
             </>
           ) : (
             <>
               <Share2 className="w-4 h-4" />
-              Share
+              <span className="hidden sm:inline">Share</span>
             </>
           )}
-        </Button>
+        </button>
       </div>
 
+      {/* Search bar */}
+      <div className="relative mb-5 sm:mb-6">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search chapters..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border/60 bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Topics list */}
       {isLoading ? (
         <div className="space-y-4">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -150,7 +180,7 @@ export default function Subject() {
         </div>
       ) : (
         <div className="space-y-4">
-          {allTopics.map((topic, index) => (
+          {filteredTopics.map((topic, index) => (
             <Link key={topic._id} href={topicHref(topic._id)}>
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -187,11 +217,20 @@ export default function Subject() {
             </Link>
           ))}
 
-          {allTopics.length === 0 && !isLoading && (
+          {filteredTopics.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
               <Layers className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-bold">No Topics Found</h3>
-              <p className="text-muted-foreground">There are no topics available for this subject yet.</p>
+              <h3 className="text-xl font-bold">
+                {search ? "No chapters found" : "No Topics Found"}
+              </h3>
+              <p className="text-muted-foreground">
+                {search ? `No chapters match "${search}"` : "There are no topics available for this subject yet."}
+              </p>
+              {search && (
+                <button onClick={() => setSearch("")} className="mt-3 text-sm text-primary hover:underline">
+                  Clear search
+                </button>
+              )}
             </div>
           )}
 
