@@ -8,7 +8,7 @@ const isBuild = process.env.NODE_ENV === "production" || process.argv.includes("
 
 // PORT is only needed for dev/preview server, not for production builds
 const rawPort = process.env.PORT;
-const port = rawPort ? Number(rawPort) : 3000;
+const port = rawPort ? Number(rawPort) : 5000;
 
 // BASE_PATH defaults to "/" for standard deployments (Render, Vercel, etc.)
 const basePath = process.env.BASE_PATH || "/";

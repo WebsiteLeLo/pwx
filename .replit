@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-20", "web", "php-8.2"]
 
 [deployment]
 router = "application"
@@ -30,10 +30,10 @@ outputType = "webview"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/pw-clone run dev"
-waitForPort = 20318
+waitForPort = 5000
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
@@ -43,6 +43,10 @@ timeoutMs = 20000
 [[ports]]
 localPort = 3000
 externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [[ports]]
 localPort = 8080
@@ -55,3 +59,6 @@ externalPort = 8081
 [[ports]]
 localPort = 20318
 externalPort = 80
+
+[nix]
+channel = "stable-25_05"
