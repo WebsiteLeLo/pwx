@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2 } from "lucide-react";
 
 function AddToMixDialog({
   open,
@@ -114,6 +114,7 @@ export default function Batch() {
   const { data, isLoading, isError, refetch } = useBatchDetails(batchId!);
   const { getSubjectMixes } = useCustomBatches();
   const [dialogSubject, setDialogSubject] = useState<MixSubject | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (isError) {
     return (
@@ -132,11 +133,42 @@ export default function Batch() {
 
   const batchName = data?.data.name || "Loading...";
 
+  const handleShare = async () => {
+    const url = `${window.location.origin}/batch/${batchId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: batchName, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {}
+    }
+  };
+
   return (
     <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: batchName }]}>
-      <div className="mb-6 sm:mb-10">
-        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Subjects</h1>
-        <p className="text-base sm:text-lg text-muted-foreground">Master your concepts subject by subject.</p>
+      <div className="mb-6 sm:mb-10 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Subjects</h1>
+          <p className="text-base sm:text-lg text-muted-foreground">Master your concepts subject by subject.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleShare}
+          title="Share this batch"
+          className="flex items-center gap-2 flex-shrink-0 mt-1"
+        >
+          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
+          <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
+        </Button>
       </div>
 
       {isLoading ? (
