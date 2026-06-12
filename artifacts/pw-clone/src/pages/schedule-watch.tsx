@@ -205,8 +205,8 @@ export default function ScheduleWatch() {
               <button
                 onClick={toggleFullscreen}
                 title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                className="absolute bottom-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-lg transition-opacity opacity-40 hover:opacity-100"
-                style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+                className="absolute bottom-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-lg opacity-100"
+                style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
               >
                 {isFullscreen ? (
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
