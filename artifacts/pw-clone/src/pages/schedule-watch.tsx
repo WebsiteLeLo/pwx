@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 
 const ACCENT = "#5a4bda";
@@ -32,6 +32,8 @@ export default function ScheduleWatch() {
   });
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { addToHistory } = useWatchHistory();
 
   useEffect(() => {
@@ -55,6 +57,14 @@ export default function ScheduleWatch() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   const hasParams = !!(params.batchId && params.scheduleId);
 
   const startMs = params.startTime ? new Date(params.startTime).getTime() : 0;
@@ -69,7 +79,6 @@ export default function ScheduleWatch() {
       if (now > endMs) return "ended";
       return "upcoming";
     }
-    // No status/time info means it's a recorded lecture — not live
     return "ended";
   }
 
@@ -96,9 +105,17 @@ export default function ScheduleWatch() {
     }
   }
 
+  function toggleFullscreen() {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col">
-      {/* Content */}
+    <div ref={containerRef} className="fixed inset-0 bg-[#0a0a0f] flex flex-col">
       <div className="flex-1 relative overflow-hidden">
 
         {/* INVALID */}
@@ -167,11 +184,31 @@ export default function ScheduleWatch() {
               src={rarestudyUrl}
               className="absolute inset-0 w-full h-full border-0"
               style={{ opacity: iframeLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}
-              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              allowFullScreen
+              allow="autoplay; encrypted-media; picture-in-picture"
               referrerPolicy="no-referrer"
               onLoad={handleIframeLoad}
             />
+
+            {/* Custom fullscreen button — renders over the iframe so fullscreen
+                is triggered on our container div, not the rarestudy.in iframe */}
+            {iframeLoaded && (
+              <button
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                className="absolute bottom-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-lg transition-opacity opacity-40 hover:opacity-100"
+                style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+              >
+                {isFullscreen ? (
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+                  </svg>
+                )}
+              </button>
+            )}
           </>
         )}
       </div>
