@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 
 const ACCENT = "#5a4bda";
@@ -33,7 +33,9 @@ export default function ScheduleWatch() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [barVisible, setBarVisible] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { addToHistory } = useWatchHistory();
 
   useEffect(() => {
@@ -58,12 +60,21 @@ export default function ScheduleWatch() {
   }, []);
 
   useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
+
+  const resetHideTimer = useCallback(() => {
+    setBarVisible(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setBarVisible(false), 3000);
+  }, []);
+
+  useEffect(() => {
+    resetHideTimer();
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [resetHideTimer]);
 
   const hasParams = !!(params.batchId && params.scheduleId);
 
@@ -115,7 +126,7 @@ export default function ScheduleWatch() {
   }
 
   return (
-    <div ref={containerRef} className="fixed inset-0 bg-[#0a0a0f] flex flex-col">
+    <div ref={containerRef} className="fixed inset-0 bg-[#0a0a0f] flex flex-col" onMouseMove={resetHideTimer}>
       <div className="flex-1 relative overflow-hidden">
 
         {/* INVALID */}
@@ -189,26 +200,55 @@ export default function ScheduleWatch() {
               onLoad={handleIframeLoad}
             />
 
-            {/* Custom fullscreen button — renders over the iframe so fullscreen
-                is triggered on our container div, not the rarestudy.in iframe */}
-            {iframeLoaded && (
+            {/* Top control bar — auto-hides after 3s of no mouse movement */}
+            <div
+              className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-3 py-2 pointer-events-none transition-opacity duration-300"
+              style={{
+                opacity: barVisible ? 1 : 0,
+                background: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%)",
+              }}
+            >
+              {/* Back button */}
+              <button
+                onClick={() => window.history.back()}
+                className="pointer-events-auto flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium px-2 py-1.5 rounded-lg transition-colors hover:bg-white/10"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Back
+              </button>
+
+              {/* Title */}
+              {params.topic && (
+                <span className="text-white/60 text-xs font-medium truncate max-w-[40%] text-center">
+                  {params.topic}
+                </span>
+              )}
+
+              {/* Fullscreen button */}
               <button
                 onClick={toggleFullscreen}
                 title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                className="absolute bottom-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-lg transition-opacity opacity-40 hover:opacity-100"
-                style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+                className="pointer-events-auto flex items-center gap-1.5 text-white/80 hover:text-white text-xs font-medium px-2 py-1.5 rounded-lg transition-colors hover:bg-white/10"
               >
                 {isFullscreen ? (
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
-                  </svg>
+                  <>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
+                    </svg>
+                    Exit
+                  </>
                 ) : (
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
-                  </svg>
+                  <>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+                    </svg>
+                    Fullscreen
+                  </>
                 )}
               </button>
-            )}
+            </div>
           </>
         )}
       </div>
