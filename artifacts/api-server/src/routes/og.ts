@@ -129,7 +129,6 @@ ogRouter.get("/og/batch/:batchId", async (req, res) => {
   <meta name="twitter:description" content="${safeDesc}" />
   <meta name="twitter:image" content="${safeImage}" />
 
-  <meta http-equiv="refresh" content="0; url=${safeUrl}" />
 </head>
 <body>
   <script>window.location.replace(${JSON.stringify(batchUrl)});</script>
