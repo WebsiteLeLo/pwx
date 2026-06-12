@@ -383,6 +383,123 @@ export function useTodaysSchedule(batchId: string) {
   });
 }
 
+// ── DPP Quiz ──────────────────────────────────────────────────────────────────
+
+export interface DppQuizItem {
+  _id: string;
+  type: string;
+  dppQuizDetails: {
+    test: {
+      _id: string;
+      displayOrder: number;
+      name: string;
+      totalMarks: number;
+      totalQuestions: number;
+      maxDuration: number;
+      createdAt: string;
+      isSubjective: boolean;
+    };
+    testStudentMapping: {
+      _id?: string;
+      testActivityStatus?: string;
+    };
+    isPurchased: boolean;
+    tag: string;
+    isReattempted: boolean;
+    isFree: boolean;
+    scheduleId: string;
+    contentId: string;
+  };
+}
+
+export function useDppList(batchId: string, batchSubjectId: string, chapterId: string) {
+  return useQuery({
+    queryKey: ["dppList", batchId, batchSubjectId, chapterId],
+    queryFn: async () => {
+      const url = `${API_BASE}/v3/test-service/tests/new-dpp-list?page=1&batchId=${encodeURIComponent(batchId)}&batchSubjectId=${encodeURIComponent(batchSubjectId)}&chapterId=${encodeURIComponent(chapterId)}&dppType=ALL&limit=50`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch DPP list");
+      return res.json() as Promise<{ success: boolean; data: DppQuizItem[] }>;
+    },
+    enabled: !!batchId && !!batchSubjectId && !!chapterId,
+    staleTime: MIN * 10,
+    gcTime: MIN * 60,
+  });
+}
+
+export interface DppOption {
+  _id: string;
+  texts: { en: string };
+  imageIds?: { en: { baseUrl: string; key: string; name?: string } };
+}
+
+export interface DppQuestion {
+  _id: string;
+  type: string;
+  questionNumber: number;
+  positiveMarks: number;
+  negativeMarks: number;
+  imageIds: {
+    en: { _id?: string; baseUrl: string; key: string; name?: string };
+  };
+  options: DppOption[];
+  solutions: string[];
+  solutionDescription: {
+    _id?: string;
+    videos?: { en: { videoType: string; videoUrl: string } };
+    videoDetails?: {
+      name: string;
+      image: string;
+      embedCode: string;
+      duration: string;
+    };
+  }[];
+  questionResponse: {
+    status: string;
+    markedSolutions: string[];
+    markedSolutionText: string;
+    timeTaken?: number;
+  };
+}
+
+export interface DppTestData {
+  sections: {
+    _id: string;
+    name: string;
+    questions: DppQuestion[];
+  }[];
+}
+
+export function useDppTest(
+  testId: string,
+  batchId: string,
+  scheduleId: string,
+  tag: string,
+  cohortId?: string,
+) {
+  return useQuery({
+    queryKey: ["dppTest", testId, batchId, scheduleId],
+    queryFn: async () => {
+      const type = tag === "Resume" ? "Resume" : "Start";
+      const params: Record<string, string> = {
+        batchId,
+        exerciseId: testId,
+        testSource: "BATCH_QUIZ",
+        type,
+        batchScheduleId: scheduleId,
+      };
+      if (cohortId) params.cohortId = cohortId;
+      const url = `${API_BASE}/v3/test-service/tests/${testId}/start-test?${new URLSearchParams(params)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch DPP test");
+      return res.json() as Promise<{ success: boolean; data: DppTestData }>;
+    },
+    enabled: !!testId && !!batchId && !!scheduleId,
+    staleTime: MIN * 5,
+    gcTime: MIN * 60,
+  });
+}
+
 export function useAllTopicContents(
   batchId: string,
   subjectId: string,

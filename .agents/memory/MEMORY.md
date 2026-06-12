@@ -1,0 +1,1 @@
+- [Artifact workflow ports](artifact-workflow-ports.md) — Replit injects PORT env for artifact workflows; pw-clone gets PORT=20318 (→ ext 80), api-server needs PORT=8080 in its dev script to match waitForPort.

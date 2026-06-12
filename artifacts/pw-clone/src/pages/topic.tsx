@@ -1,16 +1,19 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, useDppList, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, PenLine, CheckCircle2, RotateCcw } from "lucide-react";
 
-const TABS: { key: ContentType; label: string; icon: typeof Play }[] = [
+type TabKey = ContentType | "dppQuiz";
+
+const TABS: { key: TabKey; label: string; icon: typeof Play }[] = [
   { key: "videos", label: "Videos", icon: Play },
   { key: "notes", label: "Notes", icon: FileText },
   { key: "DppNotes", label: "DPP Notes", icon: BookOpen },
+  { key: "dppQuiz", label: "DPP Quiz", icon: PenLine },
 ];
 
 function getVideoThumb(vid: any): string | null {
@@ -317,16 +320,122 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
   );
 }
 
-function TabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
-  if (contentType === "videos") {
-    return <VideosTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={contentType} />;
+interface DppQuizTabProps {
+  batchId: string;
+  subjectId: string;
+  topicId: string;
+}
+
+function DppQuizTabContent({ batchId, subjectId, topicId }: DppQuizTabProps) {
+  const { data, isLoading, isError, refetch } = useDppList(batchId, subjectId, topicId);
+
+  if (isLoading) {
+    return (
+      <div className="mt-6 space-y-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+        ))}
+      </div>
+    );
   }
-  return <NotesTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={contentType} />;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-muted-foreground">Failed to load DPP quizzes.</p>
+        <Button onClick={() => refetch()} variant="outline" size="sm">Retry</Button>
+      </div>
+    );
+  }
+
+  const items = data?.data ?? [];
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+        <PenLine className="w-12 h-12 mb-4 opacity-30" />
+        <p className="text-lg font-medium">No DPP Quizzes available for this topic.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {items.map((item, index) => {
+        const t = item.dppQuizDetails.test;
+        const tag = item.dppQuizDetails.tag;
+        const params = new URLSearchParams({
+          testId: t._id,
+          batchId,
+          scheduleId: item.dppQuizDetails.scheduleId,
+          tag,
+          title: encodeURIComponent(t.name),
+          back: `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`,
+        });
+        const quizUrl = `/dpp-quiz?${params}`;
+
+        const tagColor =
+          tag === "Resume" ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+          : tag === "Reattempt" ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
+          : "bg-green-500/15 text-green-400 border-green-500/30";
+
+        const TagIcon =
+          tag === "Resume" ? RotateCcw
+          : tag === "Reattempt" ? RotateCcw
+          : CheckCircle2;
+
+        return (
+          <motion.div
+            key={item._id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2, delay: index * 0.04 }}
+          >
+            <Link href={quizUrl}>
+              <div className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all cursor-pointer group">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                  <PenLine className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{t.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t.totalQuestions} questions · {t.totalMarks} marks
+                  </p>
+                </div>
+                <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${tagColor} flex-shrink-0`}>
+                  <TagIcon className="w-3 h-3" />
+                  {tag}
+                </span>
+              </div>
+            </Link>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface TabContentProps2 {
+  batchId: string;
+  subjectId: string;
+  topicId: string;
+  activeTab: TabKey;
+}
+
+function TabContent({ batchId, subjectId, topicId, activeTab }: TabContentProps2) {
+  if (activeTab === "videos") {
+    return <VideosTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType="videos" />;
+  }
+  if (activeTab === "dppQuiz") {
+    return <DppQuizTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} />;
+  }
+  return <NotesTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={activeTab as ContentType} />;
 }
 
 export default function Topic() {
   const { batchId, subjectId, topicId } = useParams<{ batchId: string; subjectId: string; topicId: string }>();
-  const [activeTab, setActiveTab] = useState<ContentType>("videos");
+  const [activeTab, setActiveTab] = useState<TabKey>("videos");
 
   const sp = new URLSearchParams(window.location.search);
   const fromMix = sp.get("fromMix") ?? "";
@@ -396,7 +505,7 @@ export default function Topic() {
             batchId={batchId!}
             subjectId={subjectId!}
             topicId={topicId!}
-            contentType={activeTab}
+            activeTab={activeTab}
           />
         </motion.div>
       </AnimatePresence>
