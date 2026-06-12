@@ -88,18 +88,31 @@ export default function Subject() {
 
   const handleShare = async () => {
     const url = window.location.href;
+    const fallbackCopy = () => {
+      const el = document.createElement("textarea");
+      el.value = url;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
     try {
       if (navigator.share) {
         await navigator.share({ title: subjectName, url });
-      } else {
+      } else if (navigator.clipboard && document.hasFocus()) {
         await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+      } else {
+        fallbackCopy();
       }
     } catch {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      fallbackCopy();
     }
   };
 
