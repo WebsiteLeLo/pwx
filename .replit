@@ -40,3 +40,9 @@ externalPort = 80
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VITE_API_URL = "https://pw-clone-api.onrender.com/api"
+FRONTEND_URL = "https://pwx.onrender.com"
