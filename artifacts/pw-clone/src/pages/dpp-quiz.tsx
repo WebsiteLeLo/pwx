@@ -132,49 +132,21 @@ export default function DppQuiz() {
             />
 
             {iframeLoaded && (
-              <>
-                <div
-                  className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 px-4 py-3 transition-opacity duration-300"
-                  style={{
-                    opacity: barVisible ? 1 : 0,
-                    background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)",
-                  }}
-                >
-                  <button
-                    onClick={() => window.history.back()}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
-                    style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-                    title="Go back"
-                  >
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 12H5M12 5l-7 7 7 7" />
-                    </svg>
-                  </button>
-                  <span
-                    className="text-sm font-medium text-white truncate flex-1"
-                    style={{ textShadow: "0 1px 4px rgba(0,0,0,.8)" }}
-                  >
-                    {params.title}
-                  </span>
-                </div>
-
+              <div
+                className="absolute top-3 left-3 z-20 pointer-events-none"
+                style={{ opacity: barVisible ? 1 : 0, transition: "opacity 0.3s" }}
+              >
                 <button
-                  onClick={toggleFullscreen}
-                  title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                  className="absolute bottom-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer"
-                  style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+                  onClick={() => window.history.back()}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer pointer-events-auto"
+                  style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+                  title="Go back"
                 >
-                  {isFullscreen ? (
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
-                    </svg>
-                  )}
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 12H5M12 5l-7 7 7 7" />
+                  </svg>
                 </button>
-              </>
+              </div>
             )}
           </>
         )}
