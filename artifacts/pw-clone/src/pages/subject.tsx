@@ -1,22 +1,62 @@
-import { useState } from "react";
-import { useTopics, useBatchDetails } from "@/hooks/usePWApi";
+import { useState, useEffect, useRef } from "react";
+import { useTopics, useBatchDetails, Topic } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, PlaySquare, ChevronLeft, ChevronRight, Layers } from "lucide-react";
+import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check } from "lucide-react";
+
+const MAX_PAGES = 50;
+
+function useAllTopics(batchId: string, subjectId: string) {
+  const [fetchPage, setFetchPage] = useState(1);
+  const [allTopics, setAllTopics] = useState<Topic[]>([]);
+  const [done, setDone] = useState(false);
+  const seenIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setFetchPage(1);
+    setAllTopics([]);
+    setDone(false);
+    seenIds.current = new Set();
+  }, [batchId, subjectId]);
+
+  const { data, isLoading, isError, refetch } = useTopics(batchId, subjectId, fetchPage);
+
+  useEffect(() => {
+    if (!data) return;
+    const incoming = data.data ?? [];
+    const fresh = incoming.filter(t => !seenIds.current.has(t._id));
+    fresh.forEach(t => seenIds.current.add(t._id));
+
+    if (fresh.length > 0) {
+      setAllTopics(prev => [...prev, ...fresh]);
+      if (fetchPage < MAX_PAGES) {
+        setFetchPage(p => p + 1);
+      } else {
+        setDone(true);
+      }
+    } else {
+      setDone(true);
+    }
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isLoadingMore = !done && (isLoading || fetchPage > 1);
+
+  return { allTopics, isLoading: isLoading && allTopics.length === 0, isLoadingMore, isError, done, refetch };
+}
 
 export default function Subject() {
   const { batchId, subjectId } = useParams<{ batchId: string; subjectId: string }>();
-  const [page, setPage] = useState(1);
+  const [copied, setCopied] = useState(false);
 
   const searchParams = new URLSearchParams(window.location.search);
   const fromMix = searchParams.get("fromMix") ?? "";
   const fromMixName = decodeURIComponent(searchParams.get("fromMixName") ?? "");
 
   const { data: batchData } = useBatchDetails(batchId!);
-  const { data, isLoading, isError, refetch } = useTopics(batchId!, subjectId!, page);
+  const { allTopics, isLoading, isLoadingMore, isError, refetch } = useAllTopics(batchId!, subjectId!);
 
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
@@ -41,7 +81,24 @@ export default function Subject() {
       : base;
   };
 
-  if (isError) {
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: subjectName, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (isError && allTopics.length === 0) {
     return (
       <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: "Error" }]}>
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center gap-4">
@@ -58,8 +115,6 @@ export default function Subject() {
     );
   }
 
-  const totalPages = data ? Math.ceil(data.paginate.totalCount / data.paginate.limit) : 0;
-
   return (
     <Layout breadcrumbs={breadcrumbs}>
       <div className="mb-6 sm:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -67,6 +122,24 @@ export default function Subject() {
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Chapters & Topics</h1>
           <p className="text-base sm:text-lg text-muted-foreground">Select a chapter to access lectures and notes.</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleShare}
+          className="flex items-center gap-2 self-start md:self-auto"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 text-green-500" />
+              <span className="text-green-500">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="w-4 h-4" />
+              Share
+            </>
+          )}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -77,12 +150,12 @@ export default function Subject() {
         </div>
       ) : (
         <div className="space-y-4">
-          {data?.data.map((topic, index) => (
+          {allTopics.map((topic, index) => (
             <Link key={topic._id} href={topicHref(topic._id)}>
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, delay: index * 0.03 }}
+                transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.3) }}
                 className="group flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer"
               >
                 <div className="flex items-start gap-4 mb-4 sm:mb-0">
@@ -98,7 +171,7 @@ export default function Subject() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3 ml-14 sm:ml-0">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
                     <PlaySquare className="w-4 h-4 text-primary" />
@@ -114,38 +187,18 @@ export default function Subject() {
             </Link>
           ))}
 
-          {(!data?.data || data.data.length === 0) && (
-             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
-               <Layers className="w-12 h-12 text-muted-foreground mb-4" />
-               <h3 className="text-xl font-bold">No Topics Found</h3>
-               <p className="text-muted-foreground">There are no topics available for this subject yet.</p>
-             </div>
+          {allTopics.length === 0 && !isLoading && (
+            <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
+              <Layers className="w-12 h-12 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-bold">No Topics Found</h3>
+              <p className="text-muted-foreground">There are no topics available for this subject yet.</p>
+            </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 mt-8 pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Previous
-              </Button>
-              <span className="text-sm font-medium">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
+          {isLoadingMore && (
+            <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              Loading more topics…
             </div>
           )}
         </div>
