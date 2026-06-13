@@ -22,8 +22,6 @@ import {
   History,
   Play,
   Trash2,
-  User,
-  ChevronRight,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -398,7 +396,6 @@ export default function Home() {
 
   const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
-  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -409,44 +406,28 @@ export default function Home() {
 
   const sourceBatches: Batch[] = tab === "enrolled" ? enrolled : allBatches;
 
-  // Unique sorted teachers from ALL batches (not just source)
-  const allTeachers = useMemo(() => {
-    const names = new Set<string>();
-    allBatches.forEach((b) => { if (b.byName?.trim()) names.add(b.byName.trim()); });
-    return Array.from(names).sort();
-  }, [allBatches]);
-
-  // Autocomplete suggestions when typing
+  // Autocomplete: show matching batch names only
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q || q.length < 2) return { teachers: [], batches: [] };
-    const teachers = allTeachers
-      .filter((t) => t.toLowerCase().includes(q))
-      .slice(0, 5);
-    const batches = allBatches
-      .filter((b) => b.name.toLowerCase().includes(q) && !teachers.some((t) => t === b.byName))
-      .slice(0, 3)
+    if (!q || q.length < 2) return [];
+    return allBatches
+      .filter((b) => b.name.toLowerCase().includes(q))
+      .slice(0, 6)
       .map((b) => b.name);
-    return { teachers, batches };
-  }, [query, allTeachers, allBatches]);
+  }, [query, allBatches]);
 
-  const hasSuggestions = suggestions.teachers.length > 0 || suggestions.batches.length > 0;
+  const hasSuggestions = suggestions.length > 0;
 
+  // Filter by name (matches batch name OR byName series field)
   const filtered = useMemo(() => {
-    let result = sourceBatches;
-    if (selectedTeacher) {
-      result = result.filter((b) => b.byName?.trim() === selectedTeacher);
-    }
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.name.toLowerCase().includes(q) ||
-          b.byName?.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [sourceBatches, selectedTeacher, query]);
+    if (!query.trim()) return sourceBatches;
+    const q = query.trim().toLowerCase();
+    return sourceBatches.filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        b.byName?.toLowerCase().includes(q)
+    );
+  }, [sourceBatches, query]);
 
   const filteredMixes = query.trim()
     ? mixes.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
@@ -455,10 +436,10 @@ export default function Home() {
   const visibleBatches = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
-  // Reset pagination when tab, query, or teacher changes
+  // Reset pagination when tab or query changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tab, query, selectedTeacher]);
+  }, [tab, query]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -596,82 +577,25 @@ export default function Home() {
                   transition={{ duration: 0.12 }}
                   className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden"
                 >
-                  {suggestions.teachers.length > 0 && (
-                    <div>
-                      <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        By Name
-                      </div>
-                      {suggestions.teachers.map((teacher) => (
-                        <button
-                          key={teacher}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setSelectedTeacher(teacher);
-                            setQuery("");
-                            setShowSuggestions(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-primary/10 text-left transition-colors group"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                            <User className="w-3.5 h-3.5 text-primary" />
-                          </div>
-                          <span className="text-sm font-medium flex-1">{teacher}</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {suggestions.batches.length > 0 && (
-                    <div className={suggestions.teachers.length > 0 ? "border-t border-border/50" : ""}>
-                      <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Batches
-                      </div>
-                      {suggestions.batches.map((name) => (
-                        <button
-                          key={name}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setQuery(name);
-                            setShowSuggestions(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted text-left transition-colors"
-                        >
-                          <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-sm truncate">{name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {suggestions.map((name) => (
+                    <button
+                      key={name}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setQuery(name);
+                        setShowSuggestions(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted text-left transition-colors"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm truncate">{name}</span>
+                    </button>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </div>
-
-        {/* Active teacher filter badge */}
-        <AnimatePresence>
-          {selectedTeacher && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2"
-            >
-              <span className="text-xs text-muted-foreground">Filtering by teacher:</span>
-              <button
-                onClick={() => setSelectedTeacher(null)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
-              >
-                <User className="w-3 h-3" />
-                {selectedTeacher}
-                <X className="w-3 h-3 ml-0.5" />
-              </button>
-              <span className="text-xs text-muted-foreground">
-                · {filtered.length} batch{filtered.length !== 1 ? "es" : ""}
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
       </div>
 
