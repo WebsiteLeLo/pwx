@@ -599,7 +599,7 @@ export default function Home() {
                   {suggestions.teachers.length > 0 && (
                     <div>
                       <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Teachers
+                        By Name
                       </div>
                       {suggestions.teachers.map((teacher) => (
                         <button
@@ -673,31 +673,6 @@ export default function Home() {
           )}
         </AnimatePresence>
 
-        {/* Teacher filter chips — only on All Batches tab */}
-        {tab === "all" && allTeachers.length > 0 && !isLoading && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Browse by Teacher</span>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-              {allTeachers.map((teacher) => (
-                <button
-                  key={teacher}
-                  onClick={() => setSelectedTeacher(selectedTeacher === teacher ? null : teacher)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                    selectedTeacher === teacher
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
-                      : "bg-secondary/50 text-muted-foreground border-border/50 hover:border-primary/50 hover:text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <User className="w-3 h-3" />
-                  {teacher}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Empty state for enrolled tab — only when no batches AND no mixes */}
