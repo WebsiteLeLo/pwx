@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
@@ -22,6 +22,8 @@ import {
   History,
   Play,
   Trash2,
+  User,
+  ChevronRight,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -396,20 +398,55 @@ export default function Home() {
 
   const [tab, setTab] = useState<Tab>("enrolled");
   const [query, setQuery] = useState("");
+  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   const loadingMoreRef = useRef(false);
 
   const allBatches = data?.batches ?? [];
 
   const sourceBatches: Batch[] = tab === "enrolled" ? enrolled : allBatches;
 
-  const filtered = query.trim()
-    ? sourceBatches.filter((b) =>
-        b.name.toLowerCase().includes(query.toLowerCase()) ||
-        b.byName?.toLowerCase().includes(query.toLowerCase())
-      )
-    : sourceBatches;
+  // Unique sorted teachers from ALL batches (not just source)
+  const allTeachers = useMemo(() => {
+    const names = new Set<string>();
+    allBatches.forEach((b) => { if (b.byName?.trim()) names.add(b.byName.trim()); });
+    return Array.from(names).sort();
+  }, [allBatches]);
+
+  // Autocomplete suggestions when typing
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || q.length < 2) return { teachers: [], batches: [] };
+    const teachers = allTeachers
+      .filter((t) => t.toLowerCase().includes(q))
+      .slice(0, 5);
+    const batches = allBatches
+      .filter((b) => b.name.toLowerCase().includes(q) && !teachers.some((t) => t === b.byName))
+      .slice(0, 3)
+      .map((b) => b.name);
+    return { teachers, batches };
+  }, [query, allTeachers, allBatches]);
+
+  const hasSuggestions = suggestions.teachers.length > 0 || suggestions.batches.length > 0;
+
+  const filtered = useMemo(() => {
+    let result = sourceBatches;
+    if (selectedTeacher) {
+      result = result.filter((b) => b.byName?.trim() === selectedTeacher);
+    }
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.byName?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [sourceBatches, selectedTeacher, query]);
 
   const filteredMixes = query.trim()
     ? mixes.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
@@ -418,10 +455,21 @@ export default function Home() {
   const visibleBatches = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
-  // Reset pagination when tab or query changes
+  // Reset pagination when tab, query, or teacher changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [tab, query]);
+  }, [tab, query, selectedTeacher]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const loadMore = useCallback(() => {
     if (loadingMoreRef.current || !hasMore) return;
@@ -482,60 +530,174 @@ export default function Home() {
       </div>
 
       {/* Tabs + Search */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        {/* Tabs */}
-        <div className="flex items-center bg-secondary/50 rounded-lg p-1 gap-1 w-fit">
-          <button
-            onClick={() => setTab("all")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              tab === "all"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All Batches
-            {!isLoading && (
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                ({allBatches.length})
-              </span>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Tabs */}
+          <div className="flex items-center bg-secondary/50 rounded-lg p-1 gap-1 w-fit">
+            <button
+              onClick={() => setTab("all")}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                tab === "all"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All Batches
+              {!isLoading && (
+                <span className="ml-1.5 text-xs text-muted-foreground">
+                  ({allBatches.length})
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setTab("enrolled")}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                tab === "enrolled"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              My Batches
+              {(enrolled.length + mixes.length) > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                  {enrolled.length + mixes.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Search bar with autocomplete */}
+          <div className="relative flex-1 max-w-lg" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search batches or teachers..."
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              className="w-full pl-9 pr-9 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+            />
+            {query && (
+              <button
+                onClick={() => { setQuery(""); setShowSuggestions(false); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
-          </button>
-          <button
-            onClick={() => setTab("enrolled")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              tab === "enrolled"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            My Batches
-            {(enrolled.length + mixes.length) > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                {enrolled.length + mixes.length}
-              </span>
-            )}
-          </button>
+
+            {/* Autocomplete dropdown */}
+            <AnimatePresence>
+              {showSuggestions && hasSuggestions && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden"
+                >
+                  {suggestions.teachers.length > 0 && (
+                    <div>
+                      <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Teachers
+                      </div>
+                      {suggestions.teachers.map((teacher) => (
+                        <button
+                          key={teacher}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSelectedTeacher(teacher);
+                            setQuery("");
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-primary/10 text-left transition-colors group"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <User className="w-3.5 h-3.5 text-primary" />
+                          </div>
+                          <span className="text-sm font-medium flex-1">{teacher}</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {suggestions.batches.length > 0 && (
+                    <div className={suggestions.teachers.length > 0 ? "border-t border-border/50" : ""}>
+                      <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Batches
+                      </div>
+                      {suggestions.batches.map((name) => (
+                        <button
+                          key={name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setQuery(name);
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted text-left transition-colors"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate">{name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Search bar */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search by batch name or teacher..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        {/* Active teacher filter badge */}
+        <AnimatePresence>
+          {selectedTeacher && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-center gap-2"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <span className="text-xs text-muted-foreground">Filtering by teacher:</span>
+              <button
+                onClick={() => setSelectedTeacher(null)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+              >
+                <User className="w-3 h-3" />
+                {selectedTeacher}
+                <X className="w-3 h-3 ml-0.5" />
+              </button>
+              <span className="text-xs text-muted-foreground">
+                · {filtered.length} batch{filtered.length !== 1 ? "es" : ""}
+              </span>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
+
+        {/* Teacher filter chips — only on All Batches tab */}
+        {tab === "all" && allTeachers.length > 0 && !isLoading && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Browse by Teacher</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
+              {allTeachers.map((teacher) => (
+                <button
+                  key={teacher}
+                  onClick={() => setSelectedTeacher(selectedTeacher === teacher ? null : teacher)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                    selectedTeacher === teacher
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30"
+                      : "bg-secondary/50 text-muted-foreground border-border/50 hover:border-primary/50 hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <User className="w-3 h-3" />
+                  {teacher}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Empty state for enrolled tab — only when no batches AND no mixes */}
