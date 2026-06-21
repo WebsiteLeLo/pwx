@@ -155,17 +155,14 @@ export default function Batch() {
 
   return (
     <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: batchName }]}>
-      <div className="mb-6 sm:mb-10 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-2">Subjects</h1>
-          <p className="text-base sm:text-lg text-muted-foreground">Master your concepts subject by subject.</p>
-        </div>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <h1 className="text-xl font-bold tracking-tight">Subjects</h1>
         <Button
           variant="outline"
           size="sm"
           onClick={handleShare}
           title="Share this batch"
-          className="flex items-center gap-2 flex-shrink-0 mt-1"
+          className="flex items-center gap-2 flex-shrink-0"
         >
           {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
           <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>

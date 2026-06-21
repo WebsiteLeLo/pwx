@@ -138,15 +138,12 @@ export default function Subject() {
   return (
     <Layout breadcrumbs={breadcrumbs}>
       {/* Header row */}
-      <div className="flex items-start justify-between gap-4 mb-4 sm:mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-1">Chapters & Topics</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Select a chapter to access lectures and notes.</p>
-        </div>
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <h1 className="text-xl font-bold tracking-tight">Chapters</h1>
         <button
           onClick={handleShare}
           title="Share this page"
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all flex-shrink-0 mt-1
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all flex-shrink-0
             ${copied
               ? "border-green-500/60 bg-green-500/10 text-green-400"
               : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
@@ -203,36 +200,30 @@ export default function Subject() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.3) }}
-                className="group relative flex flex-col sm:flex-row sm:items-center justify-between bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all"
+                className="group relative flex items-center bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all"
               >
                 {/* Clickable area → navigate to topic */}
-                <Link href={topicHref(topic._id)} className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between p-6 cursor-pointer">
-                  <div className="flex items-start gap-4 mb-4 sm:mb-0">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
-                      {pinned ? <Pin className="w-5 h-5 fill-current" /> : <Layers className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
-                        {topic.name}
-                      </h3>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Chapter • Index {topic.displayOrder}
-                        {pinned && <span className="ml-2 text-amber-400 font-medium">· Pinned</span>}
-                      </div>
+                <Link href={topicHref(topic._id)} className="flex-1 flex items-center gap-3 p-4 cursor-pointer min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
+                    {pinned ? <Pin className="w-4 h-4 fill-current" /> : <Layers className="w-4 h-4" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors truncate">
+                      {topic.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <PlaySquare className="w-3 h-3 text-primary" />
+                        {topic.videos || topic.lectureVideos || 0}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <FileText className="w-3 h-3" />
+                        {topic.notes || 0}
+                      </span>
+                      {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 ml-14 sm:ml-0 pr-12 sm:pr-0">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
-                      <PlaySquare className="w-4 h-4 text-primary" />
-                      <span>{topic.videos || topic.lectureVideos || 0} Videos</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
-                      <FileText className="w-4 h-4 text-accent" />
-                      <span>{topic.notes || 0} Notes</span>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground ml-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0 hidden sm:block" />
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                 </Link>
 
                 {/* Pin button — outside Link so it doesn't navigate */}
@@ -251,11 +242,11 @@ export default function Subject() {
                       noteCount: topic.notes || 0,
                     });
                   }}
-                  title={pinned ? "Unpin chapter" : "Pin chapter for quick access"}
-                  className={`absolute top-4 right-4 sm:relative sm:top-auto sm:right-auto sm:mr-4 p-2 rounded-lg border transition-all ${
+                  title={pinned ? "Unpin chapter" : "Pin for quick access"}
+                  className={`mr-3 p-1.5 rounded-lg border transition-all ${
                     pinned
                       ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                      : "border-border/50 bg-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted opacity-0 group-hover:opacity-100"
+                      : "border-transparent bg-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted opacity-0 group-hover:opacity-100"
                   }`}
                 >
                   <AnimatePresence mode="wait" initial={false}>
