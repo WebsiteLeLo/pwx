@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useTopics, useBatchDetails, Topic } from "@/hooks/usePWApi";
 import { usePinnedChapters } from "@/hooks/usePinnedChapters";
+import { useChapterOrder } from "@/hooks/useChapterOrder";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, Reorder } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff } from "lucide-react";
+import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff, GripVertical, ArrowUpDown, RotateCcw } from "lucide-react";
 
 const SWIPE_THRESHOLD = 80;
 
@@ -113,6 +114,7 @@ export default function Subject() {
   const { batchId, subjectId } = useParams<{ batchId: string; subjectId: string }>();
   const [copied, setCopied] = useState(false);
   const [search, setSearch] = useState("");
+  const [reorderMode, setReorderMode] = useState(false);
   const { isPinned, toggle } = usePinnedChapters();
 
   const searchParams = new URLSearchParams(window.location.search);
@@ -125,9 +127,13 @@ export default function Subject() {
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
 
-  const filteredTopics = search.trim()
-    ? allTopics.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : allTopics;
+  const { orderedTopics, saveOrder, resetOrder, hasCustomOrder } = useChapterOrder(subjectId!, allTopics);
+
+  const displayTopics = reorderMode
+    ? orderedTopics
+    : search.trim()
+      ? orderedTopics.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
+      : orderedTopics;
 
   const breadcrumbs = fromMix
     ? [
@@ -199,50 +205,88 @@ export default function Subject() {
   return (
     <Layout breadcrumbs={breadcrumbs}>
       {/* Header row */}
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <h1 className="text-xl font-bold tracking-tight">Chapters</h1>
-        <button
-          onClick={handleShare}
-          title="Share this page"
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all flex-shrink-0
-            ${copied
-              ? "border-green-500/60 bg-green-500/10 text-green-400"
-              : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-            }`}
-        >
-          {copied ? (
-            <>
-              <Check className="w-4 h-4" />
-              <span className="hidden sm:inline">Copied!</span>
-            </>
-          ) : (
-            <>
-              <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Share</span>
-            </>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-xl font-bold tracking-tight">Chapters</h1>
+          {hasCustomOrder && !reorderMode && (
+            <button
+              onClick={resetOrder}
+              title="Reset to original order"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border/50 rounded-lg px-2 py-1 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Reset
+            </button>
           )}
-        </button>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => { setReorderMode(m => !m); setSearch(""); }}
+            title={reorderMode ? "Done reordering" : "Reorder chapters"}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+              reorderMode
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border/60 bg-card text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{reorderMode ? "Done" : "Reorder"}</span>
+          </button>
+          {!reorderMode && (
+            <button
+              onClick={handleShare}
+              title="Share this page"
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                copied
+                  ? "border-green-500/60 bg-green-500/10 text-green-400"
+                  : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+              }`}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Search bar */}
-      <div className="relative mb-5 sm:mb-6">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search chapters..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border/60 bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+      {/* Reorder hint banner */}
+      <AnimatePresence>
+        {reorderMode && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4 overflow-hidden"
           >
-            <X className="w-4 h-4" />
-          </button>
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/25 text-sm text-primary">
+              <GripVertical className="w-4 h-4 flex-shrink-0" />
+              Drag the handle to reorder chapters. Tap Done when finished.
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
+
+      {/* Search bar — hidden in reorder mode */}
+      {!reorderMode && (
+        <div className="relative mb-5 sm:mb-6">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search chapters..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border/60 bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Topics list */}
       {isLoading ? (
@@ -251,9 +295,53 @@ export default function Subject() {
             <Skeleton key={i} className="w-full h-24 rounded-xl" />
           ))}
         </div>
+      ) : reorderMode ? (
+        /* ── REORDER MODE: drag-and-drop list ── */
+        <Reorder.Group
+          axis="y"
+          values={displayTopics}
+          onReorder={saveOrder}
+          className="space-y-3"
+        >
+          {displayTopics.map((topic) => {
+            const pinned = isPinned(topic._id);
+            return (
+              <Reorder.Item
+                key={topic._id}
+                value={topic}
+                className="list-none"
+                whileDrag={{ scale: 1.02, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", zIndex: 50 }}
+              >
+                <div className="flex items-center gap-2 bg-card border border-border/60 rounded-xl cursor-grab active:cursor-grabbing select-none">
+                  <div className="pl-3 py-4 text-muted-foreground flex-shrink-0 touch-none">
+                    <GripVertical className="w-5 h-5" />
+                  </div>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
+                    {pinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Layers className="w-3.5 h-3.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0 py-4 pr-4">
+                    <p className="font-semibold text-sm leading-snug truncate">{topic.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <PlaySquare className="w-3 h-3 text-primary" />
+                        {topic.videos || topic.lectureVideos || 0}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <FileText className="w-3 h-3" />
+                        {topic.notes || 0}
+                      </span>
+                      {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
+                    </div>
+                  </div>
+                </div>
+              </Reorder.Item>
+            );
+          })}
+        </Reorder.Group>
       ) : (
-        <div className="space-y-4">
-          {filteredTopics.map((topic, index) => {
+        /* ── NORMAL MODE: swipe-to-pin list ── */
+        <div className="space-y-3">
+          {displayTopics.map((topic, index) => {
             const pinned = isPinned(topic._id);
             const topicData = {
               topicId: topic._id,
@@ -275,7 +363,6 @@ export default function Subject() {
               >
                 <SwipeToPin pinned={pinned} onToggle={() => toggle(topicData)}>
                   <div className="group flex items-center bg-card border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all rounded-xl">
-                    {/* Clickable area → navigate to topic */}
                     <Link href={topicHref(topic._id)} className="flex-1 flex items-center gap-3 p-4 cursor-pointer min-w-0">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
                         {pinned ? <Pin className="w-4 h-4 fill-current" /> : <Layers className="w-4 h-4" />}
@@ -298,8 +385,6 @@ export default function Subject() {
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </Link>
-
-                    {/* Pin button — desktop hover only */}
                     <button
                       onClick={(e) => { e.preventDefault(); toggle(topicData); }}
                       title={pinned ? "Unpin chapter" : "Pin for quick access"}
@@ -327,7 +412,7 @@ export default function Subject() {
             );
           })}
 
-          {filteredTopics.length === 0 && !isLoading && (
+          {displayTopics.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
               <Layers className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-xl font-bold">
