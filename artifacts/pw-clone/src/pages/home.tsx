@@ -3,6 +3,7 @@ import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/useWatchHistory";
+import { usePinnedChapters } from "@/hooks/usePinnedChapters";
 import { Layout } from "@/components/layout";
 import { LazyImage } from "@/components/lazy-image";
 import { Link } from "wouter";
@@ -23,6 +24,10 @@ import {
   Play,
   Trash2,
   Share2,
+  Pin,
+  PinOff,
+  FileText,
+  PlaySquare,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -115,6 +120,67 @@ function TelegramModal({ batchName, onClose }: { batchName: string; onClose: () 
 
 const SITE_URL = "https://pwx.onrender.com";
 const SHARE_TEXT = "🔥 PWX — Physics Wallah ke saare FREE batches ek jagah! IIT JEE, NEET, Foundation — sab free! Dekho:";
+
+function PinnedChaptersSection() {
+  const { pinned, unpin } = usePinnedChapters();
+  if (pinned.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Pin className="w-4 h-4 text-amber-400 fill-current" />
+          <h2 className="text-base font-bold">Pinned Chapters</h2>
+          <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">{pinned.length}</span>
+        </div>
+      </div>
+
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+        {pinned.map((chapter) => (
+          <motion.div
+            key={chapter.topicId}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="relative flex-shrink-0 w-56 bg-card border border-amber-500/25 rounded-xl overflow-hidden hover:border-amber-500/60 transition-colors group"
+          >
+            <Link href={chapter.href} className="block p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                  <Pin className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                </div>
+                <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide truncate">
+                  {chapter.batchName}
+                </span>
+              </div>
+              <p className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors mb-2">
+                {chapter.topicName}
+              </p>
+              <p className="text-xs text-muted-foreground truncate mb-3">{chapter.subjectName}</p>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <PlaySquare className="w-3 h-3 text-primary" />
+                  {chapter.videoCount} videos
+                </span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <FileText className="w-3 h-3" />
+                  {chapter.noteCount} notes
+                </span>
+              </div>
+            </Link>
+            <button
+              onClick={() => unpin(chapter.topicId)}
+              title="Unpin chapter"
+              className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-all"
+            >
+              <PinOff className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 
 function ShareStrip() {
@@ -575,6 +641,9 @@ export default function Home() {
         onRemove={removeFromHistory}
         onClear={clearHistory}
       />
+
+      {/* Pinned Chapters */}
+      <PinnedChaptersSection />
 
       {/* Header */}
       <div className="mb-6 sm:mb-8">

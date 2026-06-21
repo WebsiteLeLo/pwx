@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useTopics, useBatchDetails, Topic } from "@/hooks/usePWApi";
+import { usePinnedChapters } from "@/hooks/usePinnedChapters";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X } from "lucide-react";
+import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff } from "lucide-react";
 
 const MAX_PAGES = 50;
 
@@ -51,6 +52,7 @@ export default function Subject() {
   const { batchId, subjectId } = useParams<{ batchId: string; subjectId: string }>();
   const [copied, setCopied] = useState(false);
   const [search, setSearch] = useState("");
+  const { isPinned, toggle } = usePinnedChapters();
 
   const searchParams = new URLSearchParams(window.location.search);
   const fromMix = searchParams.get("fromMix") ?? "";
@@ -193,42 +195,84 @@ export default function Subject() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredTopics.map((topic, index) => (
-            <Link key={topic._id} href={topicHref(topic._id)}>
+          {filteredTopics.map((topic, index) => {
+            const pinned = isPinned(topic._id);
+            return (
               <motion.div
+                key={topic._id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.3) }}
-                className="group flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all cursor-pointer"
+                className="group relative flex flex-col sm:flex-row sm:items-center justify-between bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all"
               >
-                <div className="flex items-start gap-4 mb-4 sm:mb-0">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-1">
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
-                      {topic.name}
-                    </h3>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Chapter • Index {topic.displayOrder}
+                {/* Clickable area → navigate to topic */}
+                <Link href={topicHref(topic._id)} className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between p-6 cursor-pointer">
+                  <div className="flex items-start gap-4 mb-4 sm:mb-0">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
+                      {pinned ? <Pin className="w-5 h-5 fill-current" /> : <Layers className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
+                        {topic.name}
+                      </h3>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        Chapter • Index {topic.displayOrder}
+                        {pinned && <span className="ml-2 text-amber-400 font-medium">· Pinned</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3 ml-14 sm:ml-0">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
-                    <PlaySquare className="w-4 h-4 text-primary" />
-                    <span>{topic.videos || topic.lectureVideos || 0} Videos</span>
+                  <div className="flex items-center gap-3 ml-14 sm:ml-0 pr-12 sm:pr-0">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
+                      <PlaySquare className="w-4 h-4 text-primary" />
+                      <span>{topic.videos || topic.lectureVideos || 0} Videos</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
+                      <FileText className="w-4 h-4 text-accent" />
+                      <span>{topic.notes || 0} Notes</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground ml-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0 hidden sm:block" />
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
-                    <FileText className="w-4 h-4 text-accent" />
-                    <span>{topic.notes || 0} Notes</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground ml-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-[-10px] group-hover:translate-x-0" />
-                </div>
+                </Link>
+
+                {/* Pin button — outside Link so it doesn't navigate */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggle({
+                      topicId: topic._id,
+                      topicName: topic.name,
+                      batchId: batchId!,
+                      batchName,
+                      subjectId: subjectId!,
+                      subjectName,
+                      href: topicHref(topic._id),
+                      videoCount: topic.videos || topic.lectureVideos || 0,
+                      noteCount: topic.notes || 0,
+                    });
+                  }}
+                  title={pinned ? "Unpin chapter" : "Pin chapter for quick access"}
+                  className={`absolute top-4 right-4 sm:relative sm:top-auto sm:right-auto sm:mr-4 p-2 rounded-lg border transition-all ${
+                    pinned
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                      : "border-border/50 bg-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted opacity-0 group-hover:opacity-100"
+                  }`}
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    {pinned ? (
+                      <motion.span key="pinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
+                        <PinOff className="w-4 h-4" />
+                      </motion.span>
+                    ) : (
+                      <motion.span key="unpinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
+                        <Pin className="w-4 h-4" />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
               </motion.div>
-            </Link>
-          ))}
+            );
+          })}
 
           {filteredTopics.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
