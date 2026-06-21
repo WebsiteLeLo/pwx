@@ -4,7 +4,7 @@ import { usePinnedChapters } from "@/hooks/usePinnedChapters";
 import { useChapterOrder } from "@/hooks/useChapterOrder";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
-import { motion, AnimatePresence, useMotionValue, useTransform, animate, Reorder } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate, Reorder, useDragControls } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff, GripVertical, ArrowUpDown, RotateCcw } from "lucide-react";
@@ -67,6 +67,46 @@ function SwipeToPin({
         {children}
       </motion.div>
     </div>
+  );
+}
+
+function ReorderItem({ topic, pinned }: { topic: Topic; pinned: boolean }) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      key={topic._id}
+      value={topic}
+      dragListener={false}
+      dragControls={controls}
+      className="list-none"
+      whileDrag={{ scale: 1.02, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", zIndex: 50 }}
+    >
+      <div className="flex items-center gap-2 bg-card border border-border/60 rounded-xl select-none">
+        <div
+          className="pl-3 py-4 text-muted-foreground flex-shrink-0 touch-none cursor-grab active:cursor-grabbing"
+          onPointerDown={(e) => { e.preventDefault(); controls.start(e); }}
+        >
+          <GripVertical className="w-5 h-5" />
+        </div>
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
+          {pinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Layers className="w-3.5 h-3.5" />}
+        </div>
+        <div className="flex-1 min-w-0 py-4 pr-4">
+          <p className="font-semibold text-sm leading-snug truncate">{topic.name}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <PlaySquare className="w-3 h-3 text-primary" />
+              {topic.videos || topic.lectureVideos || 0}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <FileText className="w-3 h-3" />
+              {topic.notes || 0}
+            </span>
+            {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
+          </div>
+        </div>
+      </div>
+    </Reorder.Item>
   );
 }
 
@@ -302,41 +342,11 @@ export default function Subject() {
           values={displayTopics}
           onReorder={saveOrder}
           className="space-y-3"
+          style={{ overflowY: "visible" }}
         >
-          {displayTopics.map((topic) => {
-            const pinned = isPinned(topic._id);
-            return (
-              <Reorder.Item
-                key={topic._id}
-                value={topic}
-                className="list-none"
-                whileDrag={{ scale: 1.02, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", zIndex: 50 }}
-              >
-                <div className="flex items-center gap-2 bg-card border border-border/60 rounded-xl cursor-grab active:cursor-grabbing select-none">
-                  <div className="pl-3 py-4 text-muted-foreground flex-shrink-0 touch-none">
-                    <GripVertical className="w-5 h-5" />
-                  </div>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
-                    {pinned ? <Pin className="w-3.5 h-3.5 fill-current" /> : <Layers className="w-3.5 h-3.5" />}
-                  </div>
-                  <div className="flex-1 min-w-0 py-4 pr-4">
-                    <p className="font-semibold text-sm leading-snug truncate">{topic.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <PlaySquare className="w-3 h-3 text-primary" />
-                        {topic.videos || topic.lectureVideos || 0}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <FileText className="w-3 h-3" />
-                        {topic.notes || 0}
-                      </span>
-                      {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
-                    </div>
-                  </div>
-                </div>
-              </Reorder.Item>
-            );
-          })}
+          {displayTopics.map((topic) => (
+            <ReorderItem key={topic._id} topic={topic} pinned={isPinned(topic._id)} />
+          ))}
         </Reorder.Group>
       ) : (
         /* ── NORMAL MODE: swipe-to-pin list ── */
