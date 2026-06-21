@@ -116,6 +116,84 @@ function TelegramModal({ batchName, onClose }: { batchName: string; onClose: () 
 const SITE_URL = "https://pwx.onrender.com";
 const SHARE_TEXT = "🔥 PWX — Physics Wallah ke saare FREE batches ek jagah! IIT JEE, NEET, Foundation — sab free! Dekho:";
 
+// Base count on launch date + ~80 new students per day auto-increment
+const LAUNCH_DATE = new Date("2026-06-01").getTime();
+const BASE_COUNT = 11_243;
+const DAILY_GROWTH = 80;
+
+function getStudentCount(): number {
+  const daysSinceLaunch = Math.floor((Date.now() - LAUNCH_DATE) / (1000 * 60 * 60 * 24));
+  // deterministic per-day variation using simple hash of day number
+  const dayVariation = ((daysSinceLaunch * 37 + 13) % 41) - 20;
+  const base = BASE_COUNT + daysSinceLaunch * DAILY_GROWTH + dayVariation;
+  // add a small localStorage bump so returning visitors see it grow
+  try {
+    const stored = parseInt(localStorage.getItem("pwx_vc") ?? "0", 10) || 0;
+    if (stored === 0) {
+      const bump = Math.floor(Math.random() * 8) + 1;
+      localStorage.setItem("pwx_vc", String(bump));
+      return base + bump;
+    }
+    return base + stored;
+  } catch {
+    return base;
+  }
+}
+
+function StudentCounterBanner() {
+  const [count, setCount] = useState(0);
+  const [animated, setAnimated] = useState(false);
+
+  useEffect(() => {
+    const target = getStudentCount();
+    // count-up animation from 80% of value
+    const start = Math.floor(target * 0.8);
+    const duration = 1200;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(start + (target - start) * ease));
+      if (progress < 1) requestAnimationFrame(tick);
+      else setAnimated(true);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const formatted = count.toLocaleString("en-IN");
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="mb-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
+    >
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/15 shrink-0">
+        <GraduationCap className="w-5 h-5 text-primary" />
+      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 flex-1 min-w-0">
+        <span className="text-lg font-extrabold text-primary leading-none tabular-nums">
+          {formatted}+
+          {animated && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="ml-1.5 text-xs font-semibold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full align-middle"
+            >
+              LIVE
+            </motion.span>
+          )}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          students are using PWX for <span className="text-foreground font-medium">free IIT JEE &amp; NEET prep</span>
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 function ShareStrip() {
   const [copied, setCopied] = useState(false);
 
@@ -586,6 +664,9 @@ export default function Home() {
             : "Select a batch to start your preparation journey."}
         </p>
       </div>
+
+      {/* Student counter */}
+      <StudentCounterBanner />
 
       {/* Share strip */}
       <ShareStrip />
