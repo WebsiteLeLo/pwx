@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://pwx.gourav23032009.workers.dev/sitemap.xml
