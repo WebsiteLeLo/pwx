@@ -5,21 +5,21 @@
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 
   <url>
-    <loc>https://pwx.gourav23032009.workers.dev/</loc>
+    <loc>https://pwx.onrender.com/</loc>
     <lastmod>2026-06-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://pwx.gourav23032009.workers.dev/schedule</loc>
+    <loc>https://pwx.onrender.com/schedule</loc>
     <lastmod>2026-06-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://pwx.gourav23032009.workers.dev/my-mix</loc>
+    <loc>https://pwx.onrender.com/my-mix</loc>
     <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
