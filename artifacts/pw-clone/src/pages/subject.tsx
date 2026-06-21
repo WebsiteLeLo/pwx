@@ -3,10 +3,71 @@ import { useTopics, useBatchDetails, Topic } from "@/hooks/usePWApi";
 import { usePinnedChapters } from "@/hooks/usePinnedChapters";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff } from "lucide-react";
+
+const SWIPE_THRESHOLD = 80;
+
+function SwipeToPin({
+  pinned,
+  onToggle,
+  children,
+}: {
+  pinned: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const x = useMotionValue(0);
+  const bgOpacity = useTransform(x, [0, SWIPE_THRESHOLD * 0.3, SWIPE_THRESHOLD], [0, 0.5, 1]);
+  const iconScale = useTransform(x, [0, SWIPE_THRESHOLD * 0.5, SWIPE_THRESHOLD], [0.4, 0.75, 1]);
+  const labelOpacity = useTransform(x, [SWIPE_THRESHOLD * 0.5, SWIPE_THRESHOLD], [0, 1]);
+
+  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
+    if (info.offset.x >= SWIPE_THRESHOLD) {
+      onToggle();
+    }
+    animate(x, 0, { type: "spring", stiffness: 500, damping: 38 });
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      {/* Reveal layer shown as the row slides right */}
+      <motion.div
+        style={{ opacity: bgOpacity }}
+        className={`absolute inset-0 flex items-center gap-2 pl-6 pointer-events-none ${
+          pinned ? "bg-red-500/20" : "bg-amber-500/20"
+        }`}
+      >
+        <motion.div style={{ scale: iconScale }} className="flex items-center gap-2">
+          {pinned
+            ? <PinOff className="w-5 h-5 text-red-400 flex-shrink-0" />
+            : <Pin className="w-5 h-5 text-amber-400 fill-current flex-shrink-0" />}
+          <motion.span
+            style={{ opacity: labelOpacity }}
+            className={`text-sm font-semibold ${pinned ? "text-red-400" : "text-amber-400"}`}
+          >
+            {pinned ? "Unpin" : "Pin"}
+          </motion.span>
+        </motion.div>
+      </motion.div>
+
+      {/* Draggable row (right-only, snaps back) */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: SWIPE_THRESHOLD * 1.5 }}
+        dragElastic={{ left: 0, right: 0.25 }}
+        dragMomentum={false}
+        style={{ x }}
+        onDragEnd={handleDragEnd}
+        className="relative touch-pan-y"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
 
 const MAX_PAGES = 50;
 
@@ -194,73 +255,74 @@ export default function Subject() {
         <div className="space-y-4">
           {filteredTopics.map((topic, index) => {
             const pinned = isPinned(topic._id);
+            const topicData = {
+              topicId: topic._id,
+              topicName: topic.name,
+              batchId: batchId!,
+              batchName,
+              subjectId: subjectId!,
+              subjectName,
+              href: topicHref(topic._id),
+              videoCount: topic.videos || topic.lectureVideos || 0,
+              noteCount: topic.notes || 0,
+            };
             return (
               <motion.div
                 key={topic._id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, delay: Math.min(index * 0.03, 0.3) }}
-                className="group relative flex items-center bg-card rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all"
               >
-                {/* Clickable area → navigate to topic */}
-                <Link href={topicHref(topic._id)} className="flex-1 flex items-center gap-3 p-4 cursor-pointer min-w-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
-                    {pinned ? <Pin className="w-4 h-4 fill-current" /> : <Layers className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors truncate">
-                      {topic.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <PlaySquare className="w-3 h-3 text-primary" />
-                        {topic.videos || topic.lectureVideos || 0}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <FileText className="w-3 h-3" />
-                        {topic.notes || 0}
-                      </span>
-                      {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                </Link>
+                <SwipeToPin pinned={pinned} onToggle={() => toggle(topicData)}>
+                  <div className="group flex items-center bg-card border border-border/50 hover:border-primary/50 hover:bg-card/80 transition-all rounded-xl">
+                    {/* Clickable area → navigate to topic */}
+                    <Link href={topicHref(topic._id)} className="flex-1 flex items-center gap-3 p-4 cursor-pointer min-w-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${pinned ? "bg-amber-500/15 text-amber-400" : "bg-primary/10 text-primary"}`}>
+                        {pinned ? <Pin className="w-4 h-4 fill-current" /> : <Layers className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors truncate">
+                          {topic.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <PlaySquare className="w-3 h-3 text-primary" />
+                            {topic.videos || topic.lectureVideos || 0}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <FileText className="w-3 h-3" />
+                            {topic.notes || 0}
+                          </span>
+                          {pinned && <span className="text-xs text-amber-400 font-medium">Pinned</span>}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </Link>
 
-                {/* Pin button — outside Link so it doesn't navigate */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toggle({
-                      topicId: topic._id,
-                      topicName: topic.name,
-                      batchId: batchId!,
-                      batchName,
-                      subjectId: subjectId!,
-                      subjectName,
-                      href: topicHref(topic._id),
-                      videoCount: topic.videos || topic.lectureVideos || 0,
-                      noteCount: topic.notes || 0,
-                    });
-                  }}
-                  title={pinned ? "Unpin chapter" : "Pin for quick access"}
-                  className={`mr-3 p-1.5 rounded-lg border transition-all ${
-                    pinned
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                      : "border-transparent bg-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted sm:opacity-0 sm:group-hover:opacity-100"
-                  }`}
-                >
-                  <AnimatePresence mode="wait" initial={false}>
-                    {pinned ? (
-                      <motion.span key="pinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
-                        <PinOff className="w-4 h-4" />
-                      </motion.span>
-                    ) : (
-                      <motion.span key="unpinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
-                        <Pin className="w-4 h-4" />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
+                    {/* Pin button — desktop hover only */}
+                    <button
+                      onClick={(e) => { e.preventDefault(); toggle(topicData); }}
+                      title={pinned ? "Unpin chapter" : "Pin for quick access"}
+                      className={`mr-3 p-1.5 rounded-lg border transition-all ${
+                        pinned
+                          ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                          : "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-muted opacity-0 group-hover:opacity-100"
+                      }`}
+                    >
+                      <AnimatePresence mode="wait" initial={false}>
+                        {pinned ? (
+                          <motion.span key="pinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
+                            <PinOff className="w-4 h-4" />
+                          </motion.span>
+                        ) : (
+                          <motion.span key="unpinned" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
+                            <Pin className="w-4 h-4" />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </button>
+                  </div>
+                </SwipeToPin>
               </motion.div>
             );
           })}
