@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
   <head>
@@ -172,34 +173,84 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+   <body>
+  <style>
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
 
-    <!-- SEO-friendly fallback content for crawlers -->
-    <noscript>
-      <h1>PWX — PW Free Batches | IIT JEE & NEET Free Video Lectures</h1>
-      <p>
-        Access all <strong>Physics Wallah (PW) free batches</strong> for <strong>IIT JEE</strong>,
-        <strong>NEET</strong> and Foundation preparation on PWX. Watch free video lectures,
-        DPP quizzes and download study materials — completely free. Browse 8000+ PW batches
-        including Arjuna JEE, Lakshya JEE, Arjuna NEET, Lakshya NEET and more.
-      </p>
-      <ul>
-        <li>PW Free Batches for IIT JEE</li>
-        <li>PW Free Batches for NEET</li>
-        <li>Physics Wallah Foundation Batches</li>
-        <li>Free DPP Quizzes and Study Material</li>
-        <li>Free Live Class Recordings</li>
-      </ul>
-      <p>Please enable JavaScript to use PWX.</p>
-    </noscript>
+    .card {
+      max-width: 600px;
+      padding: 40px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+    }
 
-    <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js").catch(() => {});
-        });
-      }
-    </script>
-  </body>
+    .emoji {
+      font-size: 80px;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #ff6b6b;
+    }
+
+    p {
+      color: #d1d5db;
+      line-height: 1.6;
+      font-size: 18px;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #229ED9;
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+
+  <div class="card">
+    <div class="emoji">😢</div>
+
+    <h1>PWX is Currently Unavailable</h1>
+
+    <p>
+      Sorry, PWX is temporarily unavailable due to maintenance or server issues.
+      Please try again later.
+    </p>
+
+    <a class="btn" href="https://t.me/nohara_hiroshi" target="_blank">
+      Contact on Telegram
+    </a>
+  </div>
+
+  <!-- React app disabled temporarily -->
+  <!-- <script type="module" src="/src/main.tsx"></script> -->
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => reg.unregister());
+      });
+    }
+  </script>
+</body>
 </html>
