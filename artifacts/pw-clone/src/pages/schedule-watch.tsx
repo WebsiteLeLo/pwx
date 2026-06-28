@@ -98,7 +98,7 @@ export default function ScheduleWatch() {
   const countdown = formatCountdown(msUntilStart);
 
   const rarestudyUrl = hasParams
-    ? `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&scheduleId=${encodeURIComponent(params.scheduleId)}&tap=video`
+    ? `https://lite.pw4free.in/player?batchid=${encodeURIComponent(params.batchId)}&subjectid=${encodeURIComponent(params.subjectId)}&lectureid=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title || params.topic || "")}`
     : "";
 
   function handleIframeLoad() {

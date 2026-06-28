@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Calendar, Home } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -21,9 +21,8 @@ function TelegramIcon({ className = "" }: { className?: string }) {
 }
 
 const NAV_ITEMS = [
-  { href: "/",         label: "Home",     Icon: Home     },
-  { href: "/schedule", label: "Schedule", Icon: Calendar },
-  { href: "/my-mix",   label: "My Mix",   Icon: Layers   },
+  { href: "/",       label: "Home",   Icon: Home   },
+  { href: "/my-mix", label: "My Mix", Icon: Layers },
 ];
 
 function BottomNav() {
