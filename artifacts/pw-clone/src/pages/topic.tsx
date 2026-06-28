@@ -1,11 +1,12 @@
-import { useMemo, useState, useEffect, useRef } from "react";
-import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem, Attachment } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Layers, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { apiUrl } from "@/lib/apiUrl";
 
 type TabKey = ContentType;
 
@@ -120,16 +121,207 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
 }
 
 const MAX_NOTE_PAGES = 50;
+const API_BASE_PW = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+
+type MergeStatus = "idle" | "collecting" | "downloading" | "merging" | "done" | "error";
+
+interface MergePdfsButtonProps {
+  batchId: string;
+  subjectId: string;
+  allItems: ContentItem[];
+  isDpp: boolean;
+  topicName: string;
+}
+
+function MergePdfsButton({ batchId, subjectId, allItems, isDpp, topicName }: MergePdfsButtonProps) {
+  const [status, setStatus] = useState<MergeStatus>("idle");
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [errorMsg, setErrorMsg] = useState("");
+  const abortRef = useRef(false);
+
+  const reset = useCallback(() => {
+    setStatus("idle");
+    setProgress({ done: 0, total: 0 });
+    setErrorMsg("");
+    abortRef.current = false;
+  }, []);
+
+  async function handleMerge() {
+    abortRef.current = false;
+    setStatus("collecting");
+    setProgress({ done: 0, total: 0 });
+    setErrorMsg("");
+
+    try {
+      // ── Step 1: collect all {url, name} for each PDF in the chapter ──
+      const pdfEntries: { url: string; name: string }[] = [];
+
+      for (const item of allItems) {
+        if (abortRef.current) return;
+
+        const hws = isDpp
+          ? (item.dpp as any)?.homeworkIds ?? []
+          : item.homeworkIds ?? [];
+
+        let found = false;
+        for (const hw of hws) {
+          const atts: Attachment[] = hw.attachmentIds ?? [];
+          for (const att of atts) {
+            const url = getPdfUrl(att);
+            if (url) {
+              pdfEntries.push({ url, name: att.name ?? hw.topic ?? item.topic ?? "PDF" });
+              found = true;
+            }
+          }
+        }
+
+        // Fallback: fetch schedule-details if no attachments on item
+        if (!found) {
+          try {
+            const res = await fetch(
+              `${API_BASE_PW}/v1/batches/${batchId}/subject/${subjectId}/schedule/${item._id}/schedule-details`
+            );
+            if (res.ok) {
+              const json = await res.json() as { success: boolean; data: any };
+              const sd = json.data;
+              const sdHws = isDpp ? (sd.dpp?.homeworkIds ?? []) : (sd.homeworkIds ?? []);
+              for (const hw of sdHws) {
+                for (const att of (hw.attachmentIds ?? []) as Attachment[]) {
+                  const url = getPdfUrl(att);
+                  if (url) pdfEntries.push({ url, name: att.name ?? hw.topic ?? item.topic ?? "PDF" });
+                }
+              }
+            }
+          } catch { /* skip */ }
+        }
+      }
+
+      if (pdfEntries.length === 0) {
+        setErrorMsg("No PDFs found in this chapter.");
+        setStatus("error");
+        return;
+      }
+
+      // ── Step 2: download each PDF via proxy ──
+      setStatus("downloading");
+      setProgress({ done: 0, total: pdfEntries.length });
+
+      const pdfBytes: Uint8Array[] = [];
+      for (const entry of pdfEntries) {
+        if (abortRef.current) return;
+        try {
+          const proxyUrl = apiUrl(`/pdf?url=${encodeURIComponent(entry.url)}`);
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            pdfBytes.push(new Uint8Array(buf));
+          }
+        } catch { /* skip failed PDFs */ }
+        setProgress(p => ({ ...p, done: p.done + 1 }));
+      }
+
+      if (pdfBytes.length === 0) {
+        setErrorMsg("Could not download any PDFs. Check your connection.");
+        setStatus("error");
+        return;
+      }
+
+      // ── Step 3: merge with pdf-lib ──
+      setStatus("merging");
+      const { PDFDocument } = await import("pdf-lib");
+      const merged = await PDFDocument.create();
+
+      for (const bytes of pdfBytes) {
+        if (abortRef.current) return;
+        try {
+          const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+          const indices = doc.getPageIndices();
+          const pages = await merged.copyPages(doc, indices);
+          pages.forEach(p => merged.addPage(p));
+        } catch { /* skip corrupt PDFs */ }
+      }
+
+      const outBytes = await merged.save();
+      const blob = new Blob([outBytes], { type: "application/pdf" });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `${topicName.replace(/[^a-z0-9]/gi, "_")}_notes.pdf`;
+      a.click();
+      URL.revokeObjectURL(href);
+
+      setStatus("done");
+      setTimeout(reset, 3000);
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? "Merge failed.");
+      setStatus("error");
+    }
+  }
+
+  if (status === "idle") {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+        onClick={handleMerge}
+      >
+        <Layers className="w-4 h-4" />
+        Merge All PDFs
+      </Button>
+    );
+  }
+
+  if (status === "done") {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-400 font-medium">
+        <CheckCircle2 className="w-4 h-4" />
+        Downloaded!
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 text-sm text-destructive">
+          <XCircle className="w-4 h-4" />
+          {errorMsg}
+        </div>
+        <Button variant="ghost" size="sm" onClick={reset} className="text-xs h-7 px-2">Retry</Button>
+      </div>
+    );
+  }
+
+  const label =
+    status === "collecting" ? "Collecting PDFs…" :
+    status === "merging" ? "Merging…" :
+    `Downloading ${progress.done}/${progress.total}…`;
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+      {label}
+      <button
+        onClick={() => { abortRef.current = true; reset(); }}
+        className="text-xs underline hover:text-foreground ml-1"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
 
 interface TabContentProps {
   batchId: string;
   subjectId: string;
   topicId: string;
+  topicName: string;
   contentType: ContentType;
 }
 
 /* ── Notes: sequential page-walker ── */
-function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
+function NotesTabContent({ batchId, subjectId, topicId, topicName, contentType }: TabContentProps) {
   const [fetchPage, setFetchPage] = useState(1);
   const [allItems, setAllItems] = useState<ContentItem[]>([]);
   const [done, setDone] = useState(false);
@@ -198,8 +390,22 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
     );
   }
 
+  const isDpp = contentType === "DppNotes";
+
   return (
     <div className="mt-6 space-y-3">
+      {done && allItems.length > 0 && (
+        <div className="flex items-center justify-between pb-1 border-b border-border/30 mb-2">
+          <span className="text-xs text-muted-foreground">{allItems.length} document{allItems.length !== 1 ? "s" : ""}</span>
+          <MergePdfsButton
+            batchId={batchId}
+            subjectId={subjectId}
+            allItems={allItems}
+            isDpp={isDpp}
+            topicName={topicName}
+          />
+        </div>
+      )}
       {allItems.map((content, index) => (
         <NoteItem
           key={content._id}
@@ -325,14 +531,15 @@ interface TabContentProps2 {
   batchId: string;
   subjectId: string;
   topicId: string;
+  topicName: string;
   activeTab: TabKey;
 }
 
-function TabContent({ batchId, subjectId, topicId, activeTab }: TabContentProps2) {
+function TabContent({ batchId, subjectId, topicId, topicName, activeTab }: TabContentProps2) {
   if (activeTab === "videos") {
     return <VideosTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType="videos" />;
   }
-  return <NotesTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} contentType={activeTab} />;
+  return <NotesTabContent batchId={batchId} subjectId={subjectId} topicId={topicId} topicName={topicName} contentType={activeTab} />;
 }
 
 export default function Topic() {
@@ -407,6 +614,7 @@ export default function Topic() {
             batchId={batchId!}
             subjectId={subjectId!}
             topicId={topicId!}
+            topicName={topicName}
             activeTab={activeTab}
           />
         </motion.div>
