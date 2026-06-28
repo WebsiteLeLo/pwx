@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
 import { useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem } from "@/hooks/usePWApi";
@@ -74,7 +73,6 @@ const KIND_META: Record<string, { label: string; icon: ReactNode; color: string 
 };
 
 function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
-  const [, navigate] = useLocation();
   const status = getLectureStatus(item);
   const kind = getScheduleItemKind(item);
   const isVideo = kind === "video";
@@ -86,17 +84,8 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   const kindMeta = KIND_META[kind] ?? KIND_META.other;
 
   const handleVideoWatch = () => {
-    const qs = new URLSearchParams({
-      batchId,
-      subjectId,
-      scheduleId,
-      status: item.data.status,
-      startTime: item.data.startTime,
-      endTime: item.data.endTime,
-      topic: item.data.topic.trim(),
-      subjectName: item.data.subjectId.name,
-    }).toString();
-    navigate(`/schedule-watch?${qs}`);
+    const url = `https://lite.pw4free.in/player?batchid=${encodeURIComponent(batchId)}&subjectid=${encodeURIComponent(subjectId)}&lectureid=${encodeURIComponent(scheduleId)}&title=${encodeURIComponent(item.data.topic.trim())}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleMaterialOpen = () => {

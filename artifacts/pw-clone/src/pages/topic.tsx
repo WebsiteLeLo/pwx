@@ -267,12 +267,14 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
         const dur = vid?.duration ? String(vid.duration) : "";
         const title = vid?.name ?? content.topic ?? "Lecture Video";
 
-        const watchUrl = `/schedule-watch?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${content._id}&title=${encodeURIComponent(title)}${thumb ? `&thumbnail=${encodeURIComponent(thumb)}` : ""}`;
+        const watchUrl = `https://lite.pw4free.in/player?batchid=${encodeURIComponent(batchId)}&subjectid=${encodeURIComponent(subjectId)}&lectureid=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
 
         return (
-          <Link
+          <a
             key={content._id}
             href={watchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
           >
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -312,7 +314,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 </h3>
               </div>
             </motion.div>
-          </Link>
+          </a>
         );
       })}
     </div>
