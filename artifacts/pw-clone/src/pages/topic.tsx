@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, useDppList, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, useDppList, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,8 +54,8 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
       content.homeworkIds.forEach(hw => {
         const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
         if (hw.attachmentIds && hw.attachmentIds.length > 0) {
-          hw.attachmentIds.forEach(() => {
-            rows.push({ title: hwTitle, url: null });
+          hw.attachmentIds.forEach(att => {
+            rows.push({ title: hwTitle, url: getPdfUrl(att) || null });
           });
         } else {
           rows.push({ title: hwTitle, url: null });

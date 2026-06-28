@@ -134,10 +134,41 @@ export interface AttachmentUrlItem {
 
 export function useAttachmentUrls(batchId: string, subjectId: string, contentId: string, count = 1, isDpp = false) {
   return useQuery({
-    queryKey: ["attachmentUrlsV3", batchId, subjectId, contentId, count, isDpp],
-    queryFn: () => {
-      const indices = Array.from({ length: Math.max(count, 1) }, (_, i) => i);
-      return indices.map(i => ({
+    queryKey: ["attachmentUrlsV4", batchId, subjectId, contentId, isDpp],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`
+      );
+      if (!res.ok) throw new Error("Failed to fetch schedule details");
+      const json = await res.json() as { success: boolean; data: ScheduleDetails };
+      const schedData = json.data;
+
+      const hwList = isDpp
+        ? (schedData.dpp?.homeworkIds ?? [])
+        : (schedData.homeworkIds ?? []);
+
+      const results: AttachmentUrlItem[] = [];
+      for (const hw of hwList) {
+        const hwTopic = hw.topic ?? "";
+        const atts = hw.attachmentIds ?? [];
+        if (atts.length > 0) {
+          for (const att of atts) {
+            results.push({
+              topic: hwTopic,
+              baseUrl: att.baseUrl,
+              key: att.key ?? "",
+              url: getPdfUrl(att),
+            });
+          }
+        } else {
+          results.push({ topic: hwTopic, baseUrl: "", key: "", url: "" });
+        }
+      }
+
+      if (results.length > 0) return results;
+
+      // Fallback: rarestudy URLs if no attachments found in schedule-details
+      return Array.from({ length: Math.max(count, 1) }, (_, i) => ({
         topic: "",
         baseUrl: "",
         key: "",
@@ -145,7 +176,7 @@ export function useAttachmentUrls(batchId: string, subjectId: string, contentId:
       })) as AttachmentUrlItem[];
     },
     enabled: !!batchId && !!subjectId && !!contentId,
-    staleTime: Infinity,
+    staleTime: MIN * 30,
     gcTime: MIN * 120,
   });
 }

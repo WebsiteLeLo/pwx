@@ -100,8 +100,14 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   };
 
   const handleMaterialOpen = () => {
-    // DPP_QUIZ items are online quizzes → tap=dpp
-    // Notes/exercise items are PDFs → tap=note
+    if (item.data.attachmentIds && item.data.attachmentIds.length > 0) {
+      const pdfUrl = getPdfUrl(item.data.attachmentIds[0]);
+      if (pdfUrl) {
+        window.open(pdfUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+    // Fallback to rarestudy
     const tap = kind === "dpp" ? "dpp" : "note";
     const url = `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=${tap}`;
     window.open(url, "_blank", "noopener,noreferrer");
