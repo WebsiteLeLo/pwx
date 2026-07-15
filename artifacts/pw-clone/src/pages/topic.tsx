@@ -159,9 +159,10 @@ function MergePdfsButton({ batchId, subjectId, allItems, isDpp, topicName }: Mer
       for (const item of allItems) {
         if (abortRef.current) return;
 
+        const dppHws = isDpp ? ((item.dpp as any)?.homeworkIds ?? []) : [];
         const hws = isDpp
-          ? (item.dpp as any)?.homeworkIds ?? []
-          : item.homeworkIds ?? [];
+          ? (dppHws.length ? dppHws : (item.homeworkIds ?? []))
+          : (item.homeworkIds ?? []);
 
         let found = false;
         for (const hw of hws) {
@@ -184,7 +185,10 @@ function MergePdfsButton({ batchId, subjectId, allItems, isDpp, topicName }: Mer
             if (res.ok) {
               const json = await res.json() as { success: boolean; data: any };
               const sd = json.data;
-              const sdHws = isDpp ? (sd.dpp?.homeworkIds ?? []) : (sd.homeworkIds ?? []);
+              const sdDppHws = isDpp ? (sd.dpp?.homeworkIds ?? []) : [];
+              const sdHws = isDpp
+                ? (sdDppHws.length ? sdDppHws : (sd.homeworkIds ?? []))
+                : (sd.homeworkIds ?? []);
               for (const hw of sdHws) {
                 for (const att of (hw.attachmentIds ?? []) as Attachment[]) {
                   const url = getPdfUrl(att);
