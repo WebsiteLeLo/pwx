@@ -214,7 +214,7 @@ function MergePdfsButton({ batchId, subjectId, allItems, isDpp, topicName }: Mer
       for (const entry of pdfEntries) {
         if (abortRef.current) return;
         try {
-          const proxyUrl = apiUrl(`/pdf?url=${encodeURIComponent(entry.url)}`);
+          const proxyUrl = `/api/pdf?url=${encodeURIComponent(entry.url)}`;
           const res = await fetch(proxyUrl);
           if (res.ok) {
             const buf = await res.arrayBuffer();
