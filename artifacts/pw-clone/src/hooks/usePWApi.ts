@@ -143,8 +143,10 @@ export function useAttachmentUrls(batchId: string, subjectId: string, contentId:
       const json = await res.json() as { success: boolean; data: ScheduleDetails };
       const schedData = json.data;
 
-      const hwList = isDpp
-        ? (schedData.dpp?.homeworkIds ?? [])
+      // For DPP notes: prefer dpp.homeworkIds, fall back to top-level homeworkIds
+      // For regular notes: use top-level homeworkIds only
+      let hwList = isDpp
+        ? (schedData.dpp?.homeworkIds?.length ? schedData.dpp.homeworkIds : (schedData.homeworkIds ?? []))
         : (schedData.homeworkIds ?? []);
 
       const results: AttachmentUrlItem[] = [];
@@ -167,13 +169,8 @@ export function useAttachmentUrls(batchId: string, subjectId: string, contentId:
 
       if (results.length > 0) return results;
 
-      // Fallback: rarestudy URLs if no attachments found in schedule-details
-      return Array.from({ length: Math.max(count, 1) }, (_, i) => ({
-        topic: "",
-        baseUrl: "",
-        key: "",
-        url: `https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(contentId)}&tap=note&noteIndex=${i}&isDpp=${isDpp}`,
-      })) as AttachmentUrlItem[];
+      // No attachments found — return empty rather than redirecting to rarestudy
+      return [] as AttachmentUrlItem[];
     },
     enabled: !!batchId && !!subjectId && !!contentId,
     staleTime: MIN * 30,
