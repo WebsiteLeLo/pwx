@@ -354,7 +354,7 @@ function BatchCard({
         <div className="relative aspect-video bg-muted overflow-hidden">
           {batch.previewImage ? (
             <LazyImage
-              src={`${batch.previewImage.baseUrl}${batch.previewImage.key}`}
+              src={typeof batch.previewImage === "string" ? batch.previewImage : `${batch.previewImage.baseUrl}${batch.previewImage.key}`}
               alt={batch.name}
               fallbackText={batch.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"

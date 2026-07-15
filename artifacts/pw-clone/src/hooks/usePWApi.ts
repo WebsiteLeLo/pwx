@@ -7,7 +7,7 @@ export interface Batch {
   _id: string;
   name: string;
   byName: string;
-  previewImage?: { baseUrl: string; key: string };
+  previewImage?: { baseUrl: string; key: string } | string;
   language: string;
   startDate: string;
   endDate: string;
