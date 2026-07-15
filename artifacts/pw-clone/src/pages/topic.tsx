@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -227,7 +227,7 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
 
 /* ── Videos ── */
 function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
-  const { data, isLoading, isError, refetch } = useTopicContents(batchId, subjectId, topicId, contentType);
+  const { data, isLoading, isError, refetch } = useAllTopicContents(batchId, subjectId, topicId, contentType);
 
   if (isLoading) {
     return (
