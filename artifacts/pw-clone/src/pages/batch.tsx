@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useBatchDetails } from "@/hooks/usePWApi";
+import { useBatchDetails, type Batch } from "@/hooks/usePWApi";
 import { useCustomBatches, MixSubject } from "@/hooks/useCustomBatches";
+import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Layout } from "@/components/layout";
 import { LazyImage } from "@/components/lazy-image";
 import { Link, useParams } from "wouter";
@@ -10,7 +11,11 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2 } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
 
 function AddToMixDialog({
@@ -114,8 +119,11 @@ export default function Batch() {
   const { batchId } = useParams<{ batchId: string }>();
   const { data, isLoading, isError, refetch } = useBatchDetails(batchId!);
   const { getSubjectMixes } = useCustomBatches();
+  const { enroll, unenroll, isEnrolled } = useEnrolledBatches();
   const [dialogSubject, setDialogSubject] = useState<MixSubject | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const enrolled = isEnrolled(batchId!);
 
   if (isError) {
     return (
@@ -157,17 +165,70 @@ export default function Batch() {
     <Layout breadcrumbs={[{ label: "Home", href: "/" }, { label: batchName }]}>
       <div className="mb-5 flex items-center justify-between gap-4">
         <h1 className="text-xl font-bold tracking-tight">Subjects</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleShare}
-          title="Share this batch"
-          className="flex items-center gap-2 flex-shrink-0"
-        >
-          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
-          <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Enroll / Unenroll */}
+          {enrolled ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive">
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Unenroll</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Unenroll from this batch?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You are about to unenroll from{" "}
+                    <span className="font-semibold text-foreground">{batchName}</span>.
+                    It will be removed from your <strong>My Batches</strong> list.
+                    You can always re-enroll later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => unenroll(batchId!)}
+                  >
+                    Yes, Unenroll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={isLoading}
+              onClick={() => data && enroll(data.data as unknown as Batch)}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">Enroll</span>
+            </Button>
+          )}
+
+          {/* Share */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShare}
+            title="Share this batch"
+            className="flex items-center gap-2"
+          >
+            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
+          </Button>
+        </div>
       </div>
+
+      {/* Enrolled badge */}
+      {enrolled && (
+        <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+          <CheckCircle2 className="w-4 h-4" />
+          Enrolled in this batch
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
