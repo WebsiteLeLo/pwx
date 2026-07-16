@@ -48,18 +48,18 @@ function subjectTextColor(name: string) {
   return "text-primary";
 }
 
-function subjectBg(name: string) {
-  const map: Record<string, string> = {
-    physics:   "from-blue-900 to-blue-950",
-    chemistry: "from-green-900 to-green-950",
-    maths:     "from-violet-900 to-violet-950",
-    math:      "from-violet-900 to-violet-950",
-    biology:   "from-emerald-900 to-emerald-950",
-    english:   "from-yellow-900 to-yellow-950",
+function subjectBg(name: string): { from: string; via: string; to: string } {
+  const map: Record<string, { from: string; via: string; to: string }> = {
+    physics:   { from: "#1e3a8a", via: "#1d4ed8", to: "#1e40af" },
+    chemistry: { from: "#14532d", via: "#15803d", to: "#166534" },
+    maths:     { from: "#4c1d95", via: "#7c3aed", to: "#5b21b6" },
+    math:      { from: "#4c1d95", via: "#7c3aed", to: "#5b21b6" },
+    biology:   { from: "#064e3b", via: "#059669", to: "#065f46" },
+    english:   { from: "#78350f", via: "#d97706", to: "#92400e" },
   };
   const key = name.toLowerCase();
-  for (const [k, v] of Object.entries(map)) if (key.includes(k)) return v;
-  return "from-slate-800 to-slate-900";
+  const entry = Object.entries(map).find(([k]) => key.includes(k))?.[1];
+  return entry ?? { from: "#1e293b", via: "#334155", to: "#0f172a" };
 }
 
 const KIND_META: Record<string, { label: string; icon: ReactNode; color: string }> = {
@@ -123,6 +123,8 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
     : raw.image || raw.thumbnail || raw.teacherImageUrl || null;
   const teacherName: string = raw.teacherName || raw.teacher?.name || raw.instructorName || "";
   const initials = subjectName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+  const bg = subjectBg(subjectName);
+  const thumbStyle = { background: `linear-gradient(135deg, ${bg.from} 0%, ${bg.via} 50%, ${bg.to} 100%)` };
 
   const buildLiveUrl = () => {
     const p = new URLSearchParams({
@@ -190,7 +192,7 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
         )}
 
         {/* Thumbnail */}
-        <div className={`relative w-full h-40 overflow-hidden bg-gradient-to-br ${subjectBg(subjectName)}`}>
+        <div className="relative w-full h-40 overflow-hidden" style={thumbStyle}>
           {thumbUrl ? (
             <img
               src={thumbUrl}
@@ -199,11 +201,10 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-2 select-none">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-extrabold text-white/30 border-2 border-white/10">
+            <div className="w-full h-full flex items-center justify-center select-none">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black text-white border-2 border-white/30 bg-white/10 shadow-lg">
                 {initials}
               </div>
-              <PlayCircle className="w-6 h-6 text-white/10" />
             </div>
           )}
 
@@ -319,7 +320,7 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex-shrink-0 w-52 rounded-2xl border border-border/40 overflow-hidden">
               <Skeleton className="w-full h-40" />
@@ -350,7 +351,7 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
 
       {/* Horizontal scroll */}
       {!isLoading && !isError && sorted.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-3 snap-x [scrollbar-width:thin]">
+        <div className="flex gap-3 overflow-x-auto pb-1 snap-x" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
           <AnimatePresence>
             {sorted.map(item => (
               <div key={item._id} className="snap-start">
