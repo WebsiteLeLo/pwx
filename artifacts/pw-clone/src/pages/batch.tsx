@@ -64,11 +64,33 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
   const subjectId = item.data.subjectId._id;
   const scheduleId = item.data._id;
   const batchId = item.data.batchId;
+  const topicId = item.data.tags?.[0]?._id ?? "";
   const kindMeta = KIND_META[kind] ?? KIND_META.other;
 
+  // Thumbnail: try API imageId fields (not in TS type, cast to any)
+  const raw = item.data as any;
+  const thumbUrl: string | null =
+    raw.imageId?.baseUrl && raw.imageId?.key
+      ? `${raw.imageId.baseUrl}${raw.imageId.key}`
+      : raw.image || raw.thumbnail || null;
+
+  // Subject-based gradient for fallback thumbnail bg
+  const subjectKey = item.data.subjectId.name.toLowerCase();
+  const gradients: Record<string, string> = {
+    physics:   "from-blue-900/80 to-blue-950",
+    chemistry: "from-green-900/80 to-green-950",
+    maths:     "from-purple-900/80 to-purple-950",
+    math:      "from-purple-900/80 to-purple-950",
+    biology:   "from-emerald-900/80 to-emerald-950",
+    english:   "from-yellow-900/80 to-yellow-950",
+  };
+  const fallbackGrad = Object.entries(gradients).find(([k]) => subjectKey.includes(k))?.[1]
+    ?? "from-primary/20 to-primary/5";
+
   const handleVideoWatch = () => {
-    const url = `https://lite.pw4free.in/player?batchid=${encodeURIComponent(batchId)}&subjectid=${encodeURIComponent(subjectId)}&lectureid=${encodeURIComponent(scheduleId)}&title=${encodeURIComponent(item.data.topic.trim())}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    const params = new URLSearchParams({ batchId, subjectId, videoId: scheduleId, title: item.data.topic.trim() });
+    if (topicId) params.set("topicId", topicId);
+    window.location.href = `/watch?${params.toString()}`;
   };
 
   const handleMaterialOpen = () => {
@@ -82,77 +104,116 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 
   const borderClass = isVideo
     ? status === "live"
-      ? "border-red-500/50 bg-red-950/10 hover:border-red-500/70"
+      ? "border-red-500/50 hover:border-red-500/80"
       : status === "completed"
-      ? "border-border/30 bg-card/50 opacity-60"
-      : "border-border/50 bg-card hover:border-primary/40"
-    : "border-border/40 bg-card/60 hover:border-amber-500/30";
+      ? "border-border/30 opacity-65"
+      : "border-border/50 hover:border-primary/50"
+    : "border-border/40 hover:border-amber-500/30";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`relative rounded-xl border overflow-hidden transition-colors ${borderClass}`}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={`relative flex-shrink-0 w-64 sm:w-72 rounded-xl border bg-card overflow-hidden transition-all ${borderClass} ${isVideo && status !== "completed" ? "cursor-pointer" : ""}`}
+      onClick={isVideo && status !== "upcoming" ? handleVideoWatch : undefined}
     >
+      {/* Live top bar */}
       {isVideo && status === "live" && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
       )}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${subjectColor(item.data.subjectId.name)}`}>
-              {item.data.subjectId.name}
+
+      {/* Thumbnail */}
+      <div className="relative w-full aspect-video overflow-hidden bg-muted">
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={item.data.topic}
+            className="w-full h-full object-cover"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${fallbackGrad} flex items-center justify-center`}>
+            <PlayCircle className="w-10 h-10 text-white/20" />
+          </div>
+        )}
+
+        {/* Overlay: status badge top-left */}
+        <div className="absolute top-2 left-2 flex items-center gap-1.5">
+          {isVideo && status === "live" && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white shadow-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
             </span>
-            {!isVideo && (
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${kindMeta.color}`}>
-                {kindMeta.icon}{kindMeta.label}
-              </span>
-            )}
-            {isVideo && status === "live" && (
-              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
-              </span>
-            )}
-            {isVideo && status === "upcoming" && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
-                <Clock className="w-3 h-3" />Upcoming
-              </span>
-            )}
-            {isVideo && status === "completed" && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
-                <CheckCircle2 className="w-3 h-3" />Ended
-              </span>
-            )}
-          </div>
-          <div className="text-right text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-            <div>{formatTime(item.data.startTime)}</div>
-            <div className="opacity-60">→ {formatTime(item.data.endTime)}</div>
-          </div>
+          )}
+          {isVideo && status === "upcoming" && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-black/70 text-white backdrop-blur-sm">
+              <Clock className="w-3 h-3" />Upcoming
+            </span>
+          )}
+          {isVideo && status === "completed" && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-black/70 text-white/80 backdrop-blur-sm">
+              <CheckCircle2 className="w-3 h-3" />Ended
+            </span>
+          )}
+          {!isVideo && (
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${kindMeta.color} backdrop-blur-sm`}>
+              {kindMeta.icon}{kindMeta.label}
+            </span>
+          )}
         </div>
 
-        <h3 className={`font-semibold text-sm leading-snug mb-3 line-clamp-2 ${!isVideo || status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
+        {/* Overlay: time top-right */}
+        <div className="absolute top-2 right-2 text-right text-xs font-medium text-white bg-black/60 rounded px-1.5 py-0.5 backdrop-blur-sm">
+          {formatTime(item.data.startTime)}
+        </div>
+
+        {/* Play button center overlay for video non-upcoming */}
+        {isVideo && status !== "upcoming" && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/30">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-xl ${status === "live" ? "bg-red-500" : "bg-white/90"}`}>
+              {status === "live"
+                ? <Radio className="w-6 h-6 text-white" />
+                : <PlayCircle className="w-6 h-6 text-gray-900" />}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Card body */}
+      <div className="p-3">
+        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border mb-2 ${subjectColor(item.data.subjectId.name)}`}>
+          {item.data.subjectId.name}
+        </span>
+
+        <h3 className={`font-semibold text-sm leading-snug line-clamp-2 mb-3 ${status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
           {item.data.topic.trim()}
         </h3>
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">
+            {formatTime(item.data.startTime)} → {formatTime(item.data.endTime)}
+          </span>
           {isVideo ? (
             status === "upcoming" ? (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="w-3 h-3" />Starts at {formatTime(item.data.startTime)}
+              <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+                <Clock className="w-3 h-3" />Soon
               </span>
             ) : (
               <Button
                 size="sm"
                 variant={status === "live" ? "default" : "outline"}
-                className={`h-7 text-xs gap-1 cursor-pointer ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
-                onClick={handleVideoWatch}
+                className={`h-7 text-xs gap-1 flex-shrink-0 cursor-pointer ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
+                onClick={e => { e.stopPropagation(); handleVideoWatch(); }}
               >
-                {status === "live" ? <><Radio className="w-3 h-3" />Watch Live</> : <><PlayCircle className="w-3 h-3" />Recording</>}
+                {status === "live" ? <><Radio className="w-3 h-3" />Watch</> : <><PlayCircle className="w-3 h-3" />Play</>}
               </Button>
             )
           ) : (
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 cursor-pointer border-amber-500/30 text-amber-400 hover:bg-amber-500/10" onClick={handleMaterialOpen}>
-              {kindMeta.icon}Open {kindMeta.label}
+            <Button
+              size="sm" variant="outline"
+              className="h-7 text-xs gap-1 flex-shrink-0 cursor-pointer border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+              onClick={e => { e.stopPropagation(); handleMaterialOpen(); }}
+            >
+              {kindMeta.icon}Open
             </Button>
           )}
         </div>
@@ -205,12 +266,15 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
       </div>
 
       {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border/40 p-4 space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-5 w-full" />
-              <Skeleton className="h-4 w-3/4" />
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-64 sm:w-72 rounded-xl border border-border/40 overflow-hidden">
+              <Skeleton className="w-full aspect-video" />
+              <div className="p-3 space-y-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
             </div>
           ))}
         </div>
@@ -225,9 +289,13 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
       )}
 
       {!isLoading && !isError && videoItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory [scrollbar-width:thin]">
           <AnimatePresence>
-            {videoItems.map(item => <LiveScheduleCard key={item._id} item={item} />)}
+            {videoItems.map(item => (
+              <div key={item._id} className="snap-start">
+                <LiveScheduleCard item={item} />
+              </div>
+            ))}
           </AnimatePresence>
         </div>
       )}
