@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -42,32 +42,25 @@ function timeAgo(iso: string): string {
   return rem > 0 ? `${hrs}h ${rem}m ago` : `${hrs}h ago`;
 }
 
-function subjectTextColor(name: string) {
-  const map: Record<string, string> = {
-    physics:   "text-blue-400",
-    chemistry: "text-green-400",
-    maths:     "text-purple-400",
-    math:      "text-purple-400",
-    biology:   "text-emerald-400",
-    english:   "text-yellow-400",
-  };
-  const key = name.toLowerCase();
-  for (const [k, v] of Object.entries(map)) if (key.includes(k)) return v;
-  return "text-primary";
+interface SubjectMeta {
+  bg: string;      // Tailwind bg classes — light + dark
+  iconBg: string;  // icon container bg classes
+  iconEl: React.ReactNode;
 }
 
-function subjectBg(name: string): { from: string; via: string; to: string } {
-  const map: Record<string, { from: string; via: string; to: string }> = {
-    physics:   { from: "#1e3a8a", via: "#1d4ed8", to: "#1e40af" },
-    chemistry: { from: "#14532d", via: "#15803d", to: "#166534" },
-    maths:     { from: "#4c1d95", via: "#7c3aed", to: "#5b21b6" },
-    math:      { from: "#4c1d95", via: "#7c3aed", to: "#5b21b6" },
-    biology:   { from: "#064e3b", via: "#059669", to: "#065f46" },
-    english:   { from: "#78350f", via: "#d97706", to: "#92400e" },
-  };
+function getSubjectMeta(name: string): SubjectMeta {
   const key = name.toLowerCase();
-  const entry = Object.entries(map).find(([k]) => key.includes(k))?.[1];
-  return entry ?? { from: "#1e293b", via: "#334155", to: "#0f172a" };
+  if (key.includes("physics"))
+    return { bg: "bg-sky-100 dark:bg-sky-950",   iconBg: "bg-sky-200 dark:bg-sky-900",      iconEl: <Zap        className="w-10 h-10 text-sky-500 dark:text-sky-300" /> };
+  if (key.includes("chem"))
+    return { bg: "bg-emerald-100 dark:bg-emerald-950", iconBg: "bg-emerald-200 dark:bg-emerald-900", iconEl: <FlaskConical className="w-10 h-10 text-emerald-600 dark:text-emerald-300" /> };
+  if (key.includes("math"))
+    return { bg: "bg-violet-100 dark:bg-violet-950", iconBg: "bg-violet-200 dark:bg-violet-900", iconEl: <Calculator  className="w-10 h-10 text-violet-600 dark:text-violet-300" /> };
+  if (key.includes("bio"))
+    return { bg: "bg-green-100 dark:bg-green-950",  iconBg: "bg-green-200 dark:bg-green-900",   iconEl: <Dna        className="w-10 h-10 text-green-600 dark:text-green-300" /> };
+  if (key.includes("eng") || key.includes("lang"))
+    return { bg: "bg-amber-100 dark:bg-amber-950",  iconBg: "bg-amber-200 dark:bg-amber-900",   iconEl: <BookText   className="w-10 h-10 text-amber-600 dark:text-amber-300" /> };
+  return   { bg: "bg-slate-100 dark:bg-slate-900",  iconBg: "bg-slate-200 dark:bg-slate-800",   iconEl: <BookOpen   className="w-10 h-10 text-slate-500 dark:text-slate-400" /> };
 }
 
 const KIND_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -138,9 +131,7 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
     raw.teacherName || raw.teacher?.name || raw.instructorName || "";
 
   // Initials for avatar fallback
-  const initials = subjectName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
-  const bg = subjectBg(subjectName);
-  const thumbStyle = { background: `linear-gradient(135deg, ${bg.from} 0%, ${bg.via} 50%, ${bg.to} 100%)` };
+  const meta = getSubjectMeta(subjectName);
 
   const buildLiveUrl = () => {
     const p = new URLSearchParams({
@@ -207,35 +198,35 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
         )}
 
         {/* ── Thumbnail ── */}
-        <div className="relative w-full h-40 overflow-hidden" style={thumbStyle}>
-          {thumbUrl ? (
+        <div className={`relative w-full h-40 overflow-hidden ${meta.bg}`}>
+          {/* Subject icon — always in background */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${meta.iconBg}`}>
+              {meta.iconEl}
+            </div>
+          </div>
+
+          {/* Real thumbnail on top (hides on error, icon shows through) */}
+          {thumbUrl && (
             <img
               src={thumbUrl}
               alt={subjectName}
-              className="w-full h-full object-cover object-top"
+              className="absolute inset-0 w-full h-full object-cover object-top"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center select-none">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black text-white border-2 border-white/30 bg-white/10 shadow-lg">
-                {initials}
-              </div>
-            </div>
           )}
 
           {/* Bottom scrim */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-6 pb-2 px-3">
-            {teacherName ? (
-              <p className="text-xs font-semibold text-white truncate">{teacherName}</p>
-            ) : (
-              <p className={`text-xs font-bold truncate ${subjectTextColor(subjectName)}`}>{subjectName}</p>
-            )}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent pt-8 pb-2 px-3">
+            <p className="text-xs font-semibold text-white truncate drop-shadow">
+              {teacherName || subjectName}
+            </p>
           </div>
 
           {/* Hover play overlay */}
           {isVideo && status !== "upcoming" && (
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 bg-black/25">
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-2xl ${status === "live" ? "bg-red-500" : "bg-white/90"}`}>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 bg-black/20">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl ${status === "live" ? "bg-red-500" : "bg-white/90"}`}>
                 {status === "live" ? <Radio className="w-5 h-5 text-white" /> : <PlayCircle className="w-5 h-5 text-gray-900" />}
               </div>
             </div>
