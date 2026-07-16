@@ -80,6 +80,47 @@
   --radius: 0.5rem;
 }
 
+/* ── Dark theme ─────────────────────────────────────────── */
+.dark {
+  --background: 222 47% 6%;
+  --foreground: 210 20% 96%;
+
+  --card: 222 47% 8%;
+  --card-foreground: 210 20% 96%;
+  --card-border: 222 47% 14%;
+
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 20% 96%;
+  --popover-border: 222 47% 14%;
+
+  --primary: 224 76% 60%;          /* slightly lighter blue on dark */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 222 47% 13%;
+  --secondary-foreground: 210 20% 90%;
+
+  --muted: 222 47% 12%;
+  --muted-foreground: 220 10% 55%;
+
+  --accent: 224 76% 60%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 222 47% 15%;
+  --input: 222 47% 15%;
+  --ring: 224 76% 60%;
+}
+
+/* Dark scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(222 47% 22%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(222 47% 30%);
+}
+
 @layer base {
   * {
     @apply border-border;

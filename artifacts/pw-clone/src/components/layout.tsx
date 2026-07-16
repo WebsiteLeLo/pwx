@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 export interface BreadcrumbItem {
   label: string;
@@ -56,6 +57,8 @@ function BottomNav() {
 }
 
 export function Layout({ children, breadcrumbs }: LayoutProps) {
+  const { isDark, toggleTheme } = useTheme();
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary selection:text-primary-foreground">
       {/* Top Navbar */}
@@ -85,17 +88,30 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
             ))}
           </nav>
 
-          {/* Telegram — always visible */}
-          <a
-            href="https://t.me/pwxonrender"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#29a7e0] hover:bg-[#29a7e0]/10 transition-colors"
-            title="Join our Telegram"
-          >
-            <TelegramIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Telegram</span>
-          </a>
+          <div className="ml-auto flex items-center gap-1">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              {isDark
+                ? <Sun className="w-4 h-4" />
+                : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Telegram */}
+            <a
+              href="https://t.me/pwxonrender"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#29a7e0] hover:bg-[#29a7e0]/10 transition-colors"
+              title="Join our Telegram"
+            >
+              <TelegramIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Telegram</span>
+            </a>
+          </div>
         </div>
       </header>
 

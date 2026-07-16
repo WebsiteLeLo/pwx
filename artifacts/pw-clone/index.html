@@ -173,6 +173,16 @@
     </script>
   </head>
   <body>
+    <!-- Apply saved theme before React renders to prevent flash -->
+    <script>
+      (function(){
+        try {
+          if (localStorage.getItem("pwx_theme") === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch(e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 </body>
