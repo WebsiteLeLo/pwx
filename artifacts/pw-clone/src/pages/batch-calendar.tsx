@@ -91,7 +91,7 @@ async function fetchAllSubjectVideos(batchId: string, subjectId: string): Promis
   return all;
 }
 
-interface VideoWithMeta extends ContentItem { subjectName: string }
+interface VideoWithMeta extends ContentItem { subjectName: string; subjectId: string }
 
 export default function BatchCalendar() {
   const { batchId } = useParams<{ batchId: string }>();
@@ -104,7 +104,7 @@ export default function BatchCalendar() {
     queries: subjects.map(s => ({
       queryKey: ["calVideos", batchId, s._id],
       queryFn: () => fetchAllSubjectVideos(batchId!, s._id).then(items =>
-        items.map(v => ({ ...v, subjectName: s.subject } as VideoWithMeta))
+        items.map(v => ({ ...v, subjectName: s.subject, subjectId: s._id } as VideoWithMeta))
       ),
       enabled: !!batchId && subjects.length > 0,
       staleTime: 1000*60*20,
@@ -369,7 +369,7 @@ export default function BatchCalendar() {
                     const thumb = getThumb(vid);
                     const title = vid?.name ?? content.topic ?? "Lecture Video";
                     const dur = fmtDur(vid?.duration);
-                    const watchUrl = `/watch?batchId=${encodeURIComponent(batchId!)}&subjectId=${encodeURIComponent((content as any).subjectId ?? "")}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
+                    const watchUrl = `/watch?batchId=${encodeURIComponent(batchId!)}&subjectId=${encodeURIComponent(content.subjectId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}&backUrl=${encodeURIComponent(`/batch/${batchId}/calendar`)}`;
 
                     return (
                       <motion.div
