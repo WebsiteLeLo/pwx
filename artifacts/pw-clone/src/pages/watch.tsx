@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Watch() {
   const [src, setSrc] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const backUrlRef = useRef("/");
   const [, navigate] = useLocation();
 
@@ -92,15 +94,77 @@ export default function Watch() {
         Back to Chapter
       </button>
 
+      {/* Loading overlay */}
+      <AnimatePresence>
+        {!loaded && (
+          <motion.div
+            key="loader"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 5,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 20,
+              background: "#000",
+            }}
+          >
+            {/* Spinning ring */}
+            <div style={{ position: "relative", width: 64, height: 64 }}>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: "50%",
+                  border: "3px solid rgba(255,255,255,0.08)",
+                  borderTop: "3px solid #00b4ff",
+                  position: "absolute",
+                  inset: 0,
+                }}
+              />
+              {/* Inner dot */}
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: "#00b4ff",
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                }}
+              />
+            </div>
+
+            <motion.p
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, letterSpacing: "0.05em" }}
+            >
+              Loading video…
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {src && (
         <iframe
           src={src}
+          onLoad={() => setLoaded(true)}
           style={{ width: "100%", height: "100%", border: "none", display: "block" }}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="no-referrer"
-          // allow-top-navigation-by-user-activation: lets user-click-triggered navigation
-          // reach window.top so the Navigation API on the parent can intercept & redirect it.
           sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation"
           title="Video Player"
         />
