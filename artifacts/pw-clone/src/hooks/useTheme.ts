@@ -1,24 +1,20 @@
 import { useState, useEffect } from "react";
 
-type Theme = "light" | "dark";
-
+type Theme = "dark" | "light";
 const KEY = "pwx_theme";
 
 function applyTheme(t: Theme) {
-  if (t === "dark") {
-    document.documentElement.classList.add("dark");
+  if (t === "light") {
+    document.documentElement.classList.add("light");
   } else {
-    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.remove("light");
   }
 }
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      return (localStorage.getItem(KEY) as Theme) ?? "light";
-    } catch {
-      return "light";
-    }
+    try { return (localStorage.getItem(KEY) as Theme) ?? "dark"; }
+    catch { return "dark"; }
   });
 
   useEffect(() => {

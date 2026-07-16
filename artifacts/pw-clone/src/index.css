@@ -46,9 +46,44 @@
 }
 
 :root {
-  /* Clean light theme — easy on the eyes */
-  --background: 216 33% 97%;       /* warm off-white, not harsh pure white */
-  --foreground: 222 47% 11%;       /* deep slate, not pure black */
+  /* Original dark theme — electric cyan */
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 6%;
+  --card-foreground: 0 0% 98%;
+  --card-border: 240 10% 12%;
+
+  --popover: 240 10% 6%;
+  --popover-foreground: 0 0% 98%;
+  --popover-border: 240 10% 12%;
+
+  --primary: 190 100% 50%;         /* Electric Cyan */
+  --primary-foreground: 240 10% 4%;
+
+  --secondary: 240 10% 15%;
+  --secondary-foreground: 0 0% 98%;
+
+  --muted: 240 10% 12%;
+  --muted-foreground: 240 5% 65%;
+
+  --accent: 190 100% 50%;
+  --accent-foreground: 240 10% 4%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 240 10% 12%;
+  --input: 240 10% 12%;
+  --ring: 190 100% 50%;
+
+  --radius: 0.5rem;
+}
+
+/* ── Light theme (opt-in via .light class on <html>) ─────── */
+.light {
+  --background: 216 33% 97%;
+  --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
@@ -58,7 +93,7 @@
   --popover-foreground: 222 47% 11%;
   --popover-border: 220 14% 90%;
 
-  --primary: 224 76% 48%;          /* professional indigo-blue */
+  --primary: 224 76% 48%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 220 14% 93%;
@@ -76,49 +111,14 @@
   --border: 220 14% 89%;
   --input: 220 14% 89%;
   --ring: 224 76% 48%;
-
-  --radius: 0.5rem;
 }
 
-/* ── Dark theme ─────────────────────────────────────────── */
-.dark {
-  --background: 222 47% 6%;
-  --foreground: 210 20% 96%;
-
-  --card: 222 47% 8%;
-  --card-foreground: 210 20% 96%;
-  --card-border: 222 47% 14%;
-
-  --popover: 222 47% 8%;
-  --popover-foreground: 210 20% 96%;
-  --popover-border: 222 47% 14%;
-
-  --primary: 224 76% 60%;          /* slightly lighter blue on dark */
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 222 47% 13%;
-  --secondary-foreground: 210 20% 90%;
-
-  --muted: 222 47% 12%;
-  --muted-foreground: 220 10% 55%;
-
-  --accent: 224 76% 60%;
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 72% 55%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 222 47% 15%;
-  --input: 222 47% 15%;
-  --ring: 224 76% 60%;
+/* Light scrollbar */
+.light ::-webkit-scrollbar-thumb {
+  background: hsl(220 14% 78%);
 }
-
-/* Dark scrollbar */
-.dark ::-webkit-scrollbar-thumb {
-  background: hsl(222 47% 22%);
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(222 47% 30%);
+.light ::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 14% 65%);
 }
 
 @layer base {
