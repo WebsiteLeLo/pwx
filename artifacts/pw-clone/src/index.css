@@ -46,36 +46,36 @@
 }
 
 :root {
-  /* Force dark mode as the default for this Netflix-like prep app */
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
+  /* Clean light theme — easy on the eyes */
+  --background: 216 33% 97%;       /* warm off-white, not harsh pure white */
+  --foreground: 222 47% 11%;       /* deep slate, not pure black */
 
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 10% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --card-border: 220 14% 90%;
 
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 10% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 220 14% 90%;
 
-  --primary: 190 100% 50%; /* Electric Cyan */
-  --primary-foreground: 240 10% 4%;
+  --primary: 224 76% 48%;          /* professional indigo-blue */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 240 10% 15%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 220 14% 93%;
+  --secondary-foreground: 222 47% 20%;
 
-  --muted: 240 10% 12%;
-  --muted-foreground: 240 5% 65%;
+  --muted: 220 14% 93%;
+  --muted-foreground: 220 9% 46%;
 
-  --accent: 190 100% 50%;
-  --accent-foreground: 240 10% 4%;
+  --accent: 224 76% 48%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 240 10% 12%;
-  --input: 240 10% 12%;
-  --ring: 190 100% 50%;
+  --border: 220 14% 89%;
+  --input: 220 14% 89%;
+  --ring: 224 76% 48%;
 
   --radius: 0.5rem;
 }
@@ -102,11 +102,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(240 10% 20%);
+    background: hsl(220 14% 78%);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(240 10% 28%);
+    background: hsl(220 14% 65%);
   }
 
   /* Smooth interactive transitions */

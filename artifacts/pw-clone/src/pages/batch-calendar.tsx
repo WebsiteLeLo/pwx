@@ -241,7 +241,7 @@ export default function BatchCalendar() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="flex items-center justify-between px-4 sm:px-5 py-2 bg-primary/8 border-b border-primary/15">
+                  <div className="flex items-center justify-between px-4 sm:px-5 py-2 bg-primary/10 border-b border-primary/20">
                     <span className="text-xs text-primary flex items-center gap-1.5">
                       <Pin className="w-3 h-3 fill-current" />
                       Pinned — opens here by default for this batch
