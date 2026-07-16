@@ -101,7 +101,7 @@ export default function Watch() {
             key="loader"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.6 }}
             style={{
               position: "absolute",
               inset: 0,
@@ -110,49 +110,118 @@ export default function Watch() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 20,
-              background: "#000",
+              gap: 32,
+              background: "radial-gradient(ellipse at center, #0d1117 0%, #000 100%)",
+              overflow: "hidden",
             }}
           >
-            {/* Spinning ring */}
-            <div style={{ position: "relative", width: 64, height: 64 }}>
+            {/* Ambient glow rings */}
+            {[200, 320, 440].map((size, i) => (
               <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                key={size}
+                animate={{ scale: [1, 1.08, 1], opacity: [0.06, 0.12, 0.06] }}
+                transition={{ duration: 3 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.8 }}
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  border: "3px solid rgba(255,255,255,0.08)",
-                  borderTop: "3px solid #00b4ff",
                   position: "absolute",
-                  inset: 0,
+                  width: size,
+                  height: size,
+                  borderRadius: "50%",
+                  border: "1px solid rgba(99,102,241,0.35)",
+                  pointerEvents: "none",
                 }}
               />
-              {/* Inner dot */}
+            ))}
+
+            {/* Play button with rotating border */}
+            <div style={{ position: "relative", width: 90, height: 90 }}>
+              {/* Outer rotating arc */}
               <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
                 style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: "#00b4ff",
                   position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
+                  inset: 0,
+                  borderRadius: "50%",
+                  border: "2.5px solid transparent",
+                  borderTopColor: "#818cf8",
+                  borderRightColor: "#818cf8",
+                }}
+              />
+              {/* Counter-rotating arc */}
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
+                style={{
+                  position: "absolute",
+                  inset: 6,
+                  borderRadius: "50%",
+                  border: "2px solid transparent",
+                  borderBottomColor: "#c4b5fd",
+                  borderLeftColor: "#c4b5fd",
+                }}
+              />
+              {/* Centre play icon */}
+              <motion.div
+                animate={{ scale: [0.92, 1.04, 0.92] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <div style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 0 28px rgba(99,102,241,0.5)",
+                }}>
+                  {/* Triangle play icon */}
+                  <div style={{
+                    width: 0,
+                    height: 0,
+                    borderTop: "9px solid transparent",
+                    borderBottom: "9px solid transparent",
+                    borderLeft: "16px solid #fff",
+                    marginLeft: 3,
+                  }} />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* PWX logo text */}
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "0.1em", color: "#fff" }}>
+                PW<span style={{ color: "#818cf8" }}>X</span>
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                Loading Video
+              </div>
+            </motion.div>
+
+            {/* Animated progress bar */}
+            <div style={{ width: 160, height: 2, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
+              <motion.div
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  width: "60%",
+                  height: "100%",
+                  background: "linear-gradient(90deg, transparent, #818cf8, transparent)",
+                  borderRadius: 99,
                 }}
               />
             </div>
-
-            <motion.p
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, letterSpacing: "0.05em" }}
-            >
-              Loading video…
-            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
