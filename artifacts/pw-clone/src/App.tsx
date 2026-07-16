@@ -18,7 +18,7 @@ import Materials from "@/pages/materials";
 import Schedule from "@/pages/schedule";
 import { MyMixList, MyMixDetail } from "@/pages/my-mix";
 import DppQuiz from "@/pages/dpp-quiz";
-import SubjectCalendar from "@/pages/subject-calendar";
+import BatchCalendar from "@/pages/batch-calendar";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -62,7 +62,7 @@ function Router() {
             <Route path="/batch/:batchId" component={Batch} />
             <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
             <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
-            <Route path="/batch/:batchId/subject/:subjectId/calendar" component={SubjectCalendar} />
+            <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
             <Route path="/watch" component={Watch} />
             <Route path="/schedule-watch" component={ScheduleWatch} />
             <Route path="/materials" component={Materials} />

@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2 } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
 
 function AddToMixDialog({
@@ -207,6 +207,16 @@ export default function Batch() {
               <span className="hidden sm:inline">Enroll</span>
             </Button>
           )}
+
+          {/* Calendar */}
+          <Link
+            href={`/batch/${batchId}/calendar`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:border-border text-sm font-medium transition-all"
+            title="View lecture calendar"
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span className="hidden sm:inline">Calendar</span>
+          </Link>
 
           {/* Share */}
           <Button

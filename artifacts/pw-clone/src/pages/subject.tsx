@@ -7,7 +7,7 @@ import { Link, useParams } from "wouter";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate, Reorder, useDragControls } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff, GripVertical, ArrowUpDown, RotateCcw, CalendarDays } from "lucide-react";
+import { AlertCircle, FileText, PlaySquare, ChevronRight, Layers, Share2, Check, Search, X, Pin, PinOff, GripVertical, ArrowUpDown, RotateCcw } from "lucide-react";
 
 const SWIPE_THRESHOLD = 80;
 
@@ -273,28 +273,18 @@ export default function Subject() {
             <span className="hidden sm:inline">{reorderMode ? "Done" : "Reorder"}</span>
           </button>
           {!reorderMode && (
-            <>
-              <Link
-                href={`/batch/${batchId}/subject/${subjectId}/calendar`}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:border-border text-sm font-medium transition-all"
-                title="View lecture calendar"
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Calendar</span>
-              </Link>
-              <button
-                onClick={handleShare}
-                title="Share this page"
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-                  copied
-                    ? "border-green-500/60 bg-green-500/10 text-green-400"
-                    : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                }`}
-              >
-                {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-                <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
-              </button>
-            </>
+            <button
+              onClick={handleShare}
+              title="Share this page"
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                copied
+                  ? "border-green-500/60 bg-green-500/10 text-green-400"
+                  : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+              }`}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{copied ? "Copied!" : "Share"}</span>
+            </button>
           )}
         </div>
       </div>
