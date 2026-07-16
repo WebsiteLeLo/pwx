@@ -19,38 +19,25 @@ export default function Watch() {
     });
     setSrc(`https://vidcloud.eu.org/play.php?${p.toString()}`);
 
-    // Block any attempt by the iframe to navigate the top-level page away
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    // Intercept top-level navigation using the Navigation API (Chrome 102+)
+    // Intercept any top-level navigation triggered by the iframe.
+    // If the destination is external, cancel it and send user to our batch page.
     const nav = (window as any).navigation;
-    let navHandler: ((e: any) => void) | null = null;
-    if (nav) {
-      navHandler = (e: any) => {
-        const dest: string = e.destination?.url || "";
-        // If the navigation goes to an external site, cancel it and go back
-        if (dest && !dest.startsWith(window.location.origin)) {
-          e.preventDefault();
-          // Go back to batch page if we have params
-          if (batchId && subjectId) {
-            navigate(`/batch/${batchId}/subject/${subjectId}`);
-          } else {
-            navigate("/");
-          }
-        }
-      };
-      nav.addEventListener("navigate", navHandler);
-    }
+    if (!nav) return;
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (nav && navHandler) nav.removeEventListener("navigate", navHandler);
+    const handler = (e: any) => {
+      const dest: string = e.destination?.url || "";
+      if (!dest || dest.startsWith(window.location.origin)) return; // allow same-origin
+      e.preventDefault();
+      // Redirect to our own subject page
+      if (batchId && subjectId) {
+        navigate(`/batch/${batchId}/subject/${subjectId}`);
+      } else {
+        navigate("/");
+      }
     };
+
+    nav.addEventListener("navigate", handler);
+    return () => nav.removeEventListener("navigate", handler);
   }, [navigate]);
 
   return (
@@ -62,7 +49,9 @@ export default function Watch() {
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
+          // allow-top-navigation-by-user-activation lets user clicks navigate the top frame
+          // so our Navigation API handler above can intercept and redirect to our site
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation"
           title="Video Player"
         />
       )}
