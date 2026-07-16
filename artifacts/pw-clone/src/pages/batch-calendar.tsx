@@ -2,11 +2,26 @@ import { useState, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQueries } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Play, Clock, Calendar, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Clock, Calendar, BookOpen, Pin, PinOff } from "lucide-react";
 import { Link } from "wouter";
 import { Layout } from "@/components/layout";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useBatchDetails, ContentItem } from "@/hooks/usePWApi";
+
+function getPinnedMonth(batchId: string): { year: number; month: number } | null {
+  try {
+    const raw = localStorage.getItem(`cal_pin_${batchId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function setPinnedMonth(batchId: string, year: number, month: number) {
+  localStorage.setItem(`cal_pin_${batchId}`, JSON.stringify({ year, month }));
+}
+
+function clearPinnedMonth(batchId: string) {
+  localStorage.removeItem(`cal_pin_${batchId}`);
+}
 
 const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -112,9 +127,23 @@ export default function BatchCalendar() {
   }, [allVideos]);
 
   const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const pinned = getPinnedMonth(batchId!);
+  const [viewYear, setViewYear] = useState(pinned?.year ?? today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(pinned?.month ?? today.getMonth());
   const [selectedKey, setSelectedKey] = useState<string|null>(null);
+  const [pinnedState, setPinnedState] = useState<{year:number;month:number}|null>(pinned);
+
+  const isPinned = pinnedState?.year === viewYear && pinnedState?.month === viewMonth;
+
+  const togglePin = () => {
+    if (isPinned) {
+      clearPinnedMonth(batchId!);
+      setPinnedState(null);
+    } else {
+      setPinnedMonth(batchId!, viewYear, viewMonth);
+      setPinnedState({ year: viewYear, month: viewMonth });
+    }
+  };
 
   const prevMonth = () => {
     if (viewMonth===0) { setViewYear(y=>y-1); setViewMonth(11); }
@@ -171,17 +200,62 @@ export default function BatchCalendar() {
           <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">
 
             {/* Month nav */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-border/40">
-              <button onClick={prevMonth} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+            <div className="flex items-center gap-1 px-4 sm:px-5 py-4 border-b border-border/40">
+              <button onClick={prevMonth} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors shrink-0">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="font-bold text-sm sm:text-base tracking-tight">
-                {MONTHS[viewMonth]} {viewYear}
-              </span>
-              <button onClick={nextMonth} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+
+              <div className="flex-1 flex items-center justify-center gap-2">
+                <span className="font-bold text-sm sm:text-base tracking-tight">
+                  {MONTHS[viewMonth]} {viewYear}
+                </span>
+                {/* Pin / Unpin button */}
+                <motion.button
+                  onClick={togglePin}
+                  whileTap={{ scale: 0.85 }}
+                  title={isPinned ? "Unpin this month" : "Pin this month as default"}
+                  className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+                    isPinned
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {isPinned
+                    ? <Pin className="w-3 h-3 fill-current" />
+                    : <Pin className="w-3 h-3" />}
+                </motion.button>
+              </div>
+
+              <button onClick={nextMonth} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center transition-colors shrink-0">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Pinned banner */}
+            <AnimatePresence>
+              {isPinned && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center justify-between px-4 sm:px-5 py-2 bg-primary/8 border-b border-primary/15">
+                    <span className="text-xs text-primary flex items-center gap-1.5">
+                      <Pin className="w-3 h-3 fill-current" />
+                      Pinned — opens here by default for this batch
+                    </span>
+                    <button
+                      onClick={togglePin}
+                      className="text-xs text-primary/60 hover:text-primary transition-colors"
+                    >
+                      Unpin
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Weekday labels */}
             <div className="grid grid-cols-7 px-3 sm:px-4 pt-3 pb-1">
