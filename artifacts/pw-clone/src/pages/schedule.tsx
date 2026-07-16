@@ -143,8 +143,11 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
     if (status === "live") {
       setLiveModal(buildLiveUrl());
     } else {
-      const params = new URLSearchParams({ batchId, subjectId, videoId: scheduleId, title: item.data.topic.trim() });
-      if (topicId) params.set("topicId", topicId);
+      const params = new URLSearchParams({
+        batchId, subjectId, videoId: scheduleId,
+        title: item.data.topic.trim(),
+        backUrl: `/batch/${batchId}`,
+      });
       window.location.href = `/watch?${params.toString()}`;
     }
   };

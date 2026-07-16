@@ -160,8 +160,11 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
       setLiveModal(buildLiveUrl());
     } else {
       // completed → internal /watch (video_type=new via existing player)
-      const params = new URLSearchParams({ batchId, subjectId, videoId: scheduleId, title: item.data.topic.trim() });
-      if (topicId) params.set("topicId", topicId);
+      const params = new URLSearchParams({
+        batchId, subjectId, videoId: scheduleId,
+        title: item.data.topic.trim(),
+        backUrl: `/batch/${batchId}`,
+      });
       window.location.href = `/watch?${params.toString()}`;
     }
   };

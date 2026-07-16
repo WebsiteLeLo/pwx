@@ -17,8 +17,11 @@ export default function Watch() {
     const subjectId = sp.get("subjectId") || "";
     const topicId  = sp.get("topicId")  || "";
 
-    // Build back URL — prefer topic page
-    if (batchId && subjectId && topicId) {
+    // Build back URL — explicit backUrl wins, then fall back by available params
+    const backUrl = sp.get("backUrl");
+    if (backUrl) {
+      backUrlRef.current = backUrl;
+    } else if (batchId && subjectId && topicId) {
       backUrlRef.current = `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`;
     } else if (batchId && subjectId) {
       backUrlRef.current = `/batch/${batchId}/subject/${subjectId}`;
