@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { ArrowLeft } from "lucide-react";
 
 export default function Watch() {
   const [src, setSrc] = useState("");
+  const [backUrl, setBackUrl] = useState("/");
   const [, navigate] = useLocation();
 
   useEffect(() => {
@@ -19,29 +21,41 @@ export default function Watch() {
     });
     setSrc(`https://vidcloud.eu.org/play.php?${p.toString()}`);
 
-    // Intercept any top-level navigation triggered by the iframe.
-    // If the destination is external, cancel it and send user to our batch page.
-    const nav = (window as any).navigation;
-    if (!nav) return;
-
-    const handler = (e: any) => {
-      const dest: string = e.destination?.url || "";
-      if (!dest || dest.startsWith(window.location.origin)) return; // allow same-origin
-      e.preventDefault();
-      // Redirect to our own subject page
-      if (batchId && subjectId) {
-        navigate(`/batch/${batchId}/subject/${subjectId}`);
-      } else {
-        navigate("/");
-      }
-    };
-
-    nav.addEventListener("navigate", handler);
-    return () => nav.removeEventListener("navigate", handler);
-  }, [navigate]);
+    if (batchId && subjectId) {
+      setBackUrl(`/batch/${batchId}/subject/${subjectId}`);
+    } else if (batchId) {
+      setBackUrl(`/batch/${batchId}`);
+    }
+  }, []);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
+      {/* Our own back button — always visible, routes to our subject page */}
+      <button
+        onClick={() => navigate(backUrl)}
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "rgba(0,0,0,0.6)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 8,
+          color: "#fff",
+          padding: "6px 12px",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          backdropFilter: "blur(6px)",
+        }}
+      >
+        <ArrowLeft size={15} />
+        Back to Subject
+      </button>
+
       {src && (
         <iframe
           src={src}
@@ -49,9 +63,8 @@ export default function Watch() {
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="no-referrer"
-          // allow-top-navigation-by-user-activation lets user clicks navigate the top frame
-          // so our Navigation API handler above can intercept and redirect to our site
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation"
+          // No allow-top-navigation — iframe cannot redirect our page at all
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
           title="Video Player"
         />
       )}
