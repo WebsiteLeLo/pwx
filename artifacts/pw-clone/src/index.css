@@ -82,25 +82,29 @@
 
 /* ── Light theme (opt-in via .light class on <html>) ─────── */
 .light {
-  --background: 216 33% 97%;
+  /* Page background — distinctly cooler grey so white cards pop */
+  --background: 220 22% 92%;
   --foreground: 222 47% 11%;
 
+  /* Cards — pure white, lifts above the page */
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-  --card-border: 220 14% 90%;
+  --card-border: 220 14% 86%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  --popover-border: 220 14% 90%;
+  --popover-border: 220 14% 84%;
 
+  /* Primary — vibrant indigo-blue */
   --primary: 224 76% 48%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 93%;
+  /* Surfaces */
+  --secondary: 220 18% 88%;
   --secondary-foreground: 222 47% 20%;
 
-  --muted: 220 14% 93%;
-  --muted-foreground: 220 9% 46%;
+  --muted: 220 18% 88%;
+  --muted-foreground: 220 12% 38%;   /* darker — better readability */
 
   --accent: 224 76% 48%;
   --accent-foreground: 0 0% 100%;
@@ -108,18 +112,71 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 14% 89%;
-  --input: 220 14% 89%;
+  --border: 220 14% 84%;
+  --input: 0 0% 100%;                /* white input background */
   --ring: 224 76% 48%;
+
+  /* ── Shadow elevation system ── */
+  --shadow-xs:  0 1px 2px 0 rgba(15,23,42,0.06);
+  --shadow-sm:  0 1px 3px 0 rgba(15,23,42,0.08), 0 1px 2px -1px rgba(15,23,42,0.06);
+  --shadow-md:  0 4px 6px -1px rgba(15,23,42,0.09), 0 2px 4px -2px rgba(15,23,42,0.06);
+  --shadow-lg:  0 10px 15px -3px rgba(15,23,42,0.10), 0 4px 6px -4px rgba(15,23,42,0.06);
+  --shadow-xl:  0 20px 25px -5px rgba(15,23,42,0.10), 0 8px 10px -6px rgba(15,23,42,0.06);
+  --shadow-2xl: 0 25px 50px -12px rgba(15,23,42,0.18);
 }
 
-/* Light scrollbar */
-.light ::-webkit-scrollbar-thumb {
-  background: hsl(220 14% 78%);
+/* ── Light-mode global shadow application ── */
+
+/* Navbar — bottom shadow replaces thin border */
+.light header {
+  box-shadow: 0 1px 3px 0 rgba(15,23,42,0.08), 0 1px 2px -1px rgba(15,23,42,0.06);
+  border-bottom-color: hsl(220 14% 88%) !important;
 }
-.light ::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 14% 65%);
+
+/* Every bg-card element gets automatic card-level elevation */
+.light .bg-card {
+  box-shadow: var(--shadow-sm);
 }
+
+/* Hover lift for interactive cards */
+.light .hover\:shadow-lg:hover {
+  box-shadow: var(--shadow-lg) !important;
+}
+.light .hover\:shadow-md:hover {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Override Tailwind utility shadows with richer values in light mode */
+.light .shadow-sm  { box-shadow: var(--shadow-sm)  !important; }
+.light .shadow-md  { box-shadow: var(--shadow-md)  !important; }
+.light .shadow-lg  { box-shadow: var(--shadow-lg)  !important; }
+.light .shadow-xl  { box-shadow: var(--shadow-xl)  !important; }
+.light .shadow-2xl { box-shadow: var(--shadow-2xl) !important; }
+
+/* Mobile bottom-nav — upward shadow */
+.light nav.fixed {
+  box-shadow: 0 -1px 3px 0 rgba(15,23,42,0.07), 0 -4px 10px 0 rgba(15,23,42,0.04);
+  border-top-color: hsl(220 14% 86%) !important;
+}
+
+/* Inputs — white bg + subtle inset */
+.light input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),
+.light textarea,
+.light select {
+  background: hsl(0 0% 100%);
+  box-shadow: inset 0 1px 3px rgba(15,23,42,0.05);
+}
+
+/* Text selection */
+.light ::selection {
+  background: hsl(224 76% 48% / 0.15);
+  color: hsl(224 76% 35%);
+}
+
+/* Scrollbar */
+.light ::-webkit-scrollbar-track { background: hsl(220 20% 88%); }
+.light ::-webkit-scrollbar-thumb { background: hsl(220 14% 72%); }
+.light ::-webkit-scrollbar-thumb:hover { background: hsl(220 14% 58%); }
 
 @layer base {
   * {
