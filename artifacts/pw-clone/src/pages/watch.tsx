@@ -21,7 +21,10 @@ export default function Watch() {
     });
     setSrc(`https://vidcloud.eu.org/play.php?${p.toString()}`);
 
-    if (batchId && subjectId) {
+    const topicId = sp.get("topicId") || "";
+    if (batchId && subjectId && topicId) {
+      setBackUrl(`/batch/${batchId}/subject/${subjectId}/topic/${topicId}`);
+    } else if (batchId && subjectId) {
       setBackUrl(`/batch/${batchId}/subject/${subjectId}`);
     } else if (batchId) {
       setBackUrl(`/batch/${batchId}`);

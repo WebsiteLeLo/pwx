@@ -272,7 +272,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
         const dur = vid?.duration ? String(vid.duration) : "";
         const title = vid?.name ?? content.topic ?? "Lecture Video";
 
-        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
+        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&topicId=${encodeURIComponent(topicId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
 
         return (
           <Link
