@@ -78,26 +78,19 @@ function LivePlayerModal({ src, title, onClose }: { src: string; title: string; 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col" style={{ isolation: "isolate" }}>
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-black/80 backdrop-blur-md border-b border-white/10 flex-shrink-0">
-        <button
-          onClick={onClose}
-          className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium cursor-pointer"
-        >
-          <X className="w-4 h-4" /> Close
-        </button>
-        <div className="w-px h-4 bg-white/20" />
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-xs text-red-400 font-semibold tracking-wide">LIVE</span>
-        </div>
-        <p className="text-white/60 text-xs truncate flex-1">{title}</p>
-      </div>
-      {/* Iframe */}
+    <div className="fixed inset-0 z-[9999] bg-black" style={{ isolation: "isolate" }}>
+      {/* Floating close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-black/80 transition-colors text-sm font-medium cursor-pointer"
+      >
+        <X className="w-4 h-4" />
+        Close
+      </button>
+      {/* Iframe — full screen */}
       <iframe
         src={src}
-        className="flex-1 w-full border-none block"
+        className="w-full h-full border-none block"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
         allowFullScreen
         referrerPolicy="no-referrer"
