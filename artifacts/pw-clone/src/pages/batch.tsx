@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useBatchDetails, type Batch } from "@/hooks/usePWApi";
+import React, { useState, useEffect } from "react";
+import { useBatchDetails, useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch } from "@/hooks/usePWApi";
 import { useCustomBatches, MixSubject } from "@/hooks/useCustomBatches";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Layout } from "@/components/layout";
@@ -15,8 +15,227 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
+
+// ── helpers ────────────────────────────────────────────────────────────────
+function getLectureStatus(item: ScheduleItem): "live" | "upcoming" | "completed" {
+  const now = Date.now();
+  const start = new Date(item.data.startTime).getTime();
+  const end = new Date(item.data.endTime).getTime();
+  if (item.data.status === "LIVE" || (now >= start && now <= end)) return "live";
+  if (now > end || item.data.status === "COMPLETED") return "completed";
+  return "upcoming";
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
+function subjectColor(name: string) {
+  const map: Record<string, string> = {
+    physics: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    chemistry: "bg-green-500/10 text-green-400 border-green-500/20",
+    maths: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    math: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    biology: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    english: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+  };
+  const key = name.toLowerCase();
+  for (const [k, v] of Object.entries(map)) {
+    if (key.includes(k)) return v;
+  }
+  return "bg-primary/10 text-primary border-primary/20";
+}
+
+const KIND_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  notes: { label: "Notes", icon: <FileText className="w-3 h-3" />, color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  dpp: { label: "DPP", icon: <FileText className="w-3 h-3" />, color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+  exercise: { label: "Exercise", icon: <Dumbbell className="w-3 h-3" />, color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
+  other: { label: "Material", icon: <BookOpen className="w-3 h-3" />, color: "bg-secondary text-muted-foreground border-border/40" },
+};
+
+function LiveScheduleCard({ item }: { item: ScheduleItem }) {
+  const status = getLectureStatus(item);
+  const kind = getScheduleItemKind(item);
+  const isVideo = kind === "video";
+  const subjectId = item.data.subjectId._id;
+  const scheduleId = item.data._id;
+  const batchId = item.data.batchId;
+  const kindMeta = KIND_META[kind] ?? KIND_META.other;
+
+  const handleVideoWatch = () => {
+    const url = `https://lite.pw4free.in/player?batchid=${encodeURIComponent(batchId)}&subjectid=${encodeURIComponent(subjectId)}&lectureid=${encodeURIComponent(scheduleId)}&title=${encodeURIComponent(item.data.topic.trim())}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleMaterialOpen = () => {
+    if (item.data.attachmentIds && item.data.attachmentIds.length > 0) {
+      const pdfUrl = getPdfUrl(item.data.attachmentIds[0]);
+      if (pdfUrl) { window.open(pdfUrl, "_blank", "noopener,noreferrer"); return; }
+    }
+    const tap = kind === "dpp" ? "dpp" : "note";
+    window.open(`https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=${tap}`, "_blank", "noopener,noreferrer");
+  };
+
+  const borderClass = isVideo
+    ? status === "live"
+      ? "border-red-500/50 bg-red-950/10 hover:border-red-500/70"
+      : status === "completed"
+      ? "border-border/30 bg-card/50 opacity-60"
+      : "border-border/50 bg-card hover:border-primary/40"
+    : "border-border/40 bg-card/60 hover:border-amber-500/30";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`relative rounded-xl border overflow-hidden transition-colors ${borderClass}`}
+    >
+      {isVideo && status === "live" && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
+      )}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${subjectColor(item.data.subjectId.name)}`}>
+              {item.data.subjectId.name}
+            </span>
+            {!isVideo && (
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${kindMeta.color}`}>
+                {kindMeta.icon}{kindMeta.label}
+              </span>
+            )}
+            {isVideo && status === "live" && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
+              </span>
+            )}
+            {isVideo && status === "upcoming" && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
+                <Clock className="w-3 h-3" />Upcoming
+              </span>
+            )}
+            {isVideo && status === "completed" && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-secondary text-muted-foreground">
+                <CheckCircle2 className="w-3 h-3" />Ended
+              </span>
+            )}
+          </div>
+          <div className="text-right text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+            <div>{formatTime(item.data.startTime)}</div>
+            <div className="opacity-60">→ {formatTime(item.data.endTime)}</div>
+          </div>
+        </div>
+
+        <h3 className={`font-semibold text-sm leading-snug mb-3 line-clamp-2 ${!isVideo || status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
+          {item.data.topic.trim()}
+        </h3>
+
+        <div className="flex items-center justify-end">
+          {isVideo ? (
+            status === "upcoming" ? (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />Starts at {formatTime(item.data.startTime)}
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                variant={status === "live" ? "default" : "outline"}
+                className={`h-7 text-xs gap-1 cursor-pointer ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
+                onClick={handleVideoWatch}
+              >
+                {status === "live" ? <><Radio className="w-3 h-3" />Watch Live</> : <><PlayCircle className="w-3 h-3" />Recording</>}
+              </Button>
+            )
+          ) : (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 cursor-pointer border-amber-500/30 text-amber-400 hover:bg-amber-500/10" onClick={handleMaterialOpen}>
+              {kindMeta.icon}Open {kindMeta.label}
+            </Button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TodaysScheduleSection({ batchId }: { batchId: string }) {
+  const { data, isLoading, isError, refetch, isFetching } = useTodaysSchedule(batchId);
+  const [, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const items = data?.data ?? [];
+  const videoItems = [...items]
+    .filter(i => getScheduleItemKind(i) === "video")
+    .sort((a, b) => new Date(a.data.startTime).getTime() - new Date(b.data.startTime).getTime());
+
+  const liveCount = videoItems.filter(i => getLectureStatus(i) === "live").length;
+
+  // Don't show section while loading if there's nothing yet (skip initial flicker)
+  if (!isLoading && !isError && videoItems.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-base font-bold">Today's Live Schedule</h2>
+          {liveCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-500 text-white animate-pulse">
+              <Radio className="w-3 h-3" />{liveCount} Live
+            </span>
+          )}
+          {!isLoading && videoItems.length > 0 && (
+            <span className="text-xs text-muted-foreground">{videoItems.length} class{videoItems.length !== 1 ? "es" : ""}</span>
+          )}
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Refresh schedule"
+        >
+          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border/40 p-4 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-center gap-3 text-sm text-destructive">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Failed to load today's schedule.
+          <button onClick={() => refetch()} className="underline ml-auto cursor-pointer">Retry</button>
+        </div>
+      )}
+
+      {!isLoading && !isError && videoItems.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <AnimatePresence>
+            {videoItems.map(item => <LiveScheduleCard key={item._id} item={item} />)}
+          </AnimatePresence>
+        </div>
+      )}
+
+      <div className="mt-3 border-b border-border/30" />
+    </div>
+  );
+}
 
 function AddToMixDialog({
   open,
@@ -239,6 +458,15 @@ export default function Batch() {
           Enrolled in this batch
         </div>
       )}
+
+      {/* Today's live lecture schedule for this batch */}
+      <TodaysScheduleSection batchId={batchId!} />
+
+      {/* Subjects heading */}
+      <h2 className="text-base font-bold mb-4 flex items-center gap-2">
+        <BookOpen className="w-4 h-4 text-muted-foreground" />
+        Subjects
+      </h2>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
