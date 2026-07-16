@@ -528,6 +528,51 @@ export function useDppTest(
   });
 }
 
+export function useAllSubjectVideos(batchId: string, subjectId: string) {
+  return useQuery({
+    queryKey: ["allSubjectVideos", batchId, subjectId],
+    queryFn: async () => {
+      const baseUrl = `${API_BASE}/v2/batches/${batchId}/subject/${subjectId}/contents`;
+      const makeUrl = (page: number) => `${baseUrl}?page=${page}&contentType=videos`;
+
+      const fetchPage = async (page: number): Promise<ContentItem[]> => {
+        const r = await fetch(makeUrl(page));
+        if (!r.ok) return [];
+        const j = await r.json() as Record<string, unknown>;
+        return (j.data as ContentItem[]) ?? [];
+      };
+
+      const firstRes = await fetch(makeUrl(1));
+      if (!firstRes.ok) throw new Error("Failed to fetch subject videos");
+      const firstJson = await firstRes.json() as Record<string, unknown>;
+      const firstData: ContentItem[] = (firstJson.data as ContentItem[]) ?? [];
+
+      const pag = (firstJson.paginate ?? firstJson.pagination ?? firstJson.meta ?? {}) as Record<string, unknown>;
+      const rawTotal = (pag.totalCount ?? pag.total ?? pag.totalDocs ?? pag.count ?? 0) as number;
+      const rawLimit = (pag.limit ?? pag.pageSize ?? pag.size ?? firstData.length) as number;
+
+      if (rawTotal > 0 && rawLimit > 0 && rawTotal > firstData.length) {
+        const totalPages = Math.ceil(rawTotal / rawLimit);
+        const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+        const rest = await Promise.all(pageNums.map(fetchPage));
+        return [...firstData, ...rest.flat()];
+      }
+
+      const allData = [...firstData];
+      for (let page = 2; page <= 100; page++) {
+        const items = await fetchPage(page);
+        if (items.length === 0) break;
+        allData.push(...items);
+        if (items.length < firstData.length) break;
+      }
+      return allData;
+    },
+    enabled: !!batchId && !!subjectId,
+    staleTime: MIN * 20,
+    gcTime: MIN * 120,
+  });
+}
+
 export function useAllTopicContents(
   batchId: string,
   subjectId: string,
