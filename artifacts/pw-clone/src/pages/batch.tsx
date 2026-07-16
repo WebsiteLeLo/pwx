@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -287,11 +287,30 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 function TodaysScheduleSection({ batchId }: { batchId: string }) {
   const { data, isLoading, isError, refetch, isFetching } = useTodaysSchedule(batchId);
   const [, setNow] = useState(Date.now());
+  const [canLeft, setCanLeft]   = useState(false);
+  const [canRight, setCanRight] = useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  const updateArrows = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => { setTimeout(updateArrows, 100); }, [data]);
+
+  const slide = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -220 : 220, behavior: "smooth" });
+    setTimeout(updateArrows, 300);
+  };
 
   const items = data?.data ?? [];
   const videoItems = [...items]
@@ -318,9 +337,25 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
             <span className="text-xs text-muted-foreground">{videoItems.length} class{videoItems.length !== 1 ? "es" : ""}</span>
           )}
         </div>
-        <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Refresh">
-          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => slide("left")}
+            disabled={!canLeft}
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => slide("right")}
+            disabled={!canRight}
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button onClick={() => refetch()} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Refresh">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Loading skeletons */}
@@ -349,7 +384,12 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
 
       {/* Horizontal scroll row */}
       {!isLoading && !isError && videoItems.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-1 snap-x" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
+        <div
+          ref={scrollRef}
+          onScroll={updateArrows}
+          className="flex gap-3 overflow-x-auto pb-1 snap-x"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+        >
           <AnimatePresence>
             {videoItems.map(item => (
               <div key={item._id} className="snap-start">

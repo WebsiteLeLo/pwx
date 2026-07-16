@@ -6,7 +6,7 @@ import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  Calendar, Radio, Clock, ChevronRight, BookOpen, PlayCircle,
+  Calendar, Radio, Clock, ChevronRight, ChevronLeft, BookOpen, PlayCircle,
   RefreshCw, AlertCircle, CheckCircle2, Loader2, FileText, Dumbbell, X,
   Zap, FlaskConical, Calculator, Dna, BookText,
 } from "lucide-react";
@@ -277,11 +277,31 @@ interface BatchScheduleSectionProps { batchId: string; batchName: string; now: n
 
 function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionProps) {
   const { data, isLoading, isError, refetch, isFetching } = useTodaysSchedule(batchId);
+  const [canLeft, setCanLeft]   = useState(false);
+  const [canRight, setCanRight] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const updateArrows = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
   const items  = data?.data ?? [];
   const sorted = [...items]
     .filter(i => getScheduleItemKind(i) === "video")
     .sort((a, b) => new Date(a.data.startTime).getTime() - new Date(b.data.startTime).getTime());
   const liveCount = sorted.filter(i => getLectureStatus(i) === "live").length;
+
+  useEffect(() => { setTimeout(updateArrows, 100); }, [data]);
+
+  const slide = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -220 : 220, behavior: "smooth" });
+    setTimeout(updateArrows, 300);
+  };
 
   return (
     <div className="mb-10">
@@ -299,13 +319,25 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
             <span className="text-xs text-muted-foreground">{sorted.length} class{sorted.length !== 1 ? "es" : ""}</span>
           )}
         </div>
-        <button
-          onClick={() => refetch()}
-          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          title="Refresh"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => slide("left")}
+            disabled={!canLeft}
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => slide("right")}
+            disabled={!canRight}
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button onClick={() => refetch()} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Refresh">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -341,7 +373,12 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
 
       {/* Horizontal scroll */}
       {!isLoading && !isError && sorted.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-1 snap-x" style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}>
+        <div
+          ref={scrollRef}
+          onScroll={updateArrows}
+          className="flex gap-3 overflow-x-auto pb-1 snap-x"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+        >
           <AnimatePresence>
             {sorted.map(item => (
               <div key={item._id} className="snap-start">
