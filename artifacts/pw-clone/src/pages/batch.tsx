@@ -22,78 +22,160 @@ import { ogUrl } from "@/lib/apiUrl";
 function getLectureStatus(item: ScheduleItem): "live" | "upcoming" | "completed" {
   const now = Date.now();
   const start = new Date(item.data.startTime).getTime();
-  const end = new Date(item.data.endTime).getTime();
+  const end   = new Date(item.data.endTime).getTime();
   if (item.data.status === "LIVE" || (now >= start && now <= end)) return "live";
   if (now > end || item.data.status === "COMPLETED") return "completed";
   return "upcoming";
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-IN", {
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  });
+  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
-function subjectColor(name: string) {
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(Math.abs(diff) / 60_000);
+  if (mins < 1) return "just now";
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hrs === 0) return `${mins}m ago`;
+  return rem > 0 ? `${hrs}h ${rem}m ago` : `${hrs}h ago`;
+}
+
+function subjectTextColor(name: string) {
   const map: Record<string, string> = {
-    physics: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    chemistry: "bg-green-500/10 text-green-400 border-green-500/20",
-    maths: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    math: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    biology: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    english: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    physics:   "text-blue-400",
+    chemistry: "text-green-400",
+    maths:     "text-purple-400",
+    math:      "text-purple-400",
+    biology:   "text-emerald-400",
+    english:   "text-yellow-400",
   };
   const key = name.toLowerCase();
-  for (const [k, v] of Object.entries(map)) {
-    if (key.includes(k)) return v;
-  }
-  return "bg-primary/10 text-primary border-primary/20";
+  for (const [k, v] of Object.entries(map)) if (key.includes(k)) return v;
+  return "text-primary";
+}
+
+function subjectBg(name: string) {
+  const map: Record<string, string> = {
+    physics:   "from-blue-900 to-blue-950",
+    chemistry: "from-green-900 to-green-950",
+    maths:     "from-violet-900 to-violet-950",
+    math:      "from-violet-900 to-violet-950",
+    biology:   "from-emerald-900 to-emerald-950",
+    english:   "from-yellow-900 to-yellow-950",
+  };
+  const key = name.toLowerCase();
+  for (const [k, v] of Object.entries(map)) if (key.includes(k)) return v;
+  return "from-slate-800 to-slate-900";
 }
 
 const KIND_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  notes: { label: "Notes", icon: <FileText className="w-3 h-3" />, color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-  dpp: { label: "DPP", icon: <FileText className="w-3 h-3" />, color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+  notes:    { label: "Notes",    icon: <FileText className="w-3 h-3" />, color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  dpp:      { label: "DPP",      icon: <FileText className="w-3 h-3" />, color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
   exercise: { label: "Exercise", icon: <Dumbbell className="w-3 h-3" />, color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
-  other: { label: "Material", icon: <BookOpen className="w-3 h-3" />, color: "bg-secondary text-muted-foreground border-border/40" },
+  other:    { label: "Material", icon: <BookOpen className="w-3 h-3" />, color: "bg-secondary text-muted-foreground border-border/40" },
 };
 
-function LiveScheduleCard({ item }: { item: ScheduleItem }) {
-  const status = getLectureStatus(item);
-  const kind = getScheduleItemKind(item);
-  const isVideo = kind === "video";
-  const subjectId = item.data.subjectId._id;
-  const scheduleId = item.data._id;
-  const batchId = item.data.batchId;
-  const topicId = item.data.tags?.[0]?._id ?? "";
-  const kindMeta = KIND_META[kind] ?? KIND_META.other;
+// ── Live iframe modal ────────────────────────────────────────────────────────
+function LivePlayerModal({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
-  // Thumbnail: try API imageId fields (not in TS type, cast to any)
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black flex flex-col"
+      style={{ isolation: "isolate" }}
+    >
+      {/* Header bar */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-black/80 backdrop-blur-md border-b border-white/10 flex-shrink-0">
+        <button
+          onClick={onClose}
+          className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+          Close
+        </button>
+        <div className="w-px h-4 bg-white/20" />
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-xs text-red-400 font-semibold tracking-wide">LIVE</span>
+        </div>
+        <p className="text-white/60 text-xs truncate flex-1">{title}</p>
+      </div>
+
+      {/* Iframe */}
+      <iframe
+        src={src}
+        className="flex-1 w-full border-none block"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
+        allowFullScreen
+        referrerPolicy="no-referrer"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups"
+        title={title}
+      />
+    </div>
+  );
+}
+
+// ── Schedule card (PW-style) ──────────────────────────────────────────────────
+function LiveScheduleCard({ item }: { item: ScheduleItem }) {
+  const [liveModal, setLiveModal] = useState<string | null>(null);
+  const status    = getLectureStatus(item);
+  const kind      = getScheduleItemKind(item);
+  const isVideo   = kind === "video";
+  const subjectId = item.data.subjectId._id;
+  const scheduleId= item.data._id;
+  const batchId   = item.data.batchId;
+  const topicId   = item.data.tags?.[0]?._id ?? scheduleId;
+  const kindMeta  = KIND_META[kind] ?? KIND_META.other;
+  const subjectName = item.data.subjectId.name;
+
+  // Thumbnail — try undocumented API fields first
   const raw = item.data as any;
   const thumbUrl: string | null =
-    raw.imageId?.baseUrl && raw.imageId?.key
-      ? `${raw.imageId.baseUrl}${raw.imageId.key}`
-      : raw.image || raw.thumbnail || null;
+    raw.imageId?.baseUrl && raw.imageId?.key ? `${raw.imageId.baseUrl}${raw.imageId.key}`
+    : raw.image || raw.thumbnail || raw.teacherImageUrl || null;
 
-  // Subject-based gradient for fallback thumbnail bg
-  const subjectKey = item.data.subjectId.name.toLowerCase();
-  const gradients: Record<string, string> = {
-    physics:   "from-blue-900/80 to-blue-950",
-    chemistry: "from-green-900/80 to-green-950",
-    maths:     "from-purple-900/80 to-purple-950",
-    math:      "from-purple-900/80 to-purple-950",
-    biology:   "from-emerald-900/80 to-emerald-950",
-    english:   "from-yellow-900/80 to-yellow-950",
+  // Teacher name — try undocumented fields
+  const teacherName: string =
+    raw.teacherName || raw.teacher?.name || raw.instructorName || "";
+
+  // Initials for avatar fallback
+  const initials = subjectName.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+
+  const buildLiveUrl = () => {
+    const p = new URLSearchParams({
+      batch_id:   batchId,
+      subject_id: subjectId,
+      topic_id:   topicId,
+      video_id:   scheduleId,
+      video_name: item.data.topic.trim(),
+      video_img:  thumbUrl ?? "",
+      video_type: "live",
+      play_type:  "Lecture",
+    });
+    return `https://vidcloud.eu.org/play.php?${p.toString()}`;
   };
-  const fallbackGrad = Object.entries(gradients).find(([k]) => subjectKey.includes(k))?.[1]
-    ?? "from-primary/20 to-primary/5";
 
-  const handleVideoWatch = () => {
-    const params = new URLSearchParams({ batchId, subjectId, videoId: scheduleId, title: item.data.topic.trim() });
-    if (topicId) params.set("topicId", topicId);
-    window.location.href = `/watch?${params.toString()}`;
+  const handleClick = () => {
+    if (!isVideo || status === "upcoming") return;
+    if (status === "live") {
+      setLiveModal(buildLiveUrl());
+    } else {
+      // completed → internal /watch (video_type=new via existing player)
+      const params = new URLSearchParams({ batchId, subjectId, videoId: scheduleId, title: item.data.topic.trim() });
+      if (topicId) params.set("topicId", topicId);
+      window.location.href = `/watch?${params.toString()}`;
+    }
   };
 
-  const handleMaterialOpen = () => {
+  const handleMaterialOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (item.data.attachmentIds && item.data.attachmentIds.length > 0) {
       const pdfUrl = getPdfUrl(item.data.attachmentIds[0]);
       if (pdfUrl) { window.open(pdfUrl, "_blank", "noopener,noreferrer"); return; }
@@ -102,123 +184,119 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
     window.open(`https://rarestudy.in/schedule-details?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&scheduleId=${encodeURIComponent(scheduleId)}&tap=${tap}`, "_blank", "noopener,noreferrer");
   };
 
-  const borderClass = isVideo
-    ? status === "live"
-      ? "border-red-500/50 hover:border-red-500/80"
-      : status === "completed"
-      ? "border-border/30 opacity-65"
-      : "border-border/50 hover:border-primary/50"
-    : "border-border/40 hover:border-amber-500/30";
+  const cardBorder =
+    status === "live"      ? "border-red-500/60 shadow-red-500/10 shadow-md"
+    : status === "completed" ? "border-border/30"
+    : "border-border/40";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className={`relative flex-shrink-0 w-64 sm:w-72 rounded-xl border bg-card overflow-hidden transition-all ${borderClass} ${isVideo && status !== "completed" ? "cursor-pointer" : ""}`}
-      onClick={isVideo && status !== "upcoming" ? handleVideoWatch : undefined}
-    >
-      {/* Live top bar */}
-      {isVideo && status === "live" && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
+    <>
+      {liveModal && (
+        <LivePlayerModal src={liveModal} title={item.data.topic.trim()} onClose={() => setLiveModal(null)} />
       )}
 
-      {/* Thumbnail */}
-      <div className="relative w-full aspect-video overflow-hidden bg-muted">
-        {thumbUrl ? (
-          <img
-            src={thumbUrl}
-            alt={item.data.topic}
-            className="w-full h-full object-cover"
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-          />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${fallbackGrad} flex items-center justify-center`}>
-            <PlayCircle className="w-10 h-10 text-white/20" />
-          </div>
+      <motion.div
+        initial={{ opacity: 0, x: 16 }}
+        animate={{ opacity: 1, x: 0 }}
+        className={`relative flex-shrink-0 w-52 rounded-2xl border bg-card overflow-hidden transition-all select-none
+          ${cardBorder}
+          ${isVideo && status !== "upcoming" ? "cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform" : ""}
+          ${status === "completed" ? "opacity-75" : ""}`}
+        onClick={handleClick}
+      >
+        {/* Live shimmer top border */}
+        {status === "live" && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] z-10 bg-gradient-to-r from-red-500 via-pink-400 to-red-500 animate-pulse" />
         )}
 
-        {/* Overlay: status badge top-left */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
-          {isVideo && status === "live" && (
-            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />LIVE
-            </span>
-          )}
-          {isVideo && status === "upcoming" && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-black/70 text-white backdrop-blur-sm">
-              <Clock className="w-3 h-3" />Upcoming
-            </span>
-          )}
-          {isVideo && status === "completed" && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded bg-black/70 text-white/80 backdrop-blur-sm">
-              <CheckCircle2 className="w-3 h-3" />Ended
-            </span>
-          )}
-          {!isVideo && (
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${kindMeta.color} backdrop-blur-sm`}>
-              {kindMeta.icon}{kindMeta.label}
-            </span>
-          )}
-        </div>
-
-        {/* Overlay: time top-right */}
-        <div className="absolute top-2 right-2 text-right text-xs font-medium text-white bg-black/60 rounded px-1.5 py-0.5 backdrop-blur-sm">
-          {formatTime(item.data.startTime)}
-        </div>
-
-        {/* Play button center overlay for video non-upcoming */}
-        {isVideo && status !== "upcoming" && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/30">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-xl ${status === "live" ? "bg-red-500" : "bg-white/90"}`}>
-              {status === "live"
-                ? <Radio className="w-6 h-6 text-white" />
-                : <PlayCircle className="w-6 h-6 text-gray-900" />}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Card body */}
-      <div className="p-3">
-        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border mb-2 ${subjectColor(item.data.subjectId.name)}`}>
-          {item.data.subjectId.name}
-        </span>
-
-        <h3 className={`font-semibold text-sm leading-snug line-clamp-2 mb-3 ${status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
-          {item.data.topic.trim()}
-        </h3>
-
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">
-            {formatTime(item.data.startTime)} → {formatTime(item.data.endTime)}
-          </span>
-          {isVideo ? (
-            status === "upcoming" ? (
-              <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
-                <Clock className="w-3 h-3" />Soon
-              </span>
-            ) : (
-              <Button
-                size="sm"
-                variant={status === "live" ? "default" : "outline"}
-                className={`h-7 text-xs gap-1 flex-shrink-0 cursor-pointer ${status === "live" ? "bg-red-500 hover:bg-red-600 text-white border-0" : ""}`}
-                onClick={e => { e.stopPropagation(); handleVideoWatch(); }}
-              >
-                {status === "live" ? <><Radio className="w-3 h-3" />Watch</> : <><PlayCircle className="w-3 h-3" />Play</>}
-              </Button>
-            )
+        {/* ── Thumbnail ── */}
+        <div className={`relative w-full h-40 overflow-hidden bg-gradient-to-br ${subjectBg(subjectName)}`}>
+          {thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={subjectName}
+              className="w-full h-full object-cover object-top"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
           ) : (
-            <Button
-              size="sm" variant="outline"
-              className="h-7 text-xs gap-1 flex-shrink-0 cursor-pointer border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-              onClick={e => { e.stopPropagation(); handleMaterialOpen(); }}
-            >
-              {kindMeta.icon}Open
-            </Button>
+            /* Stylised fallback: subject initials + faint play icon */
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 select-none">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-extrabold text-white/30 border-2 border-white/10`}>
+                {initials}
+              </div>
+              <PlayCircle className="w-6 h-6 text-white/10" />
+            </div>
+          )}
+
+          {/* Dark bottom scrim + teacher name bar */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-6 pb-2 px-3">
+            {teacherName ? (
+              <p className="text-xs font-semibold text-white truncate">{teacherName}</p>
+            ) : (
+              <p className={`text-xs font-bold truncate ${subjectTextColor(subjectName)}`}>{subjectName}</p>
+            )}
+          </div>
+
+          {/* Hover play overlay */}
+          {isVideo && status !== "upcoming" && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 bg-black/25">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-2xl ${status === "live" ? "bg-red-500" : "bg-white/90"}`}>
+                {status === "live"
+                  ? <Radio className="w-5 h-5 text-white" />
+                  : <PlayCircle className="w-5 h-5 text-gray-900" />}
+              </div>
+            </div>
           )}
         </div>
-      </div>
-    </motion.div>
+
+        {/* ── Card body ── */}
+        <div className="p-3 space-y-1.5">
+          {/* Row 1: time-ago  +  status badge */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">{timeAgo(item.data.startTime)}</span>
+            {isVideo && status === "live" && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />Live
+              </span>
+            )}
+            {isVideo && status === "completed" && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground leading-none">
+                <CheckCircle2 className="w-2.5 h-2.5" />Ended
+              </span>
+            )}
+            {isVideo && status === "upcoming" && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 leading-none">
+                <Clock className="w-2.5 h-2.5" />Soon
+              </span>
+            )}
+            {!isVideo && (
+              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${kindMeta.color}`}>
+                {kindMeta.icon}{kindMeta.label}
+              </span>
+            )}
+          </div>
+
+          {/* Row 2: bold title */}
+          <h3 className={`text-[13px] font-bold leading-snug line-clamp-2 ${status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
+            {item.data.topic.trim()}
+          </h3>
+
+          {/* Row 3: time range */}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Clock className="w-2.5 h-2.5" />
+              {formatTime(item.data.startTime)} – {formatTime(item.data.endTime)}
+            </span>
+            {!isVideo && (
+              <button
+                className="text-[10px] text-amber-400 underline cursor-pointer"
+                onClick={handleMaterialOpen}
+              >Open</button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }
 
@@ -238,17 +316,17 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
 
   const liveCount = videoItems.filter(i => getLectureStatus(i) === "live").length;
 
-  // Don't show section while loading if there's nothing yet (skip initial flicker)
   if (!isLoading && !isError && videoItems.length === 0) return null;
 
   return (
     <div className="mb-8">
+      {/* Section header */}
       <div className="flex items-center justify-between mb-3 gap-3">
         <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-base font-bold">Today's Live Schedule</h2>
+          <span className="w-1 h-5 rounded-full bg-primary inline-block" />
+          <h2 className="text-base font-bold">Today Classes</h2>
           {liveCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-500 text-white animate-pulse">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white animate-pulse">
               <Radio className="w-3 h-3" />{liveCount} Live
             </span>
           )}
@@ -256,24 +334,21 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
             <span className="text-xs text-muted-foreground">{videoItems.length} class{videoItems.length !== 1 ? "es" : ""}</span>
           )}
         </div>
-        <button
-          onClick={() => refetch()}
-          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          title="Refresh schedule"
-        >
+        <button onClick={() => refetch()} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Refresh">
           <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
         </button>
       </div>
 
+      {/* Loading skeletons */}
       {isLoading && (
         <div className="flex gap-3 overflow-x-auto pb-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-64 sm:w-72 rounded-xl border border-border/40 overflow-hidden">
-              <Skeleton className="w-full aspect-video" />
+            <div key={i} className="flex-shrink-0 w-52 rounded-2xl border border-border/40 overflow-hidden">
+              <Skeleton className="w-full h-40" />
               <div className="p-3 space-y-2">
-                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-3/4" />
               </div>
             </div>
           ))}
@@ -288,8 +363,9 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
         </div>
       )}
 
+      {/* Horizontal scroll row */}
       {!isLoading && !isError && videoItems.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory [scrollbar-width:thin]">
+        <div className="flex gap-3 overflow-x-auto pb-3 snap-x [scrollbar-width:thin]">
           <AnimatePresence>
             {videoItems.map(item => (
               <div key={item._id} className="snap-start">
@@ -300,7 +376,7 @@ function TodaysScheduleSection({ batchId }: { batchId: string }) {
         </div>
       )}
 
-      <div className="mt-3 border-b border-border/30" />
+      <div className="mt-4 border-b border-border/30" />
     </div>
   );
 }
