@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -272,14 +272,12 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
         const dur = vid?.duration ? String(vid.duration) : "";
         const title = vid?.name ?? content.topic ?? "Lecture Video";
 
-        const watchUrl = `https://lite.pw4free.in/player?batchid=${encodeURIComponent(batchId)}&subjectid=${encodeURIComponent(subjectId)}&lectureid=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
+        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
 
         return (
-          <a
+          <Link
             key={content._id}
             href={watchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
           >
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -319,7 +317,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 </h3>
               </div>
             </motion.div>
-          </a>
+          </Link>
         );
       })}
     </div>

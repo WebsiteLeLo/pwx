@@ -14,13 +14,13 @@ export default function Watch() {
     subjectSlug: "",
     topicSlug: "",
   });
-  const [player, setPlayer] = useState<PlayerMode>("drm");
+  const [player, setPlayer] = useState<PlayerMode>("extern");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     setParams({
       batchId: sp.get("batchId") || "",
-      childId: sp.get("childId") || sp.get("ContentId") || "",
+      childId: sp.get("childId") || sp.get("ContentId") || sp.get("videoId") || "",
       subjectId: sp.get("subjectId") || "",
       title: sp.get("title") || "Lecture Video",
       subjectSlug: sp.get("subjectSlug") || "",
@@ -30,17 +30,15 @@ export default function Watch() {
 
   const hasParams = !!(params.batchId && params.childId);
 
-  const externUrl = (() => {
+  const vidcloudUrl = (() => {
     const p = new URLSearchParams({
-      batchSubjectId: params.subjectId,
-      video_id: params.childId,
-      subject_slug: params.subjectSlug,
       batch_id: params.batchId,
-      schedule_id: params.childId,
       subject_id: params.subjectId,
-      topicSlug: params.topicSlug,
+      video_id: params.childId,
+      video_type: "new",
+      title: params.title,
     });
-    return `https://stream.studyratna.cc/play.php?${p.toString()}`;
+    return `https://vidcloud.eu.org/play.php?${p.toString()}`;
   })();
 
   return (
@@ -77,9 +75,9 @@ export default function Watch() {
       {hasParams && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 flex gap-1 bg-black/70 backdrop-blur-sm rounded-full px-1 py-1 border border-white/10 pointer-events-auto">
           <button
-            onClick={() => setPlayer("drm")}
+            onClick={() => setPlayer("extern")}
             className={`text-xs px-3 py-1 rounded-full transition-colors ${
-              player === "drm"
+              player === "extern"
                 ? "bg-primary text-primary-foreground font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
@@ -87,9 +85,9 @@ export default function Watch() {
             Player 1
           </button>
           <button
-            onClick={() => setPlayer("extern")}
+            onClick={() => setPlayer("drm")}
             className={`text-xs px-3 py-1 rounded-full transition-colors ${
-              player === "extern"
+              player === "drm"
                 ? "bg-primary text-primary-foreground font-semibold"
                 : "text-zinc-400 hover:text-white"
             }`}
@@ -102,21 +100,21 @@ export default function Watch() {
       <main className="flex-1 w-full h-[100dvh] flex flex-col items-center justify-center bg-black">
         {hasParams ? (
           <div className="w-full h-full">
-            {player === "drm" ? (
-              <DrmPlayer
-                batchId={params.batchId}
-                subjectId={params.subjectId}
-                childId={params.childId}
-                title={params.title}
-              />
-            ) : (
+            {player === "extern" ? (
               <iframe
-                key={externUrl}
-                src={externUrl}
+                key={vidcloudUrl}
+                src={vidcloudUrl}
                 className="w-full h-full border-0"
                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                 allowFullScreen
                 referrerPolicy="no-referrer"
+                title={params.title}
+              />
+            ) : (
+              <DrmPlayer
+                batchId={params.batchId}
+                subjectId={params.subjectId}
+                childId={params.childId}
                 title={params.title}
               />
             )}
