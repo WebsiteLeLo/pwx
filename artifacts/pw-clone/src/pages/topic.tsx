@@ -5,7 +5,7 @@ import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar } from "lucide-react";
 
 type TabKey = ContentType;
 
@@ -271,6 +271,9 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
         const thumb = getVideoThumb(vid);
         const dur = vid?.duration ? String(vid.duration) : "";
         const title = vid?.name ?? content.topic ?? "Lecture Video";
+        const dateStr = content.date
+          ? new Date(content.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+          : null;
 
         const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&topicId=${encodeURIComponent(topicId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
 
@@ -311,10 +314,16 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                   </div>
                 )}
               </div>
-              <div className="p-4">
+              <div className="p-4 flex flex-col gap-1.5">
                 <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                   {title}
                 </h3>
+                {dateStr && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    {dateStr}
+                  </div>
+                )}
               </div>
             </motion.div>
           </Link>
