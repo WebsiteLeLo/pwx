@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = "https://learnbyakp.onrender.com/api/pw";
+const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const STORE_KEY = "pwx-offline-cache-v1";
 
 export type CacheStatus = "none" | "caching" | "cached" | "error";
@@ -169,14 +169,14 @@ export function useVideoCache() {
       signal?: AbortSignal
     ): Promise<"ok" | "error"> => {
       try {
-        // 1. Get MPD URL from video-url-details
+        // 1. Get MPD URL from pwsecure (same API the player uses)
         const urlRes = await fetch(
-          `${API_BASE}/video-url-details?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(videoId)}&subjectId=${encodeURIComponent(subjectId)}`,
+          `${PW_API}/v1/videos/${encodeURIComponent(videoId)}`,
           { signal }
         );
         if (!urlRes.ok) throw new Error("Failed to get video URL");
         const urlData = await urlRes.json();
-        const mpdUrl: string | undefined = urlData?.data?.[0]?.url;
+        const mpdUrl: string | undefined = urlData?.data?.videoUrl;
         if (!mpdUrl) throw new Error("No MPD URL");
 
         if (signal?.aborted) return "error";

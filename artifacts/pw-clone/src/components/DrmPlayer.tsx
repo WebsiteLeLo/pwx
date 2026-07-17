@@ -2,12 +2,30 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { apiUrl } from "@/lib/apiUrl";
 
-const API_BASE = "https://learnbyakp.onrender.com/api/pw";
+const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PROXY_BASE = apiUrl("/api");
 const ACCENT = "#5a4bda";
 
 interface DrmCache { mpdUrl: string; kid: string; keyHex: string; }
 const drmCache = new Map<string, DrmCache>();
+
+// Extract KID directly from MPD XML — no external service needed
+function extractKidFromMpd(mpdText: string): string | null {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(mpdText, "application/xml");
+    const cps = doc.querySelectorAll("ContentProtection");
+    for (const cp of Array.from(cps)) {
+      // Look for default_KID in any namespace (cenc:default_KID)
+      for (const attr of Array.from(cp.attributes)) {
+        if (attr.localName.toLowerCase() === "default_kid" && attr.value) {
+          return attr.value.replace(/-/g, "").toLowerCase();
+        }
+      }
+    }
+  } catch { /* noop */ }
+  return null;
+}
 
 function hexToBase64url(hex: string): string {
   const pairs = hex.match(/.{1,2}/g) ?? [];
@@ -161,29 +179,39 @@ export function DrmPlayer({
         let cached = drmCache.get(cacheKey);
 
         if (!cached) {
+          // ── Step 1: Get MPD URL from pwsecure ──────────────────────────────
           setStatusMsg("Fetching video URL…");
-          const urlRes = await fetch(
-            `${API_BASE}/video-url-details?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}&subjectId=${encodeURIComponent(subjectId)}`
+          const videoRes = await fetch(
+            `${PW_API}/v1/videos/${encodeURIComponent(childId)}`
           );
-          if (!urlRes.ok) throw new Error(`video-url-details failed (${urlRes.status})`);
-          const urlData = await urlRes.json();
-          const mpdUrl: string | undefined = urlData?.data?.[0]?.url;
-          if (!mpdUrl) throw new Error("No MPD URL returned from server");
+          if (!videoRes.ok) throw new Error(`Video details failed (${videoRes.status})`);
+          const videoData = await videoRes.json();
+          const mpdUrl: string | undefined = videoData?.data?.videoUrl;
+          if (!mpdUrl) throw new Error("No MPD URL in video details");
 
           if (cancelled) return;
+
+          // ── Step 2: Fetch proxied MPD and extract KID client-side ──────────
           setStatusMsg("Extracting encryption key…");
-          const kidRes = await fetch(`${API_BASE}/kid?mpdUrl=${encodeURIComponent(mpdUrl)}`);
-          if (!kidRes.ok) throw new Error(`KID extraction failed (${kidRes.status})`);
-          const kidData = await kidRes.json();
-          const kid: string | undefined = kidData?.kid;
+          const mpdRes = await fetch(
+            `${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`
+          );
+          if (!mpdRes.ok) throw new Error(`MPD fetch failed (${mpdRes.status})`);
+          const mpdText = await mpdRes.text();
+          const kid = extractKidFromMpd(mpdText);
           if (!kid) throw new Error("No KID found in MPD");
 
           if (cancelled) return;
+
+          // ── Step 3: Exchange KID for ClearKey via pwsecure ────────────────
           setStatusMsg("Decrypting license key…");
-          const otpRes = await fetch(`${API_BASE}/otp?kid=${encodeURIComponent(kid)}`);
+          const otpRes = await fetch(
+            `${PW_API}/v1/videos/get-otp?key=${encodeURIComponent(kid)}&isEncoded=true`
+          );
           if (!otpRes.ok) throw new Error(`OTP fetch failed (${otpRes.status})`);
           const otpData = await otpRes.json();
-          const keyHex: string | undefined = otpData?.key;
+          const keyHex: string | undefined =
+            otpData?.data?.otp ?? otpData?.data?.key ?? otpData?.key;
           if (!keyHex) throw new Error("No decryption key returned");
 
           cached = { mpdUrl, kid, keyHex };
