@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
+import { OfflineBanner } from "@/components/offline-banner";
 
 export interface BreadcrumbItem {
   label: string;
@@ -146,6 +147,9 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
 
       {/* Mobile bottom navigation */}
       <BottomNav />
+
+      {/* Offline / back-online banner */}
+      <OfflineBanner />
 
       {/* PWA install prompt — hidden when already installed */}
       <InstallBanner />
