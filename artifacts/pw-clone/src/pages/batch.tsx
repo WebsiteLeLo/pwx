@@ -541,7 +541,11 @@ function TestCard({ test, batchId }: { test: Test; batchId: string }) {
 
   const handleStart = () => {
     const url = `https://vidcloud.eu.org/start-test/?batch_id=${batchId}&test_id=${test._id}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${test.name}</title><style>*{margin:0;padding:0;box-sizing:border-box}html,body,iframe{width:100%;height:100%;border:none;display:block}</style></head><body><iframe src="${url}" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe></body></html>`);
+      win.document.close();
+    }
   };
 
   return (
