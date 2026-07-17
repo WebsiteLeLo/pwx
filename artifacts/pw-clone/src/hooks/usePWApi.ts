@@ -632,3 +632,43 @@ export function useAllTopicContents(
     gcTime: MIN * 60,
   });
 }
+
+// ── Tests ──────────────────────────────────────────────────────────────────
+export interface Test {
+  _id: string;
+  name: string;
+  slug: string;
+  totalQuestions: number;
+  totalMarks: number;
+  maxDuration: number;
+  startTime: string;
+  endTime: string;
+  resultScheduleAt?: string;
+  testActivityStatus: string;
+  tag1?: string;
+  tag2?: string;
+  attempts: number;
+  type: string;
+  currentType?: string;
+  isFree: boolean;
+  isPurchased: boolean;
+  template?: string;
+  difficultyLevel?: string;
+  modeType?: string;
+}
+
+export function useBatchTests(batchId: string) {
+  return useQuery({
+    queryKey: ["batchTests", batchId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v3/test-service/tests?testType=All&testStatus=All&attemptStatus=All&batchId=${batchId}&isSubjective=false`
+      );
+      if (!res.ok) throw new Error("Failed to fetch tests");
+      return res.json() as Promise<{ success: boolean; data: Test[] }>;
+    },
+    enabled: !!batchId,
+    staleTime: MIN * 10,
+    gcTime: MIN * 60,
+  });
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useBatchDetails, useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch } from "@/hooks/usePWApi";
+import { useBatchDetails, useTodaysSchedule, useBatchTests, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch, type Test } from "@/hooks/usePWApi";
 import { useCustomBatches, MixSubject } from "@/hooks/useCustomBatches";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Layout } from "@/components/layout";
@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText, ChevronLeft, ChevronRight, ClipboardList, Trophy, Timer, HelpCircle, Target } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -502,6 +502,244 @@ function AddToMixDialog({
   );
 }
 
+// ── Test status helpers ──────────────────────────────────────────────────────
+function getTestStatusMeta(status: string, tag1?: string) {
+  const s = (tag1 || status || "").toLowerCase();
+  if (s.includes("live") || s.includes("ongoing"))
+    return { label: "Live", color: "bg-red-500/15 text-red-400 border-red-500/30", dot: "bg-red-400 animate-pulse" };
+  if (s.includes("attempt") || s.includes("submitted") || s.includes("completed"))
+    return { label: "Attempted", color: "bg-green-500/15 text-green-400 border-green-500/30", dot: "bg-green-400" };
+  if (s.includes("missed") || s.includes("expired"))
+    return { label: "Missed", color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30", dot: "bg-zinc-500" };
+  if (s.includes("upcoming") || s.includes("scheduled"))
+    return { label: "Upcoming", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", dot: "bg-blue-400" };
+  return { label: tag1 || "Available", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30", dot: "bg-cyan-400" };
+}
+
+function formatTestDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatDuration(mins: number) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function getDifficultyColor(level?: string) {
+  const n = Number(level ?? 0);
+  if (n <= 1) return "text-green-400";
+  if (n <= 2) return "text-yellow-400";
+  if (n <= 3) return "text-orange-400";
+  return "text-red-400";
+}
+
+function TestCard({ test, batchId, onStart }: { test: Test; batchId: string; onStart: (url: string, title: string) => void }) {
+  const status = getTestStatusMeta(test.testActivityStatus, test.tag1);
+  const canStart = !["upcoming", "scheduled"].includes((test.tag1 || "").toLowerCase());
+
+  const handleStart = () => {
+    const url = `https://vidcloud.eu.org/#BatchDetails/batch/${batchId}`;
+    onStart(url, test.name);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 group"
+    >
+      <div className="p-4 flex flex-col gap-3">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+              {test.name}
+            </h3>
+            {test.template && (
+              <span className="text-[10px] text-muted-foreground mt-0.5 block">{test.template} Pattern</span>
+            )}
+          </div>
+          <span className={`flex-shrink-0 inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-full border ${status.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+            {status.label}
+          </span>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-secondary/50 rounded-lg p-2">
+            <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+              <HelpCircle className="w-3 h-3" /> Qs
+            </p>
+            <p className="text-sm font-bold mt-0.5">{test.totalQuestions}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-2">
+            <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+              <Trophy className="w-3 h-3" /> Marks
+            </p>
+            <p className="text-sm font-bold mt-0.5">{test.totalMarks}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-2">
+            <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+              <Timer className="w-3 h-3" /> Time
+            </p>
+            <p className="text-sm font-bold mt-0.5">{formatDuration(test.maxDuration)}</p>
+          </div>
+        </div>
+
+        {/* Meta row */}
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-3 h-3" />
+            {formatTestDate(test.startTime)}
+          </span>
+          <div className="flex items-center gap-2">
+            {test.attempts > 0 && (
+              <span className="flex items-center gap-1 text-green-400">
+                <CheckCircle2 className="w-3 h-3" /> {test.attempts} attempt{test.attempts !== 1 ? "s" : ""}
+              </span>
+            )}
+            {test.difficultyLevel && (
+              <span className={`flex items-center gap-1 ${getDifficultyColor(test.difficultyLevel)}`}>
+                <Target className="w-3 h-3" />
+                Lvl {test.difficultyLevel}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Action footer */}
+      <div className="border-t border-border/40 px-4 py-2.5 flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground">
+          {test.tag2 || test.currentType || test.type}
+        </span>
+        <Button
+          size="sm"
+          variant={canStart ? "default" : "outline"}
+          className={`h-7 text-xs gap-1.5 cursor-pointer ${!canStart ? "opacity-50" : ""}`}
+          disabled={!canStart}
+          onClick={handleStart}
+        >
+          <PlayCircle className="w-3.5 h-3.5" />
+          {test.attempts > 0 ? "Reattempt" : "Start Test"}
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+function TestsSection({ batchId }: { batchId: string }) {
+  const { data, isLoading, isError, refetch } = useBatchTests(batchId);
+  const [testModal, setTestModal] = useState<{ url: string; title: string } | null>(null);
+  const [filter, setFilter] = useState<"all" | "available" | "attempted" | "missed">("all");
+
+  const tests = data?.data ?? [];
+
+  const filtered = filter === "all" ? tests : tests.filter(t => {
+    const s = (t.tag1 || t.testActivityStatus || "").toLowerCase();
+    if (filter === "attempted") return s.includes("attempt") || s.includes("submitted") || s.includes("completed");
+    if (filter === "missed") return s.includes("missed") || s.includes("expired");
+    if (filter === "available") return !s.includes("missed") && !s.includes("attempt") && !s.includes("submitted");
+    return true;
+  });
+
+  const counts = {
+    all: tests.length,
+    available: tests.filter(t => {
+      const s = (t.tag1 || "").toLowerCase();
+      return !s.includes("missed") && !s.includes("attempt") && !s.includes("submitted");
+    }).length,
+    attempted: tests.filter(t => {
+      const s = (t.tag1 || "").toLowerCase();
+      return s.includes("attempt") || s.includes("submitted");
+    }).length,
+    missed: tests.filter(t => (t.tag1 || "").toLowerCase().includes("missed")).length,
+  };
+
+  return (
+    <>
+      {testModal && (
+        <LivePlayerModal src={testModal.url} title={testModal.title} onClose={() => setTestModal(null)} />
+      )}
+
+      {/* Filter tabs */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {(["all", "available", "attempted", "missed"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              filter === f
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+            <span className="ml-1.5 opacity-70">{counts[f]}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => refetch()}
+          className="ml-auto w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Refresh"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-xl border border-border/50 p-4 space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map(j => <Skeleton key={j} className="h-14 rounded-lg" />)}
+              </div>
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="w-8 h-8 text-destructive" />
+          <p className="text-sm text-destructive">Failed to load tests.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+        </div>
+      )}
+
+      {!isLoading && !isError && (
+        filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/40" />
+            <h3 className="font-semibold text-muted-foreground">No tests in this category</h3>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {filtered.map((test, i) => (
+                <motion.div key={test._id} transition={{ delay: i * 0.025 }}>
+                  <TestCard
+                    test={test}
+                    batchId={batchId}
+                    onStart={(url, title) => setTestModal({ url, title })}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )
+      )}
+    </>
+  );
+}
+
+type BatchTab = "subjects" | "tests";
+
 export default function Batch() {
   const { batchId } = useParams<{ batchId: string }>();
   const { data, isLoading, isError, refetch } = useBatchDetails(batchId!);
@@ -509,6 +747,7 @@ export default function Batch() {
   const { enroll, unenroll, isEnrolled } = useEnrolledBatches();
   const [dialogSubject, setDialogSubject] = useState<MixSubject | null>(null);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<BatchTab>("subjects");
 
   const enrolled = isEnrolled(batchId!);
 
@@ -630,13 +869,45 @@ export default function Batch() {
       {/* Today's live lecture schedule for this batch */}
       <TodaysScheduleSection batchId={batchId!} />
 
-      {/* Subjects heading */}
-      <h2 className="text-base font-bold mb-4 flex items-center gap-2">
-        <BookOpen className="w-4 h-4 text-muted-foreground" />
-        Subjects
-      </h2>
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 mb-6 border-b border-border/50">
+        <button
+          onClick={() => setActiveTab("subjects")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer relative ${
+            activeTab === "subjects"
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          Subjects
+          {activeTab === "subjects" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("tests")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer relative ${
+            activeTab === "tests"
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          Tests
+          {activeTab === "tests" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+          )}
+        </button>
+      </div>
 
-      {isLoading ? (
+      {/* Tests section */}
+      {activeTab === "tests" && (
+        <TestsSection batchId={batchId!} />
+      )}
+
+      {/* Subjects section */}
+      {activeTab === "subjects" && (isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex gap-4 p-4 border border-border/50 rounded-xl">
@@ -744,7 +1015,7 @@ export default function Batch() {
             </div>
           )}
         </div>
-      )}
+      ))}
 
       {dialogSubject && (
         <AddToMixDialog
