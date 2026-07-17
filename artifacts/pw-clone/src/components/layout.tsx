@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { InstallBanner } from "@/components/install-banner";
 
 export interface BreadcrumbItem {
   label: string;
@@ -145,6 +146,9 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
 
       {/* Mobile bottom navigation */}
       <BottomNav />
+
+      {/* PWA install prompt — hidden when already installed */}
+      <InstallBanner />
     </div>
   );
 }
