@@ -540,7 +540,7 @@ function TestCard({ test, batchId, onStart }: { test: Test; batchId: string; onS
   const canStart = !["upcoming", "scheduled"].includes((test.tag1 || "").toLowerCase());
 
   const handleStart = () => {
-    const url = `https://vidcloud.eu.org/#BatchDetails/batch/${batchId}`;
+    const url = `https://vidcloud.eu.org/start-test/?batch_id=${batchId}&test_id=${test._id}`;
     onStart(url, test.name);
   };
 
