@@ -2,7 +2,7 @@ const CACHE_NAME = "pwx-v3";
 const SEG_CACHE_NAME = "pwx-segments-v1";
 const API_CACHE_NAME = "pwx-api-v1";
 
-const SEG_MAX = 300;   // max DASH segment entries
+const SEG_MAX = 8000;  // max DASH segment entries (high for full offline lectures)
 const API_MAX = 500;   // max API response entries
 
 // Static shell assets to pre-cache on install

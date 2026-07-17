@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar } from "lucide-react";
+import { SaveOfflineButton } from "@/components/save-offline-button";
 
 type TabKey = ContentType;
 
@@ -313,6 +314,13 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     {dur}
                   </div>
                 )}
+                {/* Save for offline button */}
+                <SaveOfflineButton
+                  videoId={content._id}
+                  batchId={batchId}
+                  subjectId={subjectId}
+                  title={title}
+                />
               </div>
               <div className="p-4 flex flex-col gap-1.5">
                 <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
