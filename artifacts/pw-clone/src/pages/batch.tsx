@@ -535,13 +535,13 @@ function getDifficultyColor(level?: string) {
   return "text-red-400";
 }
 
-function TestCard({ test, batchId, onStart }: { test: Test; batchId: string; onStart: (url: string, title: string) => void }) {
+function TestCard({ test, batchId }: { test: Test; batchId: string }) {
   const status = getTestStatusMeta(test.testActivityStatus, test.tag1);
   const canStart = !["upcoming", "scheduled"].includes((test.tag1 || "").toLowerCase());
 
   const handleStart = () => {
     const url = `https://vidcloud.eu.org/start-test/?batch_id=${batchId}&test_id=${test._id}`;
-    onStart(url, test.name);
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -633,7 +633,6 @@ function TestCard({ test, batchId, onStart }: { test: Test; batchId: string; onS
 
 function TestsSection({ batchId }: { batchId: string }) {
   const { data, isLoading, isError, refetch } = useBatchTests(batchId);
-  const [testModal, setTestModal] = useState<{ url: string; title: string } | null>(null);
   const [filter, setFilter] = useState<"all" | "available" | "attempted" | "missed">("all");
 
   const tests = data?.data ?? [];
@@ -661,10 +660,6 @@ function TestsSection({ batchId }: { batchId: string }) {
 
   return (
     <>
-      {testModal && (
-        <LivePlayerModal src={testModal.url} title={testModal.title} onClose={() => setTestModal(null)} />
-      )}
-
       {/* Filter tabs */}
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         {(["all", "available", "attempted", "missed"] as const).map(f => (
@@ -726,7 +721,6 @@ function TestsSection({ batchId }: { batchId: string }) {
                   <TestCard
                     test={test}
                     batchId={batchId}
-                    onStart={(url, title) => setTestModal({ url, title })}
                   />
                 </motion.div>
               ))}
