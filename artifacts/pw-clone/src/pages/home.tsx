@@ -135,7 +135,7 @@ function PinnedChaptersSection() {
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin" style={{ WebkitOverflowScrolling: "touch" }}>
         {pinned.map((chapter) => (
           <motion.div
             key={chapter.topicId}
@@ -274,7 +274,7 @@ function ContinueWatchingSection({
         </button>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin" style={{ WebkitOverflowScrolling: "touch" }}>
         {history.map((item) => {
           const watchUrl = `/schedule-watch?batchId=${item.batchId}&subjectId=${item.subjectId}&scheduleId=${item.scheduleId}&title=${encodeURIComponent(item.title)}${item.thumbnail ? `&thumbnail=${encodeURIComponent(item.thumbnail)}` : ""}${item.subjectName ? `&subjectName=${encodeURIComponent(item.subjectName)}` : ""}`;
           return (

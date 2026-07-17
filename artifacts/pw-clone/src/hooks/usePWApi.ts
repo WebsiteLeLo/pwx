@@ -672,3 +672,28 @@ export function useBatchTests(batchId: string) {
     gcTime: MIN * 60,
   });
 }
+
+// ── Test Instructions / Syllabus ───────────────────────────────────────────
+export interface TestInstructions {
+  _id: string;
+  name: string;
+  syllabus?: Record<string, string>;        // { en: "<html>…", hi: "<html>…" }
+  multiGeneralInstructions?: Record<string, string>;
+  multiTestInstructions?: Record<string, string>;
+}
+
+export function useTestInstructions(testId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["testInstructions", testId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/v3/test-service/tests/${testId}/instructions`
+      );
+      if (!res.ok) throw new Error("Failed to fetch instructions");
+      return res.json() as Promise<{ success: boolean; data: TestInstructions }>;
+    },
+    enabled: enabled && !!testId,
+    staleTime: MIN * 30,
+    gcTime: MIN * 120,
+  });
+}

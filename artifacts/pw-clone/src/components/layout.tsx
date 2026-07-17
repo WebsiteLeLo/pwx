@@ -30,7 +30,7 @@ function BottomNav() {
   const [location] = useLocation();
 
   return (
-    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border/50 bg-background" style={{ transform: "translateZ(0)", willChange: "transform" }}>
       <div className="flex items-stretch h-16">
         {NAV_ITEMS.map(({ href, label, Icon }) => {
           const active = href === "/" ? location === "/" : location.startsWith(href);
@@ -60,9 +60,9 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
   const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary selection:text-primary-foreground">
+    <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary selection:text-primary-foreground overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/98 will-change-transform" style={{ transform: "translateZ(0)" }}>
         <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80 active:opacity-60">

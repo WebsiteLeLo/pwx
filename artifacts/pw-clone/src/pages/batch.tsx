@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useBatchDetails, useTodaysSchedule, useBatchTests, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch, type Test } from "@/hooks/usePWApi";
+import { useBatchDetails, useTodaysSchedule, useBatchTests, useTestInstructions, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch, type Test } from "@/hooks/usePWApi";
 import { useCustomBatches, MixSubject } from "@/hooks/useCustomBatches";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { Layout } from "@/components/layout";
@@ -538,6 +538,14 @@ function getDifficultyColor(level?: string) {
 function TestCard({ test, batchId }: { test: Test; batchId: string }) {
   const status = getTestStatusMeta(test.testActivityStatus, test.tag1);
   const canStart = !["upcoming", "scheduled"].includes((test.tag1 || "").toLowerCase());
+  const [syllabusOpen, setSyllabusOpen] = useState(false);
+  const [syllabusLang, setSyllabusLang] = useState<"en" | "hi">("en");
+  const { data: instrData, isLoading: instrLoading } = useTestInstructions(test._id, syllabusOpen);
+
+  const syllabusHtml = instrData?.data?.syllabus?.[syllabusLang]
+    ?? instrData?.data?.syllabus?.["en"]
+    ?? "";
+  const hasHindi = !!instrData?.data?.syllabus?.["hi"];
 
   const handleStart = () => {
     const url = `https://vidcloud.eu.org/start-test/?batch_id=${batchId}&test_id=${test._id}`;
@@ -549,7 +557,55 @@ function TestCard({ test, batchId }: { test: Test; batchId: string }) {
   };
 
   return (
-    <motion.div
+    <>
+      {/* Syllabus Dialog */}
+      <Dialog open={syllabusOpen} onOpenChange={setSyllabusOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base">Syllabus — {test.name}</DialogTitle>
+          </DialogHeader>
+
+          {/* Language toggle */}
+          {hasHindi && (
+            <div className="flex gap-1 border-b border-border/40 pb-3">
+              {(["en", "hi"] as const).map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => setSyllabusLang(lang)}
+                  className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
+                    syllabusLang === lang
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {lang === "en" ? "English" : "हिन्दी"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {instrLoading ? (
+              <div className="space-y-2 py-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            ) : syllabusHtml ? (
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&_strong]:text-foreground [&_p]:text-muted-foreground [&_p]:mb-2"
+                dangerouslySetInnerHTML={{ __html: syllabusHtml }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">No syllabus available for this test.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className="bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5 group"
@@ -616,10 +672,16 @@ function TestCard({ test, batchId }: { test: Test; batchId: string }) {
       </div>
 
       {/* Action footer */}
-      <div className="border-t border-border/40 px-4 py-2.5 flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">
-          {test.tag2 || test.currentType || test.type}
-        </span>
+      <div className="border-t border-border/40 px-4 py-2.5 flex items-center justify-between gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+          onClick={() => setSyllabusOpen(true)}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Syllabus
+        </Button>
         <Button
           size="sm"
           variant={canStart ? "default" : "outline"}
@@ -632,6 +694,7 @@ function TestCard({ test, batchId }: { test: Test; batchId: string }) {
         </Button>
       </div>
     </motion.div>
+    </>
   );
 }
 
