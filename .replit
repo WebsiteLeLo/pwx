@@ -9,7 +9,44 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "artifacts/pw-clone: web"
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "API Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/pw-clone: web"
+
+[[workflows.workflow]]
+name = "API Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "artifacts/pw-clone: web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/pw-clone run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -45,6 +82,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-VITE_API_URL = "https://pw-clone-api.onrender.com/api"
+VITE_API_URL = "/api"
 FRONTEND_URL = "https://pwx.onrender.com"
 API_PUBLIC_URL = "https://pw-clone-api.onrender.com"
