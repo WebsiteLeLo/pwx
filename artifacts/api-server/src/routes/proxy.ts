@@ -2,7 +2,12 @@ import { Router } from "express";
 
 const proxyRouter = Router();
 
-const CDN_HOSTS = ["sec-prod-mediacdn.pw.live", "prod-mediacdn.pw.live", "mediacdn.pw.live"];
+const CDN_HOSTS = [
+  "sec-prod-mediacdn.pw.live",
+  "prod-mediacdn.pw.live",
+  "mediacdn.pw.live",
+  "cloudfront.net",  // PW video CDN distributions
+];
 const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net"];
 
 function isAllowedCdnHost(hostname: string): boolean {
