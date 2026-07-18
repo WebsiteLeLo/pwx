@@ -31,14 +31,19 @@ function parseDuration(iso: string): number {
          parseFloat(m[3] || "0");
 }
 
-// ── Parse proxied MPD XML → list of all segment URLs ─────────────────────────
-function parseMpdSegments(mpdText: string): string[] {
+// ── Parse MPD XML → list of all segment URLs ─────────────────────────────────
+// mpdBaseUrl: the URL the MPD was fetched from — used as base when the MPD has
+// no explicit <BaseURL> element (relative segment paths are resolved against it)
+function parseMpdSegments(mpdText: string, mpdBaseUrl = ""): string[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(mpdText, "application/xml");
   const urls: string[] = [];
 
-  // Global base URL (injected by proxy, e.g. /api/dash-seg/SIG/UUID/)
-  const globalBase = doc.querySelector("MPD > BaseURL")?.textContent?.trim() ?? "";
+  // Derive directory base from the MPD URL (strip the filename)
+  const urlDirBase = mpdBaseUrl ? mpdBaseUrl.replace(/\/[^/]*$/, "/") : "";
+
+  // Global base URL: from MPD document, or the MPD's own directory
+  const globalBase = doc.querySelector("MPD > BaseURL")?.textContent?.trim() ?? urlDirBase;
 
   // Total video duration
   const mpdEl = doc.querySelector("MPD");
@@ -131,15 +136,7 @@ async function evictFromSWCache(segmentUrls: string[]) {
   if (!("caches" in window)) return;
   try {
     const cache = await caches.open("pwx-segments-v1");
-    const apiCache = await caches.open("pwx-api-v1");
-    await Promise.all(
-      segmentUrls.map(async (url) => {
-        // Segments are stored by pathname only
-        const key = new URL(url, window.location.origin).pathname;
-        await cache.delete(new Request(key));
-        await apiCache.delete(new Request(url));
-      })
-    );
+    await Promise.all(segmentUrls.map((url) => cache.delete(url)));
   } catch { /* noop */ }
 }
 
@@ -181,22 +178,20 @@ export function useVideoCache() {
 
         if (signal?.aborted) return "error";
 
-        // 2. Fetch proxied MPD (proxy rewrites BaseURL → /api/dash-seg/…)
-        const proxyRes = await fetch(
-          `/api/proxy?url=${encodeURIComponent(mpdUrl)}`,
-          { signal }
-        );
-        if (!proxyRes.ok) throw new Error("Failed to fetch MPD");
-        const mpdText = await proxyRes.text();
+        // 2. Fetch MPD directly from browser — avoids server-side geo-restriction
+        //    (CloudFront allows browser requests from India; blocks US server IPs)
+        const mpdRes = await fetch(mpdUrl, { signal });
+        if (!mpdRes.ok) throw new Error(`Failed to fetch MPD (${mpdRes.status})`);
+        const mpdText = await mpdRes.text();
 
         if (signal?.aborted) return "error";
 
-        // 3. Parse all segment URLs
-        const segmentUrls = parseMpdSegments(mpdText);
+        // 3. Parse all segment URLs — pass mpdUrl so relative paths resolve correctly
+        const segmentUrls = parseMpdSegments(mpdText, mpdUrl);
         if (segmentUrls.length === 0) throw new Error("No segments found in MPD");
 
-        // 4. Pre-fetch every segment — SW intercepts and caches each one
-        //    Use concurrency of 4 to not overwhelm the connection
+        // 4. Pre-fetch every segment directly from CDN — the SW intercepts each
+        //    fetch and caches it under the CloudFront URL (cache-first on replay)
         const CONCURRENCY = 4;
         let done = 0;
 

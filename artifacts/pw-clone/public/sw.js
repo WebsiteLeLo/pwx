@@ -116,7 +116,28 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ── 3. Cross-origin everything else — skip (fonts, CDN images, etc.) ──────
+  // ── 3. CloudFront PW video segments — cache-first ────────────────────────
+  if (url.hostname.endsWith(".cloudfront.net")) {
+    event.respondWith(
+      caches.open(SEG_CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request.url);
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            cache.put(request.url, response.clone());
+            trimCache(SEG_CACHE_NAME, SEG_MAX);
+          }
+          return response;
+        } catch {
+          return new Response("Offline", { status: 503 });
+        }
+      })
+    );
+    return;
+  }
+
+  // ── 4. Cross-origin everything else — skip (fonts, CDN images, etc.) ──────
   if (url.origin !== self.location.origin) return;
 
   // ── 4. Same-origin: network-first for HTML, cache-first for assets ────────
