@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { apiUrl } from "@/lib/apiUrl";
 
 const STORE_KEY = "pwx-offline-cache-v1";
 
@@ -172,7 +171,7 @@ export function useVideoCache() {
       try {
         // 1. Get MPD URL via server-side proxy (adds proper Referer/Origin headers)
         const urlRes = await fetch(
-          apiUrl(`/api/pw-video/${encodeURIComponent(videoId)}`),
+          `/api/pw-video/${encodeURIComponent(videoId)}`,
           { signal }
         );
         if (!urlRes.ok) throw new Error(`Failed to get video URL (${urlRes.status})`);
