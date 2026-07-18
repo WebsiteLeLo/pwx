@@ -178,11 +178,21 @@ export function useVideoCache() {
 
         if (signal?.aborted) return "error";
 
-        // 2. Fetch MPD directly from browser — avoids server-side geo-restriction
-        //    (CloudFront allows browser requests from India; blocks US server IPs)
-        const mpdRes = await fetch(mpdUrl, { signal });
-        if (!mpdRes.ok) throw new Error(`Failed to fetch MPD (${mpdRes.status})`);
-        const mpdText = await mpdRes.text();
+        // 2. Fetch MPD — try direct browser fetch first (India CDN access),
+        //    fall back to server proxy with vidcloud.eu.org headers if blocked.
+        let mpdText: string;
+        const directRes = await fetch(mpdUrl, { signal }).catch(() => null);
+        if (directRes && directRes.ok) {
+          mpdText = await directRes.text();
+        } else {
+          // Fallback: server-side proxy attempts multiple referrer variants
+          const proxyRes = await fetch(
+            `/api/proxy?url=${encodeURIComponent(mpdUrl)}`,
+            { signal }
+          );
+          if (!proxyRes.ok) throw new Error(`Cannot access video stream (${proxyRes.status}). The video may be DRM-protected.`);
+          mpdText = await proxyRes.text();
+        }
 
         if (signal?.aborted) return "error";
 

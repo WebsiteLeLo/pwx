@@ -21,19 +21,49 @@ function injectBaseUrl(mpdXml: string, baseUrl: string): string {
   return mpdXml.replace(/<Period([^>]*)>/, `<Period$1>\n    <BaseURL>${baseUrl}</BaseURL>`);
 }
 
+// Headers to try in order — each mimics a likely whitelisted referrer on PW's CloudFront WAF
+const CDN_HEADER_VARIANTS = [
+  {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://vidcloud.eu.org/",
+    "Origin": "https://vidcloud.eu.org",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "sec-ch-ua": '"Chromium";v="124","Google Chrome";v="124"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "cross-site",
+  },
+  {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://www.pw.live/",
+    "Origin": "https://www.pw.live",
+    "Accept": "*/*",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "cross-site",
+  },
+  {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "*/*",
+  },
+];
+
 async function fetchCdn(url: string): Promise<{ status: number; contentType: string; buffer: ArrayBuffer }> {
-  const resp = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; PWX/1.0)",
-      "Referer": "https://www.pw.live/",
-      "Origin": "https://www.pw.live",
-    },
-  });
-  return {
-    status: resp.status,
-    contentType: resp.headers.get("content-type") || "application/octet-stream",
-    buffer: await resp.arrayBuffer(),
-  };
+  for (const headers of CDN_HEADER_VARIANTS) {
+    const resp = await fetch(url, { headers });
+    if (resp.status !== 403) {
+      return {
+        status: resp.status,
+        contentType: resp.headers.get("content-type") || "application/octet-stream",
+        buffer: await resp.arrayBuffer(),
+      };
+    }
+  }
+  // All variants returned 403 — return the last 403
+  return { status: 403, contentType: "application/json", buffer: new ArrayBuffer(0) };
 }
 
 function isAllowedPdfHost(hostname: string): boolean {
