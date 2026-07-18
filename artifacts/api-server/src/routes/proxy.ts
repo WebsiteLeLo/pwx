@@ -70,6 +70,63 @@ function isAllowedPdfHost(hostname: string): boolean {
   return PDF_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 }
 
+// ── Vidcloud stream URL extractor ─────────────────────────────────────────────
+// Fetches vidcloud's play.php page (which has PW auth baked in) and extracts
+// any CloudFront signed MPD/HLS/M3U8 URLs embedded in the page source.
+proxyRouter.get("/vidcloud-stream", async (req, res) => {
+  const { batchId, subjectId, videoId } = req.query as Record<string, string>;
+  if (!batchId || !videoId) {
+    res.status(400).json({ error: "Missing batchId or videoId" });
+    return;
+  }
+
+  const vidcloudUrl = `https://vidcloud.eu.org/play.php?batch_id=${encodeURIComponent(batchId)}&subject_id=${encodeURIComponent(subjectId || "")}&video_id=${encodeURIComponent(videoId)}&video_type=new`;
+
+  try {
+    const upstream = await fetch(vidcloudUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-IN,en;q=0.9",
+        "Referer": "https://www.pw.live/",
+      },
+    });
+
+    const html = await upstream.text();
+
+    // Extract any CloudFront or CDN video URLs embedded in the page
+    const patterns = [
+      // Signed CloudFront URL with Policy/Signature params
+      /https?:\/\/[^"'\s]+cloudfront\.net[^"'\s]*(?:\.mpd|\.m3u8|\.master)[^"'\s]*/gi,
+      // Unsigned CloudFront MPD/HLS
+      /https?:\/\/[^"'\s]+cloudfront\.net\/[^"'\s]+\.(?:mpd|m3u8)[^"'\s]*/gi,
+      // PW CDN
+      /https?:\/\/[^"'\s]+(?:pw\.live|mediacdn\.pw)[^"'\s]+\.(?:mpd|m3u8)[^"'\s]*/gi,
+      // Any MPD/HLS in JSON-like strings
+      /"(https?:\/\/[^"]+\.(?:mpd|m3u8)[^"]*)"/gi,
+      /'(https?:\/\/[^']+\.(?:mpd|m3u8)[^']*)'/gi,
+    ];
+
+    const found = new Set<string>();
+    for (const pattern of patterns) {
+      let m: RegExpExecArray | null;
+      while ((m = pattern.exec(html)) !== null) {
+        found.add(m[1] ?? m[0]);
+      }
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json({
+      urls: [...found],
+      // Also include the raw page length for debugging
+      pageLength: html.length,
+    });
+  } catch (err) {
+    req.log.error({ err }, "vidcloud-stream fetch failed");
+    res.status(502).json({ error: "Failed to fetch vidcloud page" });
+  }
+});
+
 // ── PW video metadata proxy (fetches from pwsecure with proper headers) ────────
 proxyRouter.get("/pw-video/:videoId", async (req, res) => {
   const { videoId } = req.params as { videoId: string };

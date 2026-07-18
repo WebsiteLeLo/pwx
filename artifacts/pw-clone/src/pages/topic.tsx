@@ -320,6 +320,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                   batchId={batchId}
                   subjectId={subjectId}
                   title={title}
+                  thumbnail={thumb ?? undefined}
                 />
               </div>
               <div className="p-4 flex flex-col gap-1.5">

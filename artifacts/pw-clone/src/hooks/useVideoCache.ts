@@ -178,19 +178,40 @@ export function useVideoCache() {
 
         if (signal?.aborted) return "error";
 
-        // 2. Fetch MPD — try direct browser fetch first (India CDN access),
-        //    fall back to server proxy with vidcloud.eu.org headers if blocked.
-        let mpdText: string;
-        const directRes = await fetch(mpdUrl, { signal }).catch(() => null);
-        if (directRes && directRes.ok) {
-          mpdText = await directRes.text();
-        } else {
-          // Fallback: server-side proxy attempts multiple referrer variants
-          const proxyRes = await fetch(
-            `/api/proxy?url=${encodeURIComponent(mpdUrl)}`,
+        // 2. Try to get a signed/accessible stream URL from vidcloud's player page.
+        //    Vidcloud has PW auth baked in and embeds the actual signed CDN URL.
+        let resolvedMpdUrl = mpdUrl;
+        try {
+          const vcRes = await fetch(
+            `/api/vidcloud-stream?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(videoId)}`,
             { signal }
           );
-          if (!proxyRes.ok) throw new Error(`Cannot access video stream (${proxyRes.status}). The video may be DRM-protected.`);
+          if (vcRes.ok) {
+            const vcData = await vcRes.json();
+            if (vcData.urls && vcData.urls.length > 0) {
+              // Prefer signed CloudFront URLs (contain Policy= or Signature=)
+              const signed = (vcData.urls as string[]).find(u => u.includes("Policy=") || u.includes("Signature="));
+              resolvedMpdUrl = signed || vcData.urls[0];
+            }
+          }
+        } catch { /* vidcloud extraction optional */ }
+
+        if (signal?.aborted) return "error";
+
+        // 3. Fetch MPD — try direct browser fetch first (no-referrer to avoid
+        //    origin checks), then fall back to server proxy with multiple headers.
+        let mpdText: string;
+        const directRes = await fetch(resolvedMpdUrl, { signal, referrerPolicy: "no-referrer" }).catch(() => null);
+        if (directRes && directRes.ok) {
+          mpdText = await directRes.text();
+          // Update resolvedMpdUrl in case it redirected
+        } else {
+          // Fallback: server-side proxy tries 3 referrer/origin variants
+          const proxyRes = await fetch(
+            `/api/proxy?url=${encodeURIComponent(resolvedMpdUrl)}`,
+            { signal }
+          );
+          if (!proxyRes.ok) throw new Error(`Cannot access video stream (${proxyRes.status}). The video may be DRM-protected or geo-restricted.`);
           mpdText = await proxyRes.text();
         }
 
