@@ -35,6 +35,37 @@ function isAllowedPdfHost(hostname: string): boolean {
   return PDF_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 }
 
+// ── PW video metadata proxy (fetches from pwsecure with proper headers) ────────
+proxyRouter.get("/pw-video/:videoId", async (req, res) => {
+  const { videoId } = req.params as { videoId: string };
+  if (!videoId) {
+    res.status(400).json({ error: "Missing videoId" });
+    return;
+  }
+
+  const PW_SECURE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+  const url = `${PW_SECURE}/v1/videos/${encodeURIComponent(videoId)}`;
+
+  try {
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://www.pw.live/",
+        "Origin": "https://www.pw.live",
+        "Accept": "application/json, text/plain, */*",
+      },
+    });
+
+    const data = await upstream.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.status(upstream.status).json(data);
+  } catch (err) {
+    req.log.error({ err }, "pw-video proxy fetch failed");
+    res.status(502).json({ error: "Upstream fetch failed" });
+  }
+});
+
 proxyRouter.options(["/proxy", "/pdf", "/dash-seg/*path"], (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");

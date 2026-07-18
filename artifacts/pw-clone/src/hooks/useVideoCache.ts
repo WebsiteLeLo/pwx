@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { apiUrl } from "@/lib/apiUrl";
 
-const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const STORE_KEY = "pwx-offline-cache-v1";
 
 export type CacheStatus = "none" | "caching" | "cached" | "error";
@@ -169,15 +170,15 @@ export function useVideoCache() {
       signal?: AbortSignal
     ): Promise<"ok" | "error"> => {
       try {
-        // 1. Get MPD URL from pwsecure (same API the player uses)
+        // 1. Get MPD URL via server-side proxy (adds proper Referer/Origin headers)
         const urlRes = await fetch(
-          `${PW_API}/v1/videos/${encodeURIComponent(videoId)}`,
+          apiUrl(`/api/pw-video/${encodeURIComponent(videoId)}`),
           { signal }
         );
-        if (!urlRes.ok) throw new Error("Failed to get video URL");
+        if (!urlRes.ok) throw new Error(`Failed to get video URL (${urlRes.status})`);
         const urlData = await urlRes.json();
         const mpdUrl: string | undefined = urlData?.data?.videoUrl;
-        if (!mpdUrl) throw new Error("No MPD URL");
+        if (!mpdUrl) throw new Error("Video not available for offline download");
 
         if (signal?.aborted) return "error";
 
@@ -228,7 +229,9 @@ export function useVideoCache() {
         return "ok";
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return "error";
+        const msg = err instanceof Error ? err.message : "Download failed";
         console.error("[useVideoCache] cacheVideo error:", err);
+        toast.error(msg, { description: "This video cannot be saved for offline use." });
         return "error";
       }
     },

@@ -316,7 +316,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 )}
                 {/* Save for offline button */}
                 <SaveOfflineButton
-                  videoId={content._id}
+                  videoId={vid?._id || vid?.video_id || content._id}
                   batchId={batchId}
                   subjectId={subjectId}
                   title={title}
