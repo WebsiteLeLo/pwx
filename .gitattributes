@@ -1,0 +1,2 @@
+artifacts/pw-clone/public/PWX.apk filter=lfs diff=lfs merge=lfs -text
+attached_assets/172264_PWX_1784338389746.apk filter=lfs diff=lfs merge=lfs -text
