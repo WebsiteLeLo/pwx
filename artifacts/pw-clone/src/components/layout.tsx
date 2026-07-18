@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Bookmark } from "lucide-react";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -24,18 +25,21 @@ function TelegramIcon({ className = "" }: { className?: string }) {
 }
 
 const NAV_ITEMS = [
-  { href: "/",       label: "Home",   Icon: Home   },
-  { href: "/my-mix", label: "My Mix", Icon: Layers },
+  { href: "/",        label: "Home",    Icon: Home     },
+  { href: "/my-list", label: "My List", Icon: Bookmark },
+  { href: "/my-mix",  label: "My Mix",  Icon: Layers   },
 ];
 
 function BottomNav() {
   const [location] = useLocation();
+  const { list } = useWatchlist();
 
   return (
     <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border/50 bg-background" style={{ transform: "translateZ(0)", willChange: "transform" }}>
       <div className="flex items-stretch h-16">
         {NAV_ITEMS.map(({ href, label, Icon }) => {
           const active = href === "/" ? location === "/" : location.startsWith(href);
+          const badge = href === "/my-list" && list.length > 0 ? list.length : 0;
           return (
             <Link
               key={href}
@@ -46,8 +50,13 @@ function BottomNav() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <span className={`flex items-center justify-center w-6 h-6 rounded-lg transition-colors ${active ? "bg-primary/15" : ""}`}>
+              <span className={`relative flex items-center justify-center w-6 h-6 rounded-lg transition-colors ${active ? "bg-primary/15" : ""}`}>
                 <Icon className="w-4 h-4" />
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground font-bold flex items-center justify-center">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
               </span>
               {label}
             </Link>
