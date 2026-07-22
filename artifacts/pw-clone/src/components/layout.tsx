@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Download } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -51,17 +51,6 @@ function BottomNav() {
             </Link>
           );
         })}
-        {/* APK download tab */}
-        <a
-          href="/PWX.apk"
-          download="PWX.apk"
-          className="flex-1 flex flex-col items-center justify-center gap-1 text-[10px] font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
-        >
-          <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500/15">
-            <Download className="w-4 h-4" />
-          </span>
-          App
-        </a>
       </div>
     </nav>
   );
@@ -100,16 +89,6 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
           </nav>
 
           <div className="ml-auto flex items-center gap-1">
-            {/* Download APK */}
-            <a
-              href="/PWX.apk"
-              download="PWX.apk"
-              title="Download Android App"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors border border-emerald-500/30"
-            >
-              <Download className="w-4 h-4" />
-              Download App
-            </a>
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
