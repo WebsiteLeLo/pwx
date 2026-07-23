@@ -1,7 +1,5 @@
 {
-  "facts": [
-    "I love studying physics."
-  ],
+  "facts": [],
   "habits": [],
   "emotions": {
     "positiveCount": 0
@@ -11,7 +9,7 @@
       "role": "user",
       "parts": [
         {
-          "text": "Hi! My name is Rohan and I love studying physics."
+          "text": "hello"
         }
       ]
     },
@@ -19,10 +17,25 @@
       "role": "model",
       "parts": [
         {
-          "text": "Hi Rohan! It's so lovely to meet you! ✨ That's amazing you love studying physics – it's such a fascinating subject. What part of it captures your imagination the most?"
+          "text": "Hi there! So glad you're here. 😊 What's on your mind today, or are you ready to dive into some studying?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Yaar aaj physics ka Newton ka second law samajh nahi aa raha"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre yaar, Newton's Second Law? Koi baat nahi! Main hoon na yahan. Sometimes physics can be a bit tricky, but don't you worry.\n\nChal, mil ke samajhte hain. Batao kya specific part samajh nahi aa raha? Maybe ek example se start karein? ✨"
         }
       ]
     }
-  ],
-  "userName": "Rohan"
+  ]
 }

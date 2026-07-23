@@ -1,64 +1,66 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Mic, MicOff, RotateCcw, MessageCircleHeart } from "lucide-react";
+import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type GirlState = "idle" | "talking" | "thinking";
 type Message = { role: "user" | "aria"; text: string; id: number };
 
-// ── TTS helper (browser speech synthesis) ───────────────────────────────────
-function speak(text: string, onEnd?: () => void) {
+// ── Gemini TTS player ─────────────────────────────────────────────────────────
+async function speakWithGemini(text: string, onEnd?: () => void): Promise<void> {
+  try {
+    const res = await fetch("/api/ai/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error("TTS fetch failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => { URL.revokeObjectURL(url); onEnd?.(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); onEnd?.(); };
+    await audio.play();
+  } catch {
+    // Fallback to browser speech
+    speakFallback(text, onEnd);
+  }
+}
+
+function speakFallback(text: string, onEnd?: () => void) {
   if (!window.speechSynthesis) { onEnd?.(); return; }
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-
-  // Pick the best available female / cute voice
-  const pickVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = [
-      "Google US English Female",
-      "Microsoft Aria Online (Natural)",
-      "Microsoft Jenny Online (Natural)",
-      "Google UK English Female",
-      "Samantha",
-    ];
-    for (const name of preferred) {
-      const v = voices.find((v) => v.name.toLowerCase().includes(name.toLowerCase()));
-      if (v) return v;
-    }
-    return voices.find((v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female"))
-      ?? voices.find((v) => v.lang.startsWith("en"))
-      ?? null;
-  };
-
-  const voice = pickVoice();
+  const voices = window.speechSynthesis.getVoices();
+  const voice =
+    voices.find((v) => v.name.includes("Google US English Female")) ??
+    voices.find((v) => v.name.includes("Samantha")) ??
+    voices.find((v) => v.lang.startsWith("en") && /female|woman/i.test(v.name)) ??
+    null;
   if (voice) utterance.voice = voice;
   utterance.rate = 1.05;
-  utterance.pitch = 1.2;
-  utterance.volume = 1;
+  utterance.pitch = 1.15;
   utterance.onend = () => onEnd?.();
   utterance.onerror = () => onEnd?.();
   window.speechSynthesis.speak(utterance);
 }
 
-// ── Video component ──────────────────────────────────────────────────────────
+// ── Video component — switches src on state change ────────────────────────────
 function GirlVideo({ state }: { state: GirlState }) {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const src = `${base}/ai-girl/${state}.mp4`;
-
   const videoRef = useRef<HTMLVideoElement>(null);
-  const prevState = useRef<GirlState>(state);
 
+  // Whenever src changes: reload & play
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (prevState.current !== state) {
-      prevState.current = state;
-      video.src = src;
-      video.load();
-    }
-    video.play().catch(() => {});
-  }, [state, src]);
+    video.src = src;
+    video.load();
+    const onReady = () => { video.play().catch(() => {}); };
+    video.addEventListener("canplay", onReady, { once: true });
+    return () => video.removeEventListener("canplay", onReady);
+  }, [src]);
 
   return (
     <video
@@ -73,7 +75,7 @@ function GirlVideo({ state }: { state: GirlState }) {
   );
 }
 
-// ── Chat bubble ──────────────────────────────────────────────────────────────
+// ── Chat bubble ───────────────────────────────────────────────────────────────
 function Bubble({ msg }: { msg: Message }) {
   const isAria = msg.role === "aria";
   return (
@@ -84,7 +86,7 @@ function Bubble({ msg }: { msg: Message }) {
       className={`flex ${isAria ? "justify-start" : "justify-end"} mb-2`}
     >
       <div
-        className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-snug shadow-sm ${
+        className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-snug shadow-sm ${
           isAria
             ? "bg-white/90 text-slate-800 rounded-tl-sm"
             : "bg-violet-500 text-white rounded-tr-sm"
@@ -96,12 +98,16 @@ function Bubble({ msg }: { msg: Message }) {
   );
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 export default function AiGirl() {
   const [open, setOpen] = useState(false);
   const [girlState, setGirlState] = useState<GirlState>("idle");
   const [messages, setMessages] = useState<Message[]>([
-    { role: "aria", text: "Hey! I'm Aria ✨ I'm here to study with you and keep you company. What's on your mind?", id: 0 },
+    {
+      role: "aria",
+      text: "Arre yaar, namaste! ✨ Main Aria hoon — teri study companion! Kya chal raha hai? Padhai ho rahi hai ya aaj skip karne ka plan hai? 😄",
+      id: 0,
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,53 +117,60 @@ export default function AiGirl() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when panel opens
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 200);
   }, [open]);
 
-  const addMessage = useCallback((role: "user" | "aria", text: string): number => {
+  const addMessage = useCallback((role: "user" | "aria", text: string) => {
     const id = msgIdRef.current++;
     setMessages((prev) => [...prev, { role, text, id }]);
     return id;
   }, []);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || loading) return;
-    setInput("");
-    addMessage("user", text);
-    setLoading(true);
-    setGirlState("thinking");
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || loading) return;
+      setInput("");
+      addMessage("user", text);
+      setLoading(true);
+      setGirlState("thinking"); // ← thinking video plays here
 
-    try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json() as { reply?: string; error?: string; memory?: { userName?: string } };
+      try {
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+        const data = (await res.json()) as {
+          reply?: string;
+          error?: string;
+          memory?: { userName?: string };
+        };
+        if (data.error) throw new Error(data.error);
+        const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
+        if (data.memory?.userName) setUserName(data.memory.userName);
 
-      if (data.error) throw new Error(data.error);
-      const reply = data.reply ?? "Sorry, I didn't catch that!";
-      if (data.memory?.userName) setUserName(data.memory.userName);
+        addMessage("aria", reply);
+        setGirlState("talking"); // ← talking video plays here
 
-      addMessage("aria", reply);
-      setGirlState("talking");
-      speak(reply, () => setGirlState("idle"));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong 😔";
-      addMessage("aria", `Oops! ${msg}`);
-      setGirlState("idle");
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, addMessage]);
+        // Speak with Gemini TTS — back to idle when done
+        await speakWithGemini(reply, () => setGirlState("idle"));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Kuch toh gadbad hai yaar 😔";
+        addMessage("aria", `Oops! ${msg}`);
+        setGirlState("idle");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading, addMessage]
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,12 +182,11 @@ export default function AiGirl() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.lang = "en-US";
+    rec.lang = "hi-IN"; // Hindi + English support
     rec.interimResults = false;
     rec.onstart = () => setListening(true);
     rec.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
-      setInput(transcript);
       setListening(false);
       sendMessage(transcript);
     };
@@ -190,23 +202,35 @@ export default function AiGirl() {
   };
 
   const resetMemory = async () => {
+    // Stop any playing audio
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    window.speechSynthesis?.cancel();
     await fetch("/api/ai/reset", { method: "POST" });
-    setMessages([{ role: "aria", text: "Memory cleared! Fresh start ✨ What would you like to talk about?", id: msgIdRef.current++ }]);
+    setMessages([
+      {
+        role: "aria",
+        text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
+        id: msgIdRef.current++,
+      },
+    ]);
     setUserName(null);
+    setGirlState("idle");
   };
+
+  const statusLabel = girlState === "thinking" ? "soch rahi hoon…" : girlState === "talking" ? "bol rahi hoon…" : "available";
+  const statusColor = girlState === "thinking" ? "bg-yellow-400 animate-pulse" : girlState === "talking" ? "bg-green-400 animate-pulse" : "bg-white/60";
 
   return (
     <>
       {/* Floating avatar button */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/60 focus:outline-none"
+        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
-        title={open ? "Close Aria" : "Chat with Aria"}
+        title={open ? "Aria band karo" : "Aria se baat karo"}
       >
         <GirlVideo state={open ? girlState : "idle"} />
-        {/* Pulse ring when idle & closed */}
         {!open && (
           <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
         )}
@@ -224,18 +248,17 @@ export default function AiGirl() {
             className="fixed bottom-[5.5rem] right-6 z-50 w-80 sm:w-96 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             style={{ maxHeight: "80vh" }}
           >
-            {/* Header with video */}
+            {/* Header with live video */}
             <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 flex-shrink-0">
-              {/* Video preview top */}
-              <div className="relative h-36 overflow-hidden">
+              <div className="relative h-40 overflow-hidden bg-violet-900">
                 <GirlVideo state={girlState} />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
                 {/* Status badge */}
                 <div className="absolute top-2 left-3">
                   <span className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-xs text-white/90">
-                    <span className={`w-1.5 h-1.5 rounded-full ${girlState === "thinking" ? "bg-yellow-400 animate-pulse" : girlState === "talking" ? "bg-green-400 animate-pulse" : "bg-white/70"}`} />
-                    {girlState === "thinking" ? "thinking…" : girlState === "talking" ? "speaking…" : "ready"}
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
+                    {statusLabel}
                   </span>
                 </div>
 
@@ -243,7 +266,7 @@ export default function AiGirl() {
                 <div className="absolute top-2 right-2 flex gap-1.5">
                   <button
                     onClick={resetMemory}
-                    title="Clear memory"
+                    title="Memory clear karo"
                     className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -256,10 +279,12 @@ export default function AiGirl() {
                   </button>
                 </div>
 
-                {/* Name */}
+                {/* Name tag */}
                 <div className="absolute bottom-2 left-3 text-white">
-                  <p className="font-semibold text-sm leading-none">Aria</p>
-                  {userName && <p className="text-xs text-white/70 mt-0.5">Hey, {userName}!</p>}
+                  <p className="font-semibold text-sm leading-none">Aria ✨</p>
+                  {userName && (
+                    <p className="text-xs text-white/70 mt-0.5">Hey {userName}, kya haal hai!</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -298,7 +323,7 @@ export default function AiGirl() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={userName ? `Say anything, ${userName}…` : "Type a message…"}
+                placeholder={userName ? `Bolo ${userName}, kya hua?` : "Kuch bhi poocho…"}
                 disabled={loading || listening}
                 className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
               />
@@ -306,8 +331,12 @@ export default function AiGirl() {
                 type="button"
                 onClick={listening ? stopListening : startListening}
                 disabled={loading}
-                className={`p-2 rounded-xl transition-colors ${listening ? "bg-red-100 text-red-500" : "bg-violet-100 text-violet-500 hover:bg-violet-200"}`}
-                title={listening ? "Stop listening" : "Voice input"}
+                className={`p-2 rounded-xl transition-colors ${
+                  listening
+                    ? "bg-red-100 text-red-500 animate-pulse"
+                    : "bg-violet-100 text-violet-500 hover:bg-violet-200"
+                }`}
+                title={listening ? "Rokna hai?" : "Mic se bolo"}
               >
                 {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
@@ -315,7 +344,7 @@ export default function AiGirl() {
                 type="submit"
                 disabled={!input.trim() || loading}
                 className="p-2 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors"
-                title="Send"
+                title="Bhejo"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -327,7 +356,6 @@ export default function AiGirl() {
   );
 }
 
-// Extend window for SpeechRecognition
 declare global {
   interface Window {
     SpeechRecognition: typeof SpeechRecognition;
