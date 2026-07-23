@@ -41,40 +41,54 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
-// ── Edge TTS — Microsoft neural voice (hi-IN-SwaraNeural) via server ─────────
-async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
+// ── Kokoro TTS — human-like voice, fully in-browser, free ────────────────────
+// Model downloads once (~90 MB, q8 quantised) then stays cached in browser.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _kokoroPromise: Promise<any> | null = null;
+
+function loadKokoro() {
+  if (!_kokoroPromise) {
+    _kokoroPromise = import("kokoro-js").then(({ KokoroTTS }) =>
+      KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0", { dtype: "q8" })
+    );
+  }
+  return _kokoroPromise;
+}
+
+// Called while Aria is still "thinking" so audio is ready the moment she speaks
+async function prepareKokoroAudio(text: string): Promise<AudioBuffer | null> {
   try {
     const clean = stripForSpeech(text);
     if (!clean) return null;
-    const res = await fetch(aiUrl("/api/ai/tts"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: clean }),
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    await new Promise<void>((resolve) => {
-      audio.oncanplaythrough = () => resolve();
-      audio.onerror = () => resolve();
-      audio.load();
-    });
-    return audio;
-  } catch {
+    const tts = await loadKokoro();
+    // af_bella — warm, natural American-English female; handles Hinglish well
+    const result = await tts.generate(clean, { voice: "af_bella" });
+    // Build an AudioBuffer from the raw Float32 samples
+    const samples: Float32Array = result.audio;
+    const rate: number = result.sampling_rate;
+    const ctx = new OfflineAudioContext(1, samples.length, rate);
+    const buf = ctx.createBuffer(1, samples.length, rate);
+    buf.copyToChannel(samples, 0);
+    return buf;
+  } catch (e) {
+    console.warn("Kokoro prepare failed:", e);
     return null;
   }
 }
 
-async function playAudio(
-  audio: HTMLAudioElement | null,
-  text: string,
-  onEnd?: () => void
-) {
-  if (!audio) { speakFallback(text, onEnd); return; }
-  audio.onended = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
-  audio.onerror = () => { URL.revokeObjectURL(audio.src); speakFallback(text, onEnd); };
-  try { await audio.play(); } catch { speakFallback(text, onEnd); }
+function playKokoroBuffer(buf: AudioBuffer | null, text: string, onEnd?: () => void) {
+  if (!buf) { speakFallback(text, onEnd); return; }
+  try {
+    const ctx = new AudioContext();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.onended = () => { void ctx.close(); onEnd?.(); };
+    src.start();
+  } catch (e) {
+    console.warn("Kokoro playback failed:", e);
+    speakFallback(text, onEnd);
+  }
 }
 
 // ── Web Speech API fallback ───────────────────────────────────────────────────
@@ -238,13 +252,13 @@ export default function AiGirl() {
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
-        // Pre-fetch Edge TTS audio while still in thinking state
-        const audio = await prepareSpeech(reply);
+        // Pre-generate Kokoro audio while still in thinking state
+        const audioBuf = await prepareKokoroAudio(reply);
 
         // Reveal message + talking video + voice all at once
         addMessage("aria", reply);
         setGirlState("talking");
-        await playAudio(audio, reply, () => setGirlState("idle"));
+        playKokoroBuffer(audioBuf, reply, () => setGirlState("idle"));
       } catch (err) {
         const raw = err instanceof Error ? err.message : "";
         const msg = raw === "backend_not_configured"
