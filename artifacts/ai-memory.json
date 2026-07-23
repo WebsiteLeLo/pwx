@@ -9,54 +9,6 @@
       "role": "user",
       "parts": [
         {
-          "text": "hello"
-        }
-      ]
-    },
-    {
-      "role": "model",
-      "parts": [
-        {
-          "text": "Hi there! So glad you're here. 😊 What's on your mind today, or are you ready to dive into some studying?"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "parts": [
-        {
-          "text": "Yaar aaj physics ka Newton ka second law samajh nahi aa raha"
-        }
-      ]
-    },
-    {
-      "role": "model",
-      "parts": [
-        {
-          "text": "Arre yaar, Newton's Second Law? Koi baat nahi! Main hoon na yahan. Sometimes physics can be a bit tricky, but don't you worry.\n\nChal, mil ke samajhte hain. Batao kya specific part samajh nahi aa raha? Maybe ek example se start karein? ✨"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "parts": [
-        {
-          "text": "achi chal rahi hai"
-        }
-      ]
-    },
-    {
-      "role": "model",
-      "parts": [
-        {
-          "text": "Acha, matlab sab theek hai? Good to hear! 😄\n\nPar main Newton's Second Law ki baat kar rahi thi na. Uss mein kya specific part hai jo thoda tricky lag raha hai? Force, mass, acceleration ka relationship, ya F=ma formula apply karne mein? Koi bhi doubt ho, khul ke batao yaar! 💙"
-        }
-      ]
-    },
-    {
-      "role": "user",
-      "parts": [
-        {
           "text": "hello mera naam gourav hai"
         }
       ]
@@ -65,7 +17,7 @@
       "role": "model",
       "parts": [
         {
-          "text": "Arre Gourav! Kya baat hai, bahut accha naam hai! 😊 Ab main tumhe Gourav bulaungi.\n\nToh Gourav, tumhari physics ki problem pe wapas chalein? Kya tha wo Newton's Second Law ka part jo samajh nahi aa raha tha? ✨"
+          "text": "Hello Gourav! ✨ Arrey wah, kitna accha naam hai. Main Aria hoon! Kaisi chal rahi hai tumhari duniya? 😊"
         }
       ]
     }

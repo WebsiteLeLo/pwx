@@ -62,21 +62,23 @@ function speakFallback(text: string, onEnd?: () => void) {
   window.speechSynthesis.speak(utterance);
 }
 
-// ── Video component — switches src on state change ────────────────────────────
-function GirlVideo({ state }: { state: GirlState }) {
+// ── Video component ───────────────────────────────────────────────────────────
+// className is passed in so the caller controls fit (contain vs cover+position)
+function GirlVideo({ state, className = "w-full h-full object-contain" }: { state: GirlState; className?: string }) {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const src = `${base}/ai-girl/${state}.mp4`;
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Whenever src changes: reload & play
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    video.pause();
     video.src = src;
+    // ⚠️ Attach listener BEFORE load() to avoid canplay race condition
+    const tryPlay = () => { video.play().catch(() => {}); };
+    video.addEventListener("canplay", tryPlay, { once: true });
     video.load();
-    const onReady = () => { video.play().catch(() => {}); };
-    video.addEventListener("canplay", onReady, { once: true });
-    return () => video.removeEventListener("canplay", onReady);
+    return () => video.removeEventListener("canplay", tryPlay);
   }, [src]);
 
   return (
@@ -87,7 +89,7 @@ function GirlVideo({ state }: { state: GirlState }) {
       loop
       muted
       playsInline
-      className="w-full h-full object-cover"
+      className={className}
     />
   );
 }
@@ -249,7 +251,7 @@ export default function AiGirl() {
         whileTap={{ scale: 0.95 }}
         title={open ? "Aria band karo" : "Aria se baat karo"}
       >
-        <GirlVideo state={open ? girlState : "idle"} />
+        <GirlVideo state={open ? girlState : "idle"} className="w-full h-full object-cover object-top" />
         {!open && (
           <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
         )}
@@ -267,10 +269,10 @@ export default function AiGirl() {
             className="fixed bottom-[5.5rem] right-6 z-50 w-80 sm:w-96 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             style={{ maxHeight: "80vh" }}
           >
-            {/* Header with live video */}
-            <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 flex-shrink-0">
-              <div className="relative h-40 overflow-hidden bg-violet-900">
-                <GirlVideo state={girlState} />
+            {/* Header with live video — aspect-video keeps 16:9 so no cropping */}
+            <div className="relative flex-shrink-0">
+              <div className="relative w-full bg-violet-950" style={{ aspectRatio: "16/9" }}>
+                <GirlVideo state={girlState} className="absolute inset-0 w-full h-full object-contain" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
                 {/* Status badge */}
