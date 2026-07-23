@@ -20,6 +20,39 @@
           "text": "Arrey hello yaar! 👋 Kaisi chal rahi hai life? \n\nAcha bata, aaj kaun sa subject padhne ka mood hai tera, ya bas aise hi chill karne ka mann hai? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello mera naam gourav hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arrey Gourav! Naam toh bohot pyaara hai tera ✨ \n\nChal aaj se main tujhe Gourav hi bulaungi! Bata yaar, aaj kya padhne ka mood hai tera? Koi naya topic ya bas revision? 💙"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hmmm kuch toh padhunga like lcd"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah Gourav! ✨ LCD padhna hai? Tu toh aaj full-on focus mode mein lag raha hai! \n\nChal phir der kis baat ki, LCD (Liquid Crystal Display) ka ye topic milke phod dete hain. Bata, kahan se shuru karein — iske basic working principle se ya types se? 💙"
+        }
+      ]
     }
-  ]
+  ],
+  "userName": "gourav"
 }
