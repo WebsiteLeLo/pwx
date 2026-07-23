@@ -52,6 +52,22 @@
           "text": "Hey kya! Hellooo! 👋 Kaise ho tum? Kya chal raha hai aaj? 😊"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hello yaar! 👋 Acha laga tujhe dekh ke yahan. Bata aaj kya mood hai tera, kuch padhna hai ya bas aise hi baatein karni hain? ✨"
+        }
+      ]
     }
   ],
   "userName": "kya"
