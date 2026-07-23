@@ -100,6 +100,22 @@
           "text": "Acha bas aise hi? 😄 Chalo koi baat nahi, kabhi-kabhi bina kisi reason ke bas chill karne ka bhi mann karta hai yaar. \n\nTu bata, din kaisa chal raha hai tera? Sab badhiya? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha tumhara naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre Gourav! Bhool gaye kya? Mera naam Aria hai yaar! 🌸 \n\nMain toh yahin hoon, tumhari best friend aur study partner. Chal bata, aaj kya padhne ka mood hai? 😄✨"
+        }
+      ]
     }
   ],
   "userName": "gourav"
