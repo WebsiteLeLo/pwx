@@ -146,30 +146,20 @@ function Bubble({ msg }: { msg: Message }) {
   const isAria = msg.role === "aria";
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.18 }}
-      className={`flex ${isAria ? "justify-start" : "justify-end"} mb-2.5`}
+      transition={{ duration: 0.2 }}
+      className={`flex ${isAria ? "justify-start" : "justify-end"} mb-2`}
     >
       <div
-        className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-md ${
+        className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-snug shadow-sm ${
           isAria
-            ? "bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-tl-sm"
-            : "bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-tr-sm shadow-violet-900/40"
+            ? "bg-white/90 text-slate-800 rounded-tl-sm"
+            : "bg-violet-500 text-white rounded-tr-sm"
         }`}
       >
         {isAria ? (
-          <div className="
-            prose prose-sm max-w-none
-            prose-p:my-1 prose-p:text-white/90
-            prose-ul:my-1 prose-ul:text-white/90
-            prose-ol:my-1 prose-ol:text-white/90
-            prose-li:my-0
-            prose-strong:text-white prose-strong:font-semibold
-            prose-headings:text-white prose-headings:my-1.5
-            prose-code:text-violet-200 prose-code:bg-white/10 prose-code:rounded prose-code:px-1
-            [&_.katex]:text-white [&_.katex-display]:my-2
-          ">
+          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 [&_.katex]:text-[0.95em] [&_.katex-display]:overflow-x-auto [&_.katex-display]:py-1">
             <ReactMarkdown
               remarkPlugins={[remarkMath]}
               rehypePlugins={[rehypeKatex]}
@@ -178,7 +168,7 @@ function Bubble({ msg }: { msg: Message }) {
             </ReactMarkdown>
           </div>
         ) : (
-          <span className="text-white/95">{msg.text}</span>
+          msg.text
         )}
       </div>
     </motion.div>
@@ -422,7 +412,7 @@ export default function AiGirl() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 min-h-0 overscroll-contain bg-gradient-to-b from-violet-950/95 to-purple-950/95 backdrop-blur-md">
+            <div className="flex-1 overflow-y-auto bg-violet-50/95 backdrop-blur-md px-3 py-3 min-h-0 overscroll-contain">
               {messages.map((msg) => (
                 <Bubble key={msg.id} msg={msg} />
               ))}
@@ -432,11 +422,11 @@ export default function AiGirl() {
                   animate={{ opacity: 1 }}
                   className="flex justify-start mb-2"
                 >
-                  <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl rounded-tl-sm px-4 py-3 shadow-md flex gap-1.5 items-center">
+                  <div className="bg-white/90 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm flex gap-1 items-center">
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className="w-2 h-2 bg-violet-300 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce"
                         style={{ animationDelay: `${i * 0.15}s` }}
                       />
                     ))}

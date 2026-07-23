@@ -37,6 +37,39 @@
           "text": "Arre wah, trigonometry ka magic! ✨ \n\nDekh, $\\sin x$ ka expansion kuch aisa hota hai:\n$x - \\frac{x^3}{3!} + \\frac{x^5}{5!} - \\frac{x^7}{7!} + \\dots$\n\nYaar ye alternate signs wala pattern yaad rakhna thoda tricky lagta hai, par ek baar samajh aa jaye toh bohot maza aata hai! Koi specific question solve karna hai isse, ya bas revise kar raha tha? 😄"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "ok tell me tanx expansion"
+        }
+      ]
+    },
+    {
+      "parts": [
+        {
+          "text": "Acha $\\tan x$ ka expansion chahiye? Chal yeh bhi bata deti hoon! ✨\n\nIska formula thoda alag hai:\n$x + \\frac{x^3}{3} + \\frac{2x^5}{15} + \\frac{17x^7}{315} + \\dots$\n\nIsme fractions aur coefficients thode bade hote hain, toh isko yaad rakhne ke liye thodi practice karni padti hai yaar. Chalein ispe based koi pyara sa numerical solve karein? 😄",
+          "thoughtSignature": "EjQKMgERTTIPDVGLG+kenUd4U8gkC5EB0ok49J8tEJKjRQ8ghBIsRt79sCMuePTkhLJ8JiiA"
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "ok tell me tanx expansion"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Acha $\\tan x$ ka expansion chahiye? Chal yeh bhi bata deti hoon! ✨\n\nIska formula thoda alag hai:\n$x + \\frac{x^3}{3} + \\frac{2x^5}{15} + \\frac{17x^7}{315} + \\dots$\n\nIsme fractions aur coefficients thode bade hote hain, toh isko yaad rakhne ke liye thodi practice karni padti hai yaar. Chalein ispe based koi pyara sa numerical solve karein? 😄"
+        }
+      ]
     }
   ]
 }
