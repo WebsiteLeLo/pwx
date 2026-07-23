@@ -143,36 +143,55 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ── POST /api/ai/tts — Microsoft Edge TTS (hi-IN-SwaraNeural, free) ──────────
+// ── POST /api/ai/tts — ElevenLabs TTS (multilingual_v2, human voice) ──────────
+// Voice: "Sarah" (ElevenLabs built-in) — warm, natural, works great for Hinglish
+const ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
 router.post("/ai/tts", async (req, res) => {
   try {
     const { text } = req.body as { text?: string };
     if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
 
-    // Strip emojis and extra whitespace server-side too
+    const elevenKey = process.env["ELEVENLABS_API_KEY"] ?? "";
+    if (!elevenKey) { res.status(503).json({ error: "ELEVENLABS_API_KEY not set" }); return; }
+
+    // Strip emojis, markdown symbols, extra whitespace
     const clean = text
       .replace(/\p{Emoji_Presentation}/gu, "")
       .replace(/\p{Emoji}\uFE0F/gu, "")
+      .replace(/[*_~`#]/g, "")
       .replace(/\s+/g, " ")
       .trim();
 
-    // Dynamically import msedge-tts (ESM package)
-    const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
-    const tts = new MsEdgeTTS();
-    await tts.setMetadata(
-      "hi-IN-SwaraNeural",         // cute, natural Hindi female neural voice
-      OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": elevenKey,
+          "Content-Type": "application/json",
+          "Accept": "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text: clean,
+          model_id: "eleven_multilingual_v2",   // best model for Hindi/Hinglish
+          voice_settings: {
+            stability: 0.4,          // more expressive / less flat
+            similarity_boost: 0.85,
+            style: 0.3,
+            use_speaker_boost: true,
+          },
+        }),
+      }
     );
 
-    const chunks: Buffer[] = [];
-    await new Promise<void>((resolve, reject) => {
-      const readable = tts.toStream(clean);
-      readable.on("data", (chunk: Buffer) => chunks.push(chunk));
-      readable.on("end", resolve);
-      readable.on("error", reject);
-    });
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("ElevenLabs error:", err);
+      res.status(502).json({ error: "TTS service error: " + err });
+      return;
+    }
 
-    const mp3 = Buffer.concat(chunks);
+    const mp3 = Buffer.from(await response.arrayBuffer());
     res.set("Content-Type", "audio/mpeg");
     res.set("Content-Length", String(mp3.length));
     res.send(mp3);

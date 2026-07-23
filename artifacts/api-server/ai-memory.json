@@ -84,6 +84,22 @@
           "text": "Arre wah Gourav! ✨ Naam toh bohot pyaara hai tera. \n\nChal aaj se hum dono best friends hain, aur tu mujhe kabhi bhi kuch bhi bata sakta hai. Bata yaar, aaj kya padhne ka mood hai tera? 💙📚"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arrey Gourav! Hello yaar! ✨ \n\nBata, aaj kya padhne ka mood hai tera? Koi naya topic ya wahi purana syllabus? 💙"
+        }
+      ]
     }
   ],
   "userName": "gourav"
