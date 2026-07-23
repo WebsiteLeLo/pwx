@@ -243,7 +243,7 @@ export default function AiGirl() {
 
   return (
     <>
-      {/* Floating avatar button */}
+      {/* Floating avatar button — only shows video when panel is closed to avoid dual-playback */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
@@ -251,9 +251,16 @@ export default function AiGirl() {
         whileTap={{ scale: 0.95 }}
         title={open ? "Aria band karo" : "Aria se baat karo"}
       >
-        <GirlVideo state={open ? girlState : "idle"} className="w-full h-full object-cover object-top" />
-        {!open && (
-          <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
+        {open ? (
+          /* Panel is open — show X icon, single video lives in the panel */
+          <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
+            <X className="w-6 h-6 text-white/80" />
+          </div>
+        ) : (
+          <>
+            <GirlVideo state="idle" className="w-full h-full object-cover object-top" />
+            <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
+          </>
         )}
       </motion.button>
 
@@ -269,10 +276,10 @@ export default function AiGirl() {
             className="fixed bottom-[5.5rem] right-6 z-50 w-80 sm:w-96 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             style={{ maxHeight: "80vh" }}
           >
-            {/* Header with live video — aspect-video keeps 16:9 so no cropping */}
+            {/* Header with live video */}
             <div className="relative flex-shrink-0">
-              <div className="relative w-full bg-violet-950" style={{ aspectRatio: "16/9" }}>
-                <GirlVideo state={girlState} className="absolute inset-0 w-full h-full object-contain" />
+              <div className="relative w-full h-48 bg-violet-950 overflow-hidden flex items-center justify-center">
+                <GirlVideo state={girlState} className="w-full h-full object-contain" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
                 {/* Status badge */}

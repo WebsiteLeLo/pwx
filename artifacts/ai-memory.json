@@ -20,6 +20,22 @@
           "text": "Hello Gourav! ✨ Arrey wah, kitna accha naam hai. Main Aria hoon! Kaisi chal rahi hai tumhari duniya? 😊"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mera naam gourav hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hi Gourav! Kya haal hai? Acha laga jaankar. 😊 Ab se main tujhe Gourav hi bolungi, theek hai?"
+        }
+      ]
     }
   ]
 }
