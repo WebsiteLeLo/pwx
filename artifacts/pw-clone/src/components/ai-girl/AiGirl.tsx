@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
+import { apiUrl } from "@/lib/apiUrl";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type GirlState = "idle" | "talking" | "thinking";
@@ -30,7 +31,7 @@ function saveChatToStorage(messages: Message[]) {
 // ── Gemini TTS — pre-fetch, returns ready Audio ────────────────────────────────
 async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
   try {
-    const res = await fetch("/api/ai/tts", {
+    const res = await fetch(apiUrl("/api/ai/tts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -185,7 +186,7 @@ export default function AiGirl() {
       setGirlState("thinking");
 
       try {
-        const res = await fetch("/api/ai/chat", {
+        const res = await fetch(apiUrl("/api/ai/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text }),
@@ -247,7 +248,7 @@ export default function AiGirl() {
 
   const resetMemory = async () => {
     window.speechSynthesis?.cancel();
-    await fetch("/api/ai/reset", { method: "POST" });
+    await fetch(apiUrl("/api/ai/reset"), { method: "POST" });
     const freshMsg: Message = {
       role: "aria",
       text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
@@ -302,7 +303,7 @@ export default function AiGirl() {
             {/* Video header — original h-40 design with object-cover */}
             <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 flex-shrink-0">
               <div className="relative h-40 overflow-hidden bg-violet-900">
-                <GirlVideo state={girlState} className="w-full h-full object-cover" />
+                <GirlVideo state={girlState} className="w-full h-full object-cover object-top" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
                 {/* Status */}

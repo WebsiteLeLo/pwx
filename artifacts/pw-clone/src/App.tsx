@@ -45,6 +45,7 @@ function ScrollToTop() {
 
 function Router() {
   const [location] = useLocation();
+  const isHome = location === "/" || location === "";
 
   return (
     <>
@@ -75,6 +76,8 @@ function Router() {
           </Switch>
         </motion.div>
       </AnimatePresence>
+      {/* Aria only on home page */}
+      {isHome && <AiGirl />}
     </>
   );
 }
@@ -104,7 +107,6 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
-        <AiGirl />
         {dtState.detected && (
           <DevToolsBlocked strikes={dtState.strikes} onDismiss={dismiss} />
         )}
