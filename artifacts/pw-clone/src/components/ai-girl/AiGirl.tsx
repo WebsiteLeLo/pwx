@@ -313,17 +313,17 @@ export default function AiGirl() {
 
   return (
     <>
-      {/* Floating button — only one GirlVideo renders at a time to avoid dual-playback */}
+      {/* Floating button */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.95 }}
         title={open ? "Aria band karo" : "Aria se baat karo"}
       >
         {open ? (
           <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
-            <X className="w-6 h-6 text-white/80" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-white/80" />
           </div>
         ) : (
           <>
@@ -338,16 +338,24 @@ export default function AiGirl() {
         {open && (
           <motion.div
             key="aria-panel"
-            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.95 }}
+            exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="fixed bottom-[5.5rem] right-6 z-50 w-80 sm:w-96 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
-            style={{ maxHeight: "80vh" }}
+            className="
+              fixed z-50 flex flex-col overflow-hidden shadow-2xl rounded-2xl sm:rounded-3xl
+              /* mobile: stretch edge-to-edge with small margin */
+              bottom-[4.5rem] left-3 right-3
+              /* sm+: float bottom-right like before */
+              sm:bottom-[5.5rem] sm:left-auto sm:right-6 sm:w-96
+            "
+            style={{
+              maxHeight: "min(75vh, 600px)",
+            }}
           >
-            {/* Video header — original h-40 design with object-cover */}
-            <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 flex-shrink-0">
-              <div className="relative h-40 overflow-hidden bg-violet-900">
+            {/* Video header */}
+            <div className="relative flex-shrink-0 bg-violet-900">
+              <div className="relative h-36 sm:h-40 overflow-hidden">
                 <GirlVideo state={girlState} className="w-full h-full object-cover object-top" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
@@ -364,13 +372,13 @@ export default function AiGirl() {
                   <button
                     onClick={resetMemory}
                     title="Memory clear karo"
-                    className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors"
+                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setOpen(false)}
-                    className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors"
+                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -387,7 +395,7 @@ export default function AiGirl() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto bg-violet-50/95 backdrop-blur-md px-3 py-3 min-h-0">
+            <div className="flex-1 overflow-y-auto bg-violet-50/95 backdrop-blur-md px-3 py-3 min-h-0 overscroll-contain">
               {messages.map((msg) => (
                 <Bubble key={msg.id} msg={msg} />
               ))}
@@ -422,13 +430,14 @@ export default function AiGirl() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={userName ? `Bolo ${userName}, kya hua?` : "Kuch bhi poocho…"}
                 disabled={loading || listening}
-                className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
+                className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
+                style={{ fontSize: "16px" }} /* prevent iOS auto-zoom on focus */
               />
               <button
                 type="button"
                 onClick={listening ? stopListening : startListening}
                 disabled={loading}
-                className={`p-2 rounded-xl transition-colors ${
+                className={`p-2.5 rounded-xl transition-colors touch-manipulation flex-shrink-0 ${
                   listening
                     ? "bg-red-100 text-red-500 animate-pulse"
                     : "bg-violet-100 text-violet-500 hover:bg-violet-200"
@@ -440,7 +449,7 @@ export default function AiGirl() {
               <button
                 type="submit"
                 disabled={!input.trim() || loading}
-                className="p-2 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors"
+                className="p-2.5 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors touch-manipulation flex-shrink-0"
                 title="Bhejo"
               >
                 <Send className="w-4 h-4" />
