@@ -6,23 +6,40 @@ import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
 type GirlState = "idle" | "talking" | "thinking";
 type Message = { role: "user" | "aria"; text: string; id: number };
 
-// ── Gemini TTS player ─────────────────────────────────────────────────────────
-async function speakWithGemini(text: string, onEnd?: () => void): Promise<void> {
+// ── Gemini TTS — pre-fetch audio, return a ready-to-play Audio object ────────
+async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
   try {
     const res = await fetch("/api/ai/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
-    if (!res.ok) throw new Error("TTS fetch failed");
+    if (!res.ok) return null;
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    audio.onended = () => { URL.revokeObjectURL(url); onEnd?.(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); onEnd?.(); };
+    // Pre-load so it's ready to fire instantly
+    await new Promise<void>((resolve) => {
+      audio.oncanplaythrough = () => resolve();
+      audio.onerror = () => resolve();
+      audio.load();
+    });
+    return audio;
+  } catch {
+    return null;
+  }
+}
+
+async function playAudio(audio: HTMLAudioElement | null, text: string, onEnd?: () => void) {
+  if (!audio) {
+    speakFallback(text, onEnd);
+    return;
+  }
+  audio.onended = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
+  audio.onerror = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
+  try {
     await audio.play();
   } catch {
-    // Fallback to browser speech
     speakFallback(text, onEnd);
   }
 }
@@ -156,11 +173,13 @@ export default function AiGirl() {
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
-        addMessage("aria", reply);
-        setGirlState("talking"); // ← talking video plays here
+        // Pre-fetch audio while still in thinking state — user sees nothing yet
+        const audio = await prepareSpeech(reply);
 
-        // Speak with Gemini TTS — back to idle when done
-        await speakWithGemini(reply, () => setGirlState("idle"));
+        // Now reveal message + switch video + start audio all at once
+        addMessage("aria", reply);
+        setGirlState("talking");
+        await playAudio(audio, reply, () => setGirlState("idle"));
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Kuch toh gadbad hai yaar 😔";
         addMessage("aria", `Oops! ${msg}`);

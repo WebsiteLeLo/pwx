@@ -36,6 +36,22 @@
           "text": "Arre yaar, Newton's Second Law? Koi baat nahi! Main hoon na yahan. Sometimes physics can be a bit tricky, but don't you worry.\n\nChal, mil ke samajhte hain. Batao kya specific part samajh nahi aa raha? Maybe ek example se start karein? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "achi chal rahi hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Acha, matlab sab theek hai? Good to hear! 😄\n\nPar main Newton's Second Law ki baat kar rahi thi na. Uss mein kya specific part hai jo thoda tricky lag raha hai? Force, mass, acceleration ka relationship, ya F=ma formula apply karne mein? Koi bhi doubt ho, khul ke batao yaar! 💙"
+        }
+      ]
     }
   ]
 }
