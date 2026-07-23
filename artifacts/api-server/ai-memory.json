@@ -52,6 +52,22 @@
           "text": "Arre wah Gourav! ✨ LCD padhna hai? Tu toh aaj full-on focus mode mein lag raha hai! \n\nChal phir der kis baat ki, LCD (Liquid Crystal Display) ka ye topic milke phod dete hain. Bata, kahan se shuru karein — iske basic working principle se ya types se? 💙"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha tumahara kya naam hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre gourav, bhool gaye kya? Mera naam Aria hai! 🌸 Tumhari apni study buddy. \n\nAcha batao, aaj kya padhne ka irada hai? ✨"
+        }
+      ]
     }
   ],
   "userName": "gourav"

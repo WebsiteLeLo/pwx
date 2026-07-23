@@ -225,12 +225,15 @@ export default function AiGirl() {
           throw new Error("backend_not_configured");
         }
 
-        const data = (await res.json()) as {
-          reply?: string;
-          error?: string;
-          memory?: { userName?: string };
-        };
-        if (data.error) throw new Error(data.error);
+        let data: { reply?: string; error?: string; memory?: { userName?: string } };
+        try {
+          data = await res.json();
+        } catch {
+          // Empty or truncated body — likely a Render cold-start 503
+          throw new Error(res.status === 503 ? "server_waking" : "bad_response");
+        }
+
+        if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
@@ -243,9 +246,14 @@ export default function AiGirl() {
         await playAudio(audio, reply, () => setGirlState("idle"));
       } catch (err) {
         const raw = err instanceof Error ? err.message : "";
-        const msg = raw === "backend_not_configured"
-          ? "Aria ka backend connect nahi hua abhi 😔 Thoda wait karo ya VITE_AI_API_URL set karo Render pe!"
-          : raw || "Kuch toh gadbad hai yaar 😔";
+        const msg =
+          raw === "backend_not_configured"
+            ? "Aria ka backend connect nahi hua abhi — VITE_AI_API_URL check karo Render pe!"
+            : raw === "server_waking"
+            ? "Server thoda so gaya tha, ab jag raha hai! Ek second mein dobara try karo."
+            : raw === "bad_response"
+            ? "Server se kuch ajeeb response aaya. Thoda baad mein try karo!"
+            : raw || "Kuch toh gadbad hai yaar, try again karo!";
         addMessage("aria", msg);
         setGirlState("idle");
       } finally {
