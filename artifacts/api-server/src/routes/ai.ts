@@ -143,69 +143,39 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ── POST /api/ai/tts — Gemini TTS (Aoede voice, PCM → wav) ──────────────────
+// ── POST /api/ai/tts — Microsoft Edge TTS (hi-IN-SwaraNeural, free) ──────────
 router.post("/ai/tts", async (req, res) => {
   try {
     const { text } = req.body as { text?: string };
     if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text }] }],
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: "Aoede" },
-              },
-            },
-          },
-        }),
-      }
+    // Strip emojis and extra whitespace server-side too
+    const clean = text
+      .replace(/\p{Emoji_Presentation}/gu, "")
+      .replace(/\p{Emoji}\uFE0F/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Dynamically import msedge-tts (ESM package)
+    const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
+    const tts = new MsEdgeTTS();
+    await tts.setMetadata(
+      "hi-IN-SwaraNeural",         // cute, natural Hindi female neural voice
+      OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
     );
 
-    const data = await response.json() as {
-      candidates?: { content: { parts: { inlineData?: { mimeType: string; data: string } }[] } }[];
-      error?: { message: string };
-    };
+    const chunks: Buffer[] = [];
+    await new Promise<void>((resolve, reject) => {
+      const readable = tts.toStream(clean);
+      readable.on("data", (chunk: Buffer) => chunks.push(chunk));
+      readable.on("end", resolve);
+      readable.on("error", reject);
+    });
 
-    if (data.error) { res.status(500).json({ error: data.error.message }); return; }
-
-    const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-    if (!inlineData?.data) { res.status(500).json({ error: "No audio in TTS response" }); return; }
-
-    // Convert raw PCM L16 24kHz to WAV for browser playback
-    const pcmBuffer = Buffer.from(inlineData.data, "base64");
-    const sampleRate = 24000;
-    const numChannels = 1;
-    const bitsPerSample = 16;
-    const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
-    const blockAlign = (numChannels * bitsPerSample) / 8;
-    const dataSize = pcmBuffer.length;
-    const wavHeader = Buffer.alloc(44);
-
-    wavHeader.write("RIFF", 0);
-    wavHeader.writeUInt32LE(36 + dataSize, 4);
-    wavHeader.write("WAVE", 8);
-    wavHeader.write("fmt ", 12);
-    wavHeader.writeUInt32LE(16, 16);
-    wavHeader.writeUInt16LE(1, 20);        // PCM
-    wavHeader.writeUInt16LE(numChannels, 22);
-    wavHeader.writeUInt32LE(sampleRate, 24);
-    wavHeader.writeUInt32LE(byteRate, 28);
-    wavHeader.writeUInt16LE(blockAlign, 32);
-    wavHeader.writeUInt16LE(bitsPerSample, 34);
-    wavHeader.write("data", 36);
-    wavHeader.writeUInt32LE(dataSize, 40);
-
-    const wav = Buffer.concat([wavHeader, pcmBuffer]);
-    res.set("Content-Type", "audio/wav");
-    res.set("Content-Length", String(wav.length));
-    res.send(wav);
+    const mp3 = Buffer.concat(chunks);
+    res.set("Content-Type", "audio/mpeg");
+    res.set("Content-Length", String(mp3.length));
+    res.send(mp3);
   } catch (err) {
     console.error("TTS error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

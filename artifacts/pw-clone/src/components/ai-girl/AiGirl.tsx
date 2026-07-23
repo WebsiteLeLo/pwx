@@ -31,33 +31,73 @@ function saveChatToStorage(messages: Message[]) {
   } catch {}
 }
 
-// ── Web Speech API TTS — free, unlimited, Hinglish (hi-IN) ───────────────────
-function getBestHinglishVoice(): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find((v) => v.lang === "hi-IN" && /google/i.test(v.name)) ??
-    voices.find((v) => v.lang === "hi-IN" && /microsoft/i.test(v.name)) ??
-    voices.find((v) => v.lang === "hi-IN") ??
-    voices.find((v) => v.lang === "en-IN") ??
-    null
-  );
+// ── Emoji / symbol stripper ───────────────────────────────────────────────────
+function stripForSpeech(text: string): string {
+  return text
+    .replace(/\p{Emoji_Presentation}/gu, "")
+    .replace(/\p{Emoji}\uFE0F/gu, "")
+    .replace(/[*_~`#]/g, "")          // markdown symbols
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function speak(text: string, onEnd?: () => void) {
+// ── Edge TTS — Microsoft neural voice (hi-IN-SwaraNeural) via server ─────────
+async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
+  try {
+    const clean = stripForSpeech(text);
+    if (!clean) return null;
+    const res = await fetch(aiUrl("/api/ai/tts"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: clean }),
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    await new Promise<void>((resolve) => {
+      audio.oncanplaythrough = () => resolve();
+      audio.onerror = () => resolve();
+      audio.load();
+    });
+    return audio;
+  } catch {
+    return null;
+  }
+}
+
+async function playAudio(
+  audio: HTMLAudioElement | null,
+  text: string,
+  onEnd?: () => void
+) {
+  if (!audio) { speakFallback(text, onEnd); return; }
+  audio.onended = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
+  audio.onerror = () => { URL.revokeObjectURL(audio.src); speakFallback(text, onEnd); };
+  try { await audio.play(); } catch { speakFallback(text, onEnd); }
+}
+
+// ── Web Speech API fallback ───────────────────────────────────────────────────
+function speakFallback(text: string, onEnd?: () => void) {
   if (!window.speechSynthesis) { onEnd?.(); return; }
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
+  const clean = stripForSpeech(text);
+  const utterance = new SpeechSynthesisUtterance(clean);
   utterance.lang = "hi-IN";
   utterance.rate = 1.0;
   utterance.pitch = 1.1;
   utterance.onend = () => onEnd?.();
   utterance.onerror = () => onEnd?.();
   const doSpeak = () => {
-    const voice = getBestHinglishVoice();
+    const voices = window.speechSynthesis.getVoices();
+    const voice =
+      voices.find((v) => v.lang === "hi-IN" && /google/i.test(v.name)) ??
+      voices.find((v) => v.lang === "hi-IN") ??
+      voices.find((v) => v.lang === "en-IN") ??
+      null;
     if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   };
-  // Voices load asynchronously on first call — wait if not ready yet
   if (window.speechSynthesis.getVoices().length === 0) {
     window.speechSynthesis.onvoiceschanged = () => {
       window.speechSynthesis.onvoiceschanged = null;
@@ -198,10 +238,13 @@ export default function AiGirl() {
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
+        // Pre-fetch Edge TTS audio while still in thinking state
+        const audio = await prepareSpeech(reply);
+
         // Reveal message + talking video + voice all at once
         addMessage("aria", reply);
         setGirlState("talking");
-        speak(reply, () => setGirlState("idle"));
+        await playAudio(audio, reply, () => setGirlState("idle"));
       } catch (err) {
         const raw = err instanceof Error ? err.message : "";
         const msg = raw === "backend_not_configured"
