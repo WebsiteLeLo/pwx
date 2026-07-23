@@ -1,0 +1,22 @@
+/* ── Aria chat — KaTeX math rendering ─────────────────────────────────────── */
+
+/* Every paragraph that contains a fraction needs extra room.
+   KaTeX inline fractions are ~2em tall; line-height 2.2 prevents overlap. */
+.aria-message p {
+  line-height: 2.2;
+  margin: 0.2em 0;
+}
+
+/* Display-math blocks: full width, scroll if too wide, balanced margins */
+.aria-message .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0.6em 0;
+  padding-bottom: 2px; /* prevent descenders clipping */
+}
+
+/* Inline math: align to text baseline cleanly */
+.aria-message .katex {
+  font-size: 0.95em;
+  line-height: 1;
+}
