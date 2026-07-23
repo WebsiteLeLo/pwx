@@ -194,6 +194,12 @@ export default function AiGirl() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text }),
         });
+
+        const contentType = res.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("backend_not_configured");
+        }
+
         const data = (await res.json()) as {
           reply?: string;
           error?: string;
@@ -211,8 +217,11 @@ export default function AiGirl() {
         setGirlState("talking");
         await playAudio(audio, reply, () => setGirlState("idle"));
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Kuch toh gadbad hai yaar 😔";
-        addMessage("aria", `Oops! ${msg}`);
+        const raw = err instanceof Error ? err.message : "";
+        const msg = raw === "backend_not_configured"
+          ? "Aria ka backend connect nahi hua abhi 😔 Thoda wait karo ya VITE_AI_API_URL set karo Render pe!"
+          : raw || "Kuch toh gadbad hai yaar 😔";
+        addMessage("aria", msg);
         setGirlState("idle");
       } finally {
         setLoading(false);

@@ -118,7 +118,7 @@ router.post("/ai/chat", async (req, res) => {
 
     const mem = loadMemory();
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash-lite",
       systemInstruction: buildSystemWithMemory(mem),
     });
 
@@ -150,7 +150,7 @@ router.post("/ai/tts", async (req, res) => {
     if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
