@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 // AI backend base — empty string in dev (Vite proxy handles /api/*),
 // set VITE_AI_API_URL to the Render backend URL in production.
 const AI_BASE = (import.meta.env.VITE_AI_API_URL ?? "").replace(/\/$/, "");
@@ -152,7 +156,18 @@ function Bubble({ msg }: { msg: Message }) {
             : "bg-violet-500 text-white rounded-tr-sm"
         }`}
       >
-        {msg.text}
+        {isAria ? (
+          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 [&_.katex]:text-base">
+            <ReactMarkdown
+              remarkPlugins={[remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+            >
+              {msg.text}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          msg.text
+        )}
       </div>
     </motion.div>
   );
