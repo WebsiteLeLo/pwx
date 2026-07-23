@@ -143,7 +143,52 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ── POST /api/ai/tts — Edge TTS (en-IN-NeerjaExpressiveNeural, free) ───────────
+// ── Kokoro TTS singleton (loads model once, reuses across requests) ──────────
+let kokoroPromise: Promise<import("kokoro-js").KokoroTTS> | null = null;
+
+function getKokoro(): Promise<import("kokoro-js").KokoroTTS> {
+  if (!kokoroPromise) {
+    kokoroPromise = (async () => {
+      const { KokoroTTS } = await import("kokoro-js");
+      return KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
+        dtype: "q8",
+        device: "cpu",
+      });
+    })();
+    kokoroPromise.catch(() => { kokoroPromise = null; }); // reset on failure
+  }
+  return kokoroPromise;
+}
+
+/** Encode a Float32 PCM array to a WAV Buffer (16-bit, mono). */
+function float32ToWav(samples: Float32Array, sampleRate: number): Buffer {
+  const numSamples = samples.length;
+  const dataBytes = numSamples * 2; // 16-bit = 2 bytes per sample
+  const buf = Buffer.alloc(44 + dataBytes);
+  // RIFF header
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + dataBytes, 4);
+  buf.write("WAVE", 8);
+  // fmt  chunk
+  buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16);          // PCM chunk size
+  buf.writeUInt16LE(1, 20);           // PCM format
+  buf.writeUInt16LE(1, 22);           // mono
+  buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(sampleRate * 2, 28); // byteRate = sampleRate * blockAlign
+  buf.writeUInt16LE(2, 32);           // blockAlign = 2 bytes
+  buf.writeUInt16LE(16, 34);          // bitsPerSample
+  // data chunk
+  buf.write("data", 36);
+  buf.writeUInt32LE(dataBytes, 40);
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]!));
+    buf.writeInt16LE(Math.round(s * 32767), 44 + i * 2);
+  }
+  return buf;
+}
+
+// ── POST /api/ai/tts — Kokoro TTS (self-hosted, hf_alpha Hindi female) ──────
 router.post("/ai/tts", async (req, res) => {
   try {
     const { text } = req.body as { text?: string };
@@ -157,26 +202,13 @@ router.post("/ai/tts", async (req, res) => {
       .replace(/\s+/g, " ")
       .trim();
 
-    const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
-    const tts = new MsEdgeTTS();
-    // Expressive Indian-English female — sounds natural for Hinglish
-    await tts.setMetadata(
-      "en-IN-NeerjaExpressiveNeural",
-      OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
-    );
+    const tts = await getKokoro();
+    const audio = await tts.generate(clean, { voice: "hf_alpha" });
 
-    const { audioStream } = tts.toStream(clean);
-    const chunks: Buffer[] = [];
-    await new Promise<void>((resolve, reject) => {
-      audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      audioStream.on("end", resolve);
-      audioStream.on("error", reject);
-    });
-
-    const mp3 = Buffer.concat(chunks);
-    res.set("Content-Type", "audio/mpeg");
-    res.set("Content-Length", String(mp3.length));
-    res.send(mp3);
+    const wav = float32ToWav(audio.audio, audio.sampling_rate);
+    res.set("Content-Type", "audio/wav");
+    res.set("Content-Length", String(wav.length));
+    res.send(wav);
   } catch (err) {
     console.error("TTS error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
