@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
-import { apiUrl } from "@/lib/apiUrl";
+// AI backend base — empty string in dev (Vite proxy handles /api/*),
+// set VITE_AI_API_URL to the Render backend URL in production.
+const AI_BASE = (import.meta.env.VITE_AI_API_URL ?? "").replace(/\/$/, "");
+const aiUrl = (path: string) => `${AI_BASE}${path}`;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type GirlState = "idle" | "talking" | "thinking";
@@ -31,7 +34,7 @@ function saveChatToStorage(messages: Message[]) {
 // ── Gemini TTS — pre-fetch, returns ready Audio ────────────────────────────────
 async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
   try {
-    const res = await fetch(apiUrl("/api/ai/tts"), {
+    const res = await fetch(aiUrl("/api/ai/tts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -186,7 +189,7 @@ export default function AiGirl() {
       setGirlState("thinking");
 
       try {
-        const res = await fetch(apiUrl("/api/ai/chat"), {
+        const res = await fetch(aiUrl("/api/ai/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text }),
@@ -248,7 +251,7 @@ export default function AiGirl() {
 
   const resetMemory = async () => {
     window.speechSynthesis?.cancel();
-    await fetch(apiUrl("/api/ai/reset"), { method: "POST" });
+    await fetch(aiUrl("/api/ai/reset"), { method: "POST" });
     const freshMsg: Message = {
       role: "aria",
       text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
