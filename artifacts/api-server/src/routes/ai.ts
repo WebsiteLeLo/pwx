@@ -119,7 +119,9 @@ router.post("/ai/chat", async (req, res) => {
       systemInstruction: buildSystemWithMemory(mem),
     });
 
-    const chat = model.startChat({ history: mem.history.slice(-20) });
+    // No conversation history injected — only learned facts go into the system prompt.
+    // This prevents Aria from "remembering" conversations the user never had.
+    const chat = model.startChat({ history: [] });
     const result = await chat.sendMessage(message);
     const reply = result.response.text();
 
