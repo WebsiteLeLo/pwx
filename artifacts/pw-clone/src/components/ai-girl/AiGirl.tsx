@@ -6,7 +6,28 @@ import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
 type GirlState = "idle" | "talking" | "thinking";
 type Message = { role: "user" | "aria"; text: string; id: number };
 
-// ── Gemini TTS — pre-fetch audio, return a ready-to-play Audio object ────────
+const CHAT_STORAGE_KEY = "aria-chat-messages";
+const MAX_STORED_MESSAGES = 50;
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+function loadChatFromStorage(): Message[] {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Message[];
+  } catch {}
+  return [];
+}
+
+function saveChatToStorage(messages: Message[]) {
+  try {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
+    );
+  } catch {}
+}
+
+// ── Gemini TTS — pre-fetch, returns ready Audio ────────────────────────────────
 async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
   try {
     const res = await fetch("/api/ai/tts", {
@@ -18,7 +39,6 @@ async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    // Pre-load so it's ready to fire instantly
     await new Promise<void>((resolve) => {
       audio.oncanplaythrough = () => resolve();
       audio.onerror = () => resolve();
@@ -31,17 +51,10 @@ async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
 }
 
 async function playAudio(audio: HTMLAudioElement | null, text: string, onEnd?: () => void) {
-  if (!audio) {
-    speakFallback(text, onEnd);
-    return;
-  }
+  if (!audio) { speakFallback(text, onEnd); return; }
   audio.onended = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
   audio.onerror = () => { URL.revokeObjectURL(audio.src); onEnd?.(); };
-  try {
-    await audio.play();
-  } catch {
-    speakFallback(text, onEnd);
-  }
+  try { await audio.play(); } catch { speakFallback(text, onEnd); }
 }
 
 function speakFallback(text: string, onEnd?: () => void) {
@@ -63,8 +76,7 @@ function speakFallback(text: string, onEnd?: () => void) {
 }
 
 // ── Video component ───────────────────────────────────────────────────────────
-// className is passed in so the caller controls fit (contain vs cover+position)
-function GirlVideo({ state, className = "w-full h-full object-contain" }: { state: GirlState; className?: string }) {
+function GirlVideo({ state, className }: { state: GirlState; className: string }) {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const src = `${base}/ai-girl/${state}.mp4`;
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -74,7 +86,7 @@ function GirlVideo({ state, className = "w-full h-full object-contain" }: { stat
     if (!video) return;
     video.pause();
     video.src = src;
-    // ⚠️ Attach listener BEFORE load() to avoid canplay race condition
+    // Attach BEFORE load() — avoids canplay race condition on cached videos
     const tryPlay = () => { video.play().catch(() => {}); };
     video.addEventListener("canplay", tryPlay, { once: true });
     video.load();
@@ -118,25 +130,37 @@ function Bubble({ msg }: { msg: Message }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+const INITIAL_MESSAGE: Message = {
+  role: "aria",
+  text: "Arre yaar, namaste! ✨ Main Aria hoon — teri study companion! Kya chal raha hai? Padhai ho rahi hai ya aaj skip karne ka plan hai? 😄",
+  id: 0,
+};
+
 export default function AiGirl() {
   const [open, setOpen] = useState(false);
   const [girlState, setGirlState] = useState<GirlState>("idle");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "aria",
-      text: "Arre yaar, namaste! ✨ Main Aria hoon — teri study companion! Kya chal raha hai? Padhai ho rahi hai ya aaj skip karne ka plan hai? 😄",
-      id: 0,
-    },
-  ]);
+
+  // Load chat from localStorage on first render
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const stored = loadChatFromStorage();
+    return stored.length > 0 ? stored : [INITIAL_MESSAGE];
+  });
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
-  const msgIdRef = useRef(1);
+  const msgIdRef = useRef(
+    messages.length > 0 ? Math.max(...messages.map((m) => m.id)) + 1 : 1
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    saveChatToStorage(messages);
+  }, [messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -158,7 +182,7 @@ export default function AiGirl() {
       setInput("");
       addMessage("user", text);
       setLoading(true);
-      setGirlState("thinking"); // ← thinking video plays here
+      setGirlState("thinking");
 
       try {
         const res = await fetch("/api/ai/chat", {
@@ -175,10 +199,10 @@ export default function AiGirl() {
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
-        // Pre-fetch audio while still in thinking state — user sees nothing yet
+        // Pre-fetch audio while still in thinking state
         const audio = await prepareSpeech(reply);
 
-        // Now reveal message + switch video + start audio all at once
+        // Reveal message + talking video + voice all at once
         addMessage("aria", reply);
         setGirlState("talking");
         await playAudio(audio, reply, () => setGirlState("idle"));
@@ -198,12 +222,11 @@ export default function AiGirl() {
     if (input.trim()) sendMessage(input.trim());
   };
 
-  // Voice input
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.lang = "hi-IN"; // Hindi + English support
+    rec.lang = "hi-IN";
     rec.interimResults = false;
     rec.onstart = () => setListening(true);
     rec.onresult = (e) => {
@@ -223,27 +246,28 @@ export default function AiGirl() {
   };
 
   const resetMemory = async () => {
-    // Stop any playing audio
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     window.speechSynthesis?.cancel();
     await fetch("/api/ai/reset", { method: "POST" });
-    setMessages([
-      {
-        role: "aria",
-        text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
-        id: msgIdRef.current++,
-      },
-    ]);
+    const freshMsg: Message = {
+      role: "aria",
+      text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
+      id: msgIdRef.current++,
+    };
+    setMessages([freshMsg]);
     setUserName(null);
     setGirlState("idle");
   };
 
-  const statusLabel = girlState === "thinking" ? "soch rahi hoon…" : girlState === "talking" ? "bol rahi hoon…" : "available";
-  const statusColor = girlState === "thinking" ? "bg-yellow-400 animate-pulse" : girlState === "talking" ? "bg-green-400 animate-pulse" : "bg-white/60";
+  const statusLabel =
+    girlState === "thinking" ? "soch rahi hoon…" :
+    girlState === "talking"  ? "bol rahi hoon…"  : "available";
+  const statusDot =
+    girlState === "thinking" ? "bg-yellow-400 animate-pulse" :
+    girlState === "talking"  ? "bg-green-400 animate-pulse"  : "bg-white/60";
 
   return (
     <>
-      {/* Floating avatar button — only shows video when panel is closed to avoid dual-playback */}
+      {/* Floating button — only one GirlVideo renders at a time to avoid dual-playback */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
@@ -252,7 +276,6 @@ export default function AiGirl() {
         title={open ? "Aria band karo" : "Aria se baat karo"}
       >
         {open ? (
-          /* Panel is open — show X icon, single video lives in the panel */
           <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
             <X className="w-6 h-6 text-white/80" />
           </div>
@@ -276,16 +299,16 @@ export default function AiGirl() {
             className="fixed bottom-[5.5rem] right-6 z-50 w-80 sm:w-96 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             style={{ maxHeight: "80vh" }}
           >
-            {/* Header with live video */}
-            <div className="relative flex-shrink-0">
-              <div className="relative w-full h-48 bg-violet-950 overflow-hidden flex items-center justify-center">
-                <GirlVideo state={girlState} className="w-full h-full object-contain" />
+            {/* Video header — original h-40 design with object-cover */}
+            <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-pink-500 flex-shrink-0">
+              <div className="relative h-40 overflow-hidden bg-violet-900">
+                <GirlVideo state={girlState} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
 
-                {/* Status badge */}
+                {/* Status */}
                 <div className="absolute top-2 left-3">
                   <span className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-xs text-white/90">
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
                     {statusLabel}
                   </span>
                 </div>

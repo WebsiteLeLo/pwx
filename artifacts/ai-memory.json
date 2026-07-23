@@ -36,6 +36,22 @@
           "text": "Hi Gourav! Kya haal hai? Acha laga jaankar. 😊 Ab se main tujhe Gourav hi bolungi, theek hai?"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha bato mera naam kya hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre yaar! Abhi tak toh tumne bataya hi nahi. 😅 Mera toh mann kar raha hai guess karoon... par usse accha tum hi bata do na, taaki main yaad rakh sakoon! Toh, kya naam hai tumhara? ✨"
+        }
+      ]
     }
   ]
 }

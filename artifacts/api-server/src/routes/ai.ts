@@ -2,11 +2,9 @@ import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-
 const router = Router();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MEMORY_FILE = path.join(__dirname, "../../ai-memory.json");
+// process.cwd() = artifacts/api-server when the server starts, so this is reliable
+const MEMORY_FILE = path.join(process.cwd(), "ai-memory.json");
 
 // ── Memory helpers ──────────────────────────────────────────────────────────
 interface Memory {
@@ -72,13 +70,18 @@ function buildSystemWithMemory(mem: Memory): string {
 function extractMemoryUpdates(userText: string, _aiText: string, mem: Memory): Memory {
   const updated = { ...mem, facts: [...mem.facts], habits: [...mem.habits] };
 
-  const nameMatch = userText.match(/(?:my name is|i(?:'m| am|'m called)|call me|mera naam hai|mujhe)\s+([A-Z][a-z]+)/i);
+  // Hindi: "mera naam Gourav hai" — name comes between "naam" and "hai"
+  // English: "my name is Gourav" / "I'm Gourav" / "call me Gourav"
+  const nameMatch =
+    userText.match(/mera\s+naam\s+([A-Za-z]+)/i) ??
+    userText.match(/(?:my name is|i(?:'m| am)|call me|i am called)\s+([A-Za-z]+)/i);
   if (nameMatch) updated.userName = nameMatch[1];
 
   const habitPatterns = [
     /i\s+(?:usually|always|often|normally)\s+(.{5,50})/i,
     /i\s+(?:study|work|wake up|sleep|eat)\s+(.{5,40})/i,
-    /main\s+(?:usually|mostly|aksar|hamesha)\s+(.{5,50})/i,
+    /main\s+(?:usually|mostly|aksar|hamesha|raat ko|subah|sham ko)\s+(.{3,50})/i,
+    /raat\s+ko\s+(?:padhta|padhti|study|work)\s*(.{0,40})/i,
   ];
   for (const p of habitPatterns) {
     const m = userText.match(p);
