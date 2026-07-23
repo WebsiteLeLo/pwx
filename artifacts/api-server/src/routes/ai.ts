@@ -151,7 +151,7 @@ function getKokoro(): Promise<import("kokoro-js").KokoroTTS> {
     kokoroPromise = (async () => {
       const { KokoroTTS } = await import("kokoro-js");
       return KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-        dtype: "q8",
+        dtype: "q4f16",
         device: "cpu",
       });
     })();
@@ -203,7 +203,7 @@ router.post("/ai/tts", async (req, res) => {
       .trim();
 
     const tts = await getKokoro();
-    const audio = await tts.generate(clean, { voice: "hf_alpha" });
+    const audio = await tts.generate(clean, { voice: "hf_beta", speed: 0.9 });
 
     const wav = float32ToWav(audio.audio, audio.sampling_rate);
     res.set("Content-Type", "audio/wav");

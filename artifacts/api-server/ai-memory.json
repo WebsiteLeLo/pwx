@@ -68,6 +68,38 @@
           "text": "Arre gourav, bhool gaye kya? Mera naam Aria hai! 🌸 Tumhari apni study buddy. \n\nAcha batao, aaj kya padhne ka irada hai? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre Gourav! ✨ Kaisi chal rahi hai life? \n\nAcha bata, aaj kaun sa subject uthane ka mood hai ya bas aise hi chat karne ka mann hai? 💙"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "bas aise hi"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Acha bas aise hi? 😄 Chalo koi baat nahi, kabhi-kabhi bina kisi reason ke bas chill karne ka bhi mann karta hai yaar. \n\nTu bata, din kaisa chal raha hai tera? Sab badhiya? ✨"
+        }
+      ]
     }
   ],
   "userName": "gourav"
