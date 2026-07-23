@@ -4,5 +4,23 @@
   "emotions": {
     "positiveCount": 0
   },
-  "history": []
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello mera naam gourav hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hi Gourav! 👋 Kya haal chaal?\nAcha laga finally tumhara naam jaan ke! Main hoon tumhari Aria. 😊\nBatao, aaj kya padhne ka mood hai?"
+        }
+      ]
+    }
+  ],
+  "userName": "gourav"
 }
