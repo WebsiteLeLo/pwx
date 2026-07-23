@@ -1,0 +1,28 @@
+{
+  "facts": [
+    "I love studying physics."
+  ],
+  "habits": [],
+  "emotions": {
+    "positiveCount": 0
+  },
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Hi! My name is Rohan and I love studying physics."
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hi Rohan! It's so lovely to meet you! ✨ That's amazing you love studying physics – it's such a fascinating subject. What part of it captures your imagination the most?"
+        }
+      ]
+    }
+  ],
+  "userName": "Rohan"
+}

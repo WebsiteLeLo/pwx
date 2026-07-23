@@ -20,6 +20,7 @@ import { MyMixList, MyMixDetail } from "@/pages/my-mix";
 import DppQuiz from "@/pages/dpp-quiz";
 import BatchCalendar from "@/pages/batch-calendar";
 import NotFound from "@/pages/not-found";
+import AiGirl from "@/components/ai-girl/AiGirl";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +104,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
+        <AiGirl />
         {dtState.detected && (
           <DevToolsBlocked strikes={dtState.strikes} onDismiss={dismiss} />
         )}
