@@ -393,13 +393,27 @@ export default function AiGirl() {
     if (!ds) return;
     dragState.current = null;
     if (ds.moved) {
-      // Persist final position
-      try { localStorage.setItem(ARIA_POS_KEY, JSON.stringify(btnPos)); } catch {}
+      // Snap to nearest edge so button never floats in the middle
+      setBtnPos((p) => {
+        const margin = 8;
+        const distLeft   = p.x - margin;
+        const distRight  = window.innerWidth - BTN_SIZE - margin - p.x;
+        const distTop    = p.y - margin;
+        const distBottom = window.innerHeight - BTN_SIZE - margin - p.y;
+        const min = Math.min(distLeft, distRight, distTop, distBottom);
+        let snapped: { x: number; y: number };
+        if (min === distRight)       snapped = { x: window.innerWidth - BTN_SIZE - margin, y: p.y };
+        else if (min === distLeft)   snapped = { x: margin, y: p.y };
+        else if (min === distBottom) snapped = { x: p.x, y: window.innerHeight - BTN_SIZE - margin };
+        else                          snapped = { x: p.x, y: margin };
+        try { localStorage.setItem(ARIA_POS_KEY, JSON.stringify(snapped)); } catch {}
+        return snapped;
+      });
     } else {
       // It was a tap/click — toggle panel
       setOpen((v) => !v);
     }
-  }, [btnPos]);
+  }, []);
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
