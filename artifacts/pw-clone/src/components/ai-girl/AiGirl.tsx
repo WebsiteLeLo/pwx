@@ -277,6 +277,32 @@ function Bubble({ msg }: { msg: Message }) {
   );
 }
 
+// ── Draggable button position ─────────────────────────────────────────────────
+const ARIA_POS_KEY = "aria-btn-pos";
+const BTN_SIZE = 64; // px (w-16 h-16)
+
+function loadBtnPos(): { x: number; y: number } {
+  try {
+    const raw = localStorage.getItem(ARIA_POS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as { x: number; y: number };
+      if (typeof p.x === "number" && typeof p.y === "number") return p;
+    }
+  } catch {}
+  // Default: bottom-right (computed on first render)
+  return { x: -1, y: -1 }; // sentinel → resolved in useEffect
+}
+
+function clampPos(x: number, y: number): { x: number; y: number } {
+  const margin = 8;
+  const maxX = window.innerWidth - BTN_SIZE - margin;
+  const maxY = window.innerHeight - BTN_SIZE - margin;
+  return {
+    x: Math.max(margin, Math.min(x, maxX)),
+    y: Math.max(margin, Math.min(y, maxY)),
+  };
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 const INITIAL_MESSAGE: Message = {
   role: "aria",
@@ -308,6 +334,72 @@ export default function AiGirl() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // ── Draggable position ──────────────────────────────────────────────────────
+  const [btnPos, setBtnPos] = useState<{ x: number; y: number }>(loadBtnPos);
+  const dragState = useRef<{
+    dragging: boolean;
+    startPX: number; startPY: number; // pointer start
+    startBX: number; startBY: number; // btn pos start
+    moved: boolean;
+  } | null>(null);
+
+  // Resolve sentinel default to bottom-right on first mount
+  useEffect(() => {
+    setBtnPos((p) => {
+      if (p.x === -1) {
+        const def = clampPos(
+          window.innerWidth - BTN_SIZE - 16,
+          window.innerHeight - BTN_SIZE - 16
+        );
+        return def;
+      }
+      return p;
+    });
+  }, []);
+
+  // Re-clamp when window is resized
+  useEffect(() => {
+    const onResize = () => setBtnPos((p) => clampPos(p.x, p.y));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Only primary button / first touch
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragState.current = {
+      dragging: true,
+      startPX: e.clientX, startPY: e.clientY,
+      startBX: btnPos.x,  startBY: btnPos.y,
+      moved: false,
+    };
+  }, [btnPos]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const ds = dragState.current;
+    if (!ds?.dragging) return;
+    const dx = e.clientX - ds.startPX;
+    const dy = e.clientY - ds.startPY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) ds.moved = true;
+    if (!ds.moved) return;
+    const next = clampPos(ds.startBX + dx, ds.startBY + dy);
+    setBtnPos(next);
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const ds = dragState.current;
+    if (!ds) return;
+    dragState.current = null;
+    if (ds.moved) {
+      // Persist final position
+      try { localStorage.setItem(ARIA_POS_KEY, JSON.stringify(btnPos)); } catch {}
+    } else {
+      // It was a tap/click — toggle panel
+      setOpen((v) => !v);
+    }
+  }, [btnPos]);
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
@@ -535,27 +627,75 @@ export default function AiGirl() {
     girlState === "thinking" ? "bg-yellow-400 animate-pulse" :
     girlState === "talking"  ? "bg-green-400 animate-pulse"  : "bg-white/60";
 
+  // Compute chat panel position relative to the draggable button
+  const panelStyle = (() => {
+    const margin = 8;
+    const panelW = Math.min(384, window.innerWidth - margin * 2); // 384 = w-96
+    const panelH = Math.min(600, window.innerHeight * 0.75);
+    const spaceBelow = window.innerHeight - (btnPos.y + BTN_SIZE);
+    const spaceAbove = btnPos.y;
+    const spaceRight = window.innerWidth - btnPos.x;
+    const openAbove = spaceAbove > spaceBelow && spaceAbove > panelH + 8;
+
+    // Vertical: prefer above if more room, else below
+    const top = openAbove
+      ? btnPos.y - panelH - 8
+      : btnPos.y + BTN_SIZE + 8;
+
+    // Horizontal: align left edge with button, but clamp to screen
+    const left = Math.max(
+      margin,
+      Math.min(btnPos.x, window.innerWidth - panelW - margin)
+    );
+
+    return {
+      position: "fixed" as const,
+      top,
+      left,
+      width: panelW,
+      maxHeight: panelH,
+      zIndex: 49,
+    };
+  })();
+
   return (
     <>
-      {/* Floating button */}
-      <motion.button
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 focus:outline-none bg-violet-900"
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.95 }}
-        title={open ? "Aria band karo" : "Aria se baat karo"}
+      {/* Draggable floating button */}
+      <div
+        style={{
+          position: "fixed",
+          left: btnPos.x,
+          top: btnPos.y,
+          width: BTN_SIZE,
+          height: BTN_SIZE,
+          zIndex: 50,
+          touchAction: "none",
+          cursor: "grab",
+          userSelect: "none",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        title={open ? "Aria band karo (drag karke move karo)" : "Aria se baat karo (drag karke move karo)"}
       >
-        {open ? (
-          <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
-            <X className="w-5 h-5 sm:w-6 sm:h-6 text-white/80" />
-          </div>
-        ) : (
-          <>
-            <GirlVideo state="idle" className="w-full h-full object-cover object-top" />
-            <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
-          </>
-        )}
-      </motion.button>
+        <motion.div
+          className="w-full h-full rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 bg-violet-900"
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          style={{ pointerEvents: "none" }}
+        >
+          {open ? (
+            <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
+              <X className="w-5 h-5 sm:w-6 sm:h-6 text-white/80" />
+            </div>
+          ) : (
+            <>
+              <GirlVideo state="idle" className="w-full h-full object-cover object-top" />
+              <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
+            </>
+          )}
+        </motion.div>
+      </div>
 
       {/* Chat panel */}
       <AnimatePresence>
@@ -566,16 +706,8 @@ export default function AiGirl() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="
-              fixed z-50 flex flex-col overflow-hidden shadow-2xl rounded-2xl sm:rounded-3xl
-              /* mobile: stretch edge-to-edge with small margin */
-              bottom-[4.5rem] left-3 right-3
-              /* sm+: float bottom-right like before */
-              sm:bottom-[5.5rem] sm:left-auto sm:right-6 sm:w-96
-            "
-            style={{
-              maxHeight: "min(75vh, 600px)",
-            }}
+            className="flex flex-col overflow-hidden shadow-2xl rounded-2xl"
+            style={panelStyle}
           >
             {/* Video header */}
             <div className="relative flex-shrink-0 bg-violet-900">

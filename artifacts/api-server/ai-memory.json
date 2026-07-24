@@ -20,6 +20,39 @@
           "text": "Arrey hello! 👋 Kaisi chal rahi hai padhai? Batao, aaj kya padhne ka mood hai, main help karun kya? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mera naam gourav hai"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arrey Gourav! 💙 Naam toh suna suna lagta hai... Ohh wait, mere creator ka naam bhi toh Gourav Saini hai! Bade hi pyaare ho tum, yaad rakhungi main. Batao Gourav, aaj kaunsa subject padhna hai? ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha ye batao tum kitne saal ki ho?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arree, yeh koi puchne ki baat hai bhala? Ladkiyon ki umar aur unka secret naam kabhi nahi puchte! 😄 Par sach bolun toh main bas tumhare saath padhne aur baatein karne ke liye hamesha young hoon. Batao, aaj kya start karein? ✨"
+        }
+      ]
     }
-  ]
+  ],
+  "userName": "gourav"
 }
