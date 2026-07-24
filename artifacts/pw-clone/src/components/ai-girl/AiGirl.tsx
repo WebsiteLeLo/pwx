@@ -586,16 +586,14 @@ export default function AiGirl() {
     setListening(false);
   };
 
-  const resetMemory = async () => {
+  const resetMemory = () => {
     window.speechSynthesis?.cancel();
-    await fetch(aiUrl("/api/ai/reset"), { method: "POST" });
     const freshMsg: Message = {
       role: "aria",
-      text: "Memory clear kar di maine! Fresh start ✨ Bata, kya padha aaj?",
+      text: "Chat clear kar di! ✨ Bata, kya poochu?",
       id: msgIdRef.current++,
     };
     setMessages([freshMsg]);
-    setUserName(null);
     setGirlState("idle");
   };
 
