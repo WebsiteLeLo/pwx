@@ -50,37 +50,47 @@ function Router() {
   const [location] = useLocation();
   const isHome = location === "/" || location === "";
 
+  const isAdmin = location.startsWith("/admin");
+
   return (
     <>
       <ScrollToTop />
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={location}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
-          className="contents"
-        >
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/batch/:batchId" component={Batch} />
-            <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
-            <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
-            <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
-            <Route path="/watch" component={Watch} />
-            <Route path="/schedule-watch" component={ScheduleWatch} />
-            <Route path="/materials" component={Materials} />
-            <Route path="/schedule" component={Schedule} />
-            <Route path="/my-mix" component={MyMixList} />
-            <Route path="/my-mix/:mixId" component={MyMixDetail} />
-            <Route path="/dpp-quiz" component={DppQuiz} />
-            <Route component={NotFound} />
-          </Switch>
-        </motion.div>
-      </AnimatePresence>
-      {/* Aria available on all pages */}
-      <AiGirl />
+      {/* Admin route bypasses maintenance gate and notifications */}
+      {isAdmin ? (
+        <AdminPanel />
+      ) : (
+        <MaintenanceGate>
+          <NotificationBanner />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="contents"
+            >
+              <Switch>
+                <Route path="/" component={Home} />
+                <Route path="/batch/:batchId" component={Batch} />
+                <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
+                <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
+                <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
+                <Route path="/watch" component={Watch} />
+                <Route path="/schedule-watch" component={ScheduleWatch} />
+                <Route path="/materials" component={Materials} />
+                <Route path="/schedule" component={Schedule} />
+                <Route path="/my-mix" component={MyMixList} />
+                <Route path="/my-mix/:mixId" component={MyMixDetail} />
+                <Route path="/dpp-quiz" component={DppQuiz} />
+                <Route component={NotFound} />
+              </Switch>
+            </motion.div>
+          </AnimatePresence>
+          {/* Aria available on all pages */}
+          <AiGirl />
+        </MaintenanceGate>
+      )}
     </>
   );
 }
