@@ -2,12 +2,7 @@ import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
-import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { promisify } from "node:util";
 const router = Router();
-const execFileAsync = promisify(execFile);
 // process.cwd() = artifacts/api-server when the server starts, so this is reliable
 const MEMORY_FILE = path.join(process.cwd(), "ai-memory.json");
 
@@ -214,159 +209,23 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ── Edge TTS — mixed Hindi + English pronunciation ──────────────────────────
-const HINDI_TTS_VOICE = "hi-IN-SwaraNeural";
-const ENGLISH_TTS_VOICE = "en-IN-NeerjaExpressiveNeural";
-
-// Aria's replies are intentionally written in Hinglish. Edge's Hindi voice
-// handles romanised Hindi well, but English words sound much clearer when
-// they are handed to the Indian English voice. This is deliberately a small
-// conservative dictionary: unknown romanised words stay with the Hindi voice
-// instead of being incorrectly pronounced as English.
-const ENGLISH_TTS_WORDS = new Set([
-  "about", "access", "action", "actually", "again", "app", "answer", "answers",
-  "any", "anything", "audio", "back", "batch", "batches", "because", "before",
-  "best", "better", "book", "books", "browser", "button", "calendar", "call",
-  "called", "can", "cancel", "chapter", "chapters", "check", "class", "classes",
-  "clear", "click", "close", "code", "complete", "computer", "concept",
-  "concepts", "connect", "continue", "correct", "course", "courses", "create",
-  "creator", "date", "day", "days", "dpp", "dpps", "easy", "email", "end",
-  "enrolled", "error", "exam", "exams", "example", "explain", "explaining",
-  "favorite", "feel", "file", "find", "first", "focus", "follow", "for",
-  "form", "free", "friend", "front", "full", "gemini", "good", "google",
-  "great", "happy", "help", "history", "home", "idea", "important", "inside",
-  "install", "internet", "just", "keep", "know", "language", "last", "learn",
-  "lesson", "link", "list", "listen", "live", "location", "login", "made",
-  "make", "material", "materials", "maybe", "message", "messages", "model",
-  "name", "names", "next", "nice", "note", "notes", "now", "number", "numbers",
-  "okay", "open", "option", "page", "pages", "password", "physics", "plan",
-  "play", "please", "practice", "problem", "problems", "process", "profile",
-  "progress", "question", "questions", "quick", "read", "ready", "really",
-  "record", "refresh", "remember", "reply", "result", "results", "right",
-  "save", "search", "searching", "see", "send", "server", "share", "skip",
-  "smart", "sorry", "start", "step", "study", "subject", "subjects", "sure",
-  "system", "test", "tests", "thank", "thanks", "the", "theory", "think",
-  "this", "that", "topic", "topics", "to", "try", "understand", "update",
-  "video", "videos", "voice", "wait", "want", "watch", "welcome", "what",
-  "when", "where", "which", "who", "why", "with", "work", "working", "yes",
-  "you", "your", "youtube", "is", "are", "am", "was", "were", "be", "been",
-  "being", "have", "has", "had", "do", "does", "did", "will", "would", "could",
-  "should", "of", "in", "on", "from", "here", "there", "also", "all",
-]);
-
-const HINDI_TTS_WORDS = new Set([
-  "aaj", "acha", "achha", "agla", "agar", "apna", "apne", "arre", "arrey",
-  "aur", "bas", "bata", "batao", "baat", "baatein", "bilkul", "bhi", "bina",
-  "bol", "bolna", "bolo", "chahti", "chal", "chalo", "chahiye", "dekho",
-  "dhoondh", "diya", "do", "ek", "hai", "hain", "ho", "hoga", "hogi", "hoon",
-  "hua", "hui", "hum", "haan", "jaa", "jaana", "jao", "ka", "kaa", "kaise",
-  "kar", "karna", "karne", "karo", "ke", "kya", "kyun", "ki", "kitna", "koi",
-  "kuch", "main", "mera", "meri", "mil", "milega", "mujhe", "na", "nahi",
-  "nahi", "naam", "ne", "niche", "par", "padhai", "pe", "phir", "raha",
-  "rahi", "rakh", "sach", "sab", "se", "sirf", "sun", "suno", "tera", "teri",
-  "toh", "tum", "tumhara", "tumhe", "tu", "ya", "yaar", "yeh", "ye", "yahan",
-  "zara",
-]);
-
-function isEnglishTtsWord(word: string): boolean {
-  const lower = word.toLocaleLowerCase("en-IN");
-  if (HINDI_TTS_WORDS.has(lower)) return false;
-  return ENGLISH_TTS_WORDS.has(lower) || /^[A-Z]{2,}$/.test(word);
-}
-
-function splitTtsRuns(text: string): { voice: string; text: string }[] {
-  const tokens = text.match(/[\u0900-\u097F]+|[A-Za-z]+(?:'[A-Za-z]+)?|\s+|[^A-Za-z\u0900-\u097F\s]+/g) ?? [text];
-  const runs: { voice: string; text: string }[] = [];
-
-  for (const token of tokens) {
-    const wordMatch = token.match(/^[A-Za-z]+(?:'[A-Za-z]+)?$/);
-    const voice = wordMatch && isEnglishTtsWord(token) ? ENGLISH_TTS_VOICE : HINDI_TTS_VOICE;
-    const last = runs[runs.length - 1];
-    if (last && last.voice === voice) last.text += token;
-    else runs.push({ voice, text: token });
-  }
-  return runs.filter(({ text: chunk }) => chunk.trim());
-}
+// ── Edge TTS — one continuous Hinglish stream ───────────────────────────────
+const EDGE_TTS_VOICE = "hi-IN-SwaraNeural";
 
 async function synthesiseWithEdgeTTS(text: string): Promise<Buffer> {
   const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
-  const runs = splitTtsRuns(text);
-  const audioParts: Buffer[] = [];
-
-  // The Edge Read Aloud service rejects multiple <voice> blocks in one SSML
-  // request. Synthesize each language run with its correct Indian voice.
-  for (const { voice, text: chunk } of runs) {
-    const tts = new MsEdgeTTS();
-    try {
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
-      const { audioStream } = tts.toStream(chunk, { rate: "+25%" });
-      const part = await new Promise<Buffer>((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        audioStream.on("data", (data: Buffer) => chunks.push(data));
-        audioStream.on("end", () => resolve(Buffer.concat(chunks)));
-        audioStream.on("error", reject);
-      });
-      audioParts.push(part);
-    } finally {
-      tts.close();
-    }
-  }
-
-  // Each Edge response includes a small silence/padding at its boundaries.
-  // Trim only the beginning and end of each run before joining them; trimming
-  // the final file would also remove intentional pauses inside a sentence.
-  const workDir = await mkdtemp(path.join(tmpdir(), "aria-tts-"));
+  const tts = new MsEdgeTTS();
   try {
-    const ffmpeg = process.env["FFMPEG_PATH"] ?? "ffmpeg";
-    const trimmedPaths: string[] = [];
-    for (const [index, part] of audioParts.entries()) {
-      const inputPath = path.join(workDir, `part-${index}.mp3`);
-      const outputPath = path.join(workDir, `trimmed-${index}.mp3`);
-      await writeFile(inputPath, part);
-      await execFileAsync(ffmpeg, [
-        "-y",
-        "-hide_banner",
-        "-loglevel", "error",
-        "-i", inputPath,
-        "-af",
-        // Trim leading padding, reverse, trim the former trailing padding,
-        // then reverse back. Using stop_periods here would stop at the first
-        // natural pause inside a phrase and truncate the rest of the audio.
-        "silenceremove=start_periods=1:start_duration=0.04:start_threshold=-42dB,areverse,silenceremove=start_periods=1:start_duration=0.04:start_threshold=-42dB,areverse",
-        "-ar", "24000",
-        "-ac", "1",
-        "-c:a", "libmp3lame",
-        "-b:a", "96k",
-        outputPath,
-      ]);
-      trimmedPaths.push(outputPath);
-    }
-
-    const concatPath = path.join(workDir, "concat.txt");
-    const concatManifest = trimmedPaths.map((filePath) => `file '${filePath}'`).join("\n");
-    await writeFile(concatPath, `${concatManifest}\n`);
-    const finalPath = path.join(workDir, "final.mp3");
-    await execFileAsync(ffmpeg, [
-      "-y",
-      "-hide_banner",
-      "-loglevel", "error",
-      "-f", "concat",
-      "-safe", "0",
-      "-i", concatPath,
-      "-ar", "24000",
-      "-ac", "1",
-      "-c:a", "libmp3lame",
-      "-b:a", "96k",
-      finalPath,
-    ]);
-    return await readFile(finalPath);
-  } catch (error) {
-    // TTS should remain available even if ffmpeg is unavailable in a
-    // different deployment environment.
-    console.error("TTS boundary trim unavailable; using untrimmed segments:", error);
-    return Buffer.concat(audioParts);
+    await tts.setMetadata(EDGE_TTS_VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+    const { audioStream } = tts.toStream(text, { rate: "+25%" });
+    return await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      audioStream.on("end", () => resolve(Buffer.concat(chunks)));
+      audioStream.on("error", reject);
+    });
   } finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    tts.close();
   }
 }
 
