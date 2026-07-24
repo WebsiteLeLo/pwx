@@ -425,7 +425,11 @@ export default function AiGirl() {
   }, [messages]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 200);
+    if (open) {
+      // Scroll to latest message when panel opens
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "instant" }), 50);
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
   }, [open]);
 
   const addMessage = useCallback(
