@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Mic, MicOff, RotateCcw, ExternalLink, Monitor, MonitorOff } from "lucide-react";
+import { X, Send, Mic, MicOff, RotateCcw, ExternalLink } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -325,15 +325,12 @@ export default function AiGirl() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
-  const [isSharing, setIsSharing] = useState(false);
   const msgIdRef = useRef(
     messages.length > 0 ? Math.max(...messages.map((m) => m.id)) + 1 : 1
   );
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
-  const screenVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // ── Draggable position ──────────────────────────────────────────────────────
   const [btnPos, setBtnPos] = useState<{ x: number; y: number }>(loadBtnPos);
@@ -472,15 +469,12 @@ export default function AiGirl() {
           if (raw) enrolledBatches = JSON.parse(raw);
         } catch { /* ignore */ }
 
-        const screenshot = captureScreenshot();
-
         const res = await fetch(aiUrl("/api/ai/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: text,
             appContext: { currentPage: window.location.pathname, enrolledBatches },
-            ...(screenshot ? { screenshot } : {}),
           }),
         });
 
@@ -563,54 +557,6 @@ export default function AiGirl() {
     },
     [loading, addMessage, navigate]
   );
-
-  // ── Screen share ─────────────────────────────────────────────────────────
-  const toggleScreenShare = useCallback(async () => {
-    if (isSharing) {
-      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
-      if (screenVideoRef.current) screenVideoRef.current.srcObject = null;
-      setIsSharing(false);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false });
-      screenStreamRef.current = stream;
-      // Attach to hidden video element for frame capture
-      if (!screenVideoRef.current) {
-        const vid = document.createElement("video");
-        vid.muted = true;
-        vid.autoplay = true;
-        vid.playsInline = true;
-        screenVideoRef.current = vid;
-      }
-      screenVideoRef.current.srcObject = stream;
-      await screenVideoRef.current.play().catch(() => {});
-      setIsSharing(true);
-      // Auto-stop when user ends share from browser UI
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        screenStreamRef.current = null;
-        setIsSharing(false);
-      });
-    } catch {
-      /* user cancelled or denied */
-    }
-  }, [isSharing]);
-
-  /** Capture current screen frame as base64 JPEG (max 800px wide to save tokens). */
-  const captureScreenshot = useCallback((): string | null => {
-    const vid = screenVideoRef.current;
-    if (!vid || !isSharing) return null;
-    try {
-      const W = Math.min(vid.videoWidth || 800, 800);
-      const H = Math.round(W * ((vid.videoHeight || 600) / (vid.videoWidth || 800)));
-      const canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
-      canvas.getContext("2d")?.drawImage(vid, 0, 0, W, H);
-      return canvas.toDataURL("image/jpeg", 0.6).split(",")[1] ?? null;
-    } catch { return null; }
-  }, [isSharing]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -839,19 +785,6 @@ export default function AiGirl() {
                 className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
                 style={{ fontSize: "16px" }} /* prevent iOS auto-zoom on focus */
               />
-              <button
-                type="button"
-                onClick={toggleScreenShare}
-                disabled={loading}
-                className={`p-2.5 rounded-xl transition-colors touch-manipulation flex-shrink-0 ${
-                  isSharing
-                    ? "bg-green-100 text-green-600 ring-2 ring-green-400 animate-pulse"
-                    : "bg-violet-100 text-violet-500 hover:bg-violet-200"
-                }`}
-                title={isSharing ? "Screen share band karo" : "Screen share shuru karo"}
-              >
-                {isSharing ? <MonitorOff className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-              </button>
               <button
                 type="button"
                 onClick={listening ? stopListening : startListening}
