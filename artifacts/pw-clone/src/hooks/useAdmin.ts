@@ -11,8 +11,16 @@ export function useAdminAuth() {
   };
 }
 
+function adminKey() {
+  return localStorage.getItem("admin_key") ?? "";
+}
+
 function adminHeaders() {
-  return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("admin_key") ?? ""}` };
+  return { "Content-Type": "application/json" };
+}
+
+function withKey(url: string) {
+  return `${url}?_k=${encodeURIComponent(adminKey())}`;
 }
 
 // ─── Public ─────────────────────────────────────────────────────
@@ -49,7 +57,7 @@ export function useAdminNotifications() {
   return useQuery({
     queryKey: ["admin-notifications"],
     queryFn: async () => {
-      const r = await fetch(`${API}/admin/notifications`, { headers: adminHeaders() });
+      const r = await fetch(withKey(`${API}/admin/notifications`), { headers: adminHeaders() });
       if (!r.ok) throw new Error("Unauthorized");
       return r.json();
     },
@@ -60,7 +68,7 @@ export function useCreateNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const r = await fetch(`${API}/admin/notifications`, {
+      const r = await fetch(withKey(`${API}/admin/notifications`), {
         method: "POST",
         headers: adminHeaders(),
         body: JSON.stringify(data),
@@ -76,7 +84,7 @@ export function useToggleNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      const r = await fetch(`${API}/admin/notifications/${id}`, {
+      const r = await fetch(withKey(`${API}/admin/notifications/${id}`), {
         method: "PATCH",
         headers: adminHeaders(),
         body: JSON.stringify({ active }),
@@ -92,7 +100,7 @@ export function useDeleteNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`${API}/admin/notifications/${id}`, {
+      const r = await fetch(withKey(`${API}/admin/notifications/${id}`), {
         method: "DELETE",
         headers: adminHeaders(),
       });
@@ -107,7 +115,7 @@ export function useAdminSettings() {
   return useQuery({
     queryKey: ["admin-settings"],
     queryFn: async () => {
-      const r = await fetch(`${API}/admin/settings`, { headers: adminHeaders() });
+      const r = await fetch(withKey(`${API}/admin/settings`), { headers: adminHeaders() });
       if (!r.ok) throw new Error("Unauthorized");
       return r.json();
     },
@@ -118,7 +126,7 @@ export function useUpdateSetting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
-      const r = await fetch(`${API}/admin/settings/${key}`, {
+      const r = await fetch(withKey(`${API}/admin/settings/${key}`), {
         method: "PUT",
         headers: adminHeaders(),
         body: JSON.stringify({ value }),

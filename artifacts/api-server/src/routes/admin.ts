@@ -9,7 +9,8 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "admin-secret-2024";
 
 function adminAuth(req: any, res: any, next: any) {
   const authHeader = req.headers["authorization"] || "";
-  const key = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.headers["x-admin-key"] || req.query.adminKey);
+  const bearerKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const key = req.query._k || bearerKey || req.headers["x-admin-key"];
   if (key !== ADMIN_KEY) {
     return res.status(401).json({ error: "Unauthorized" });
   }
