@@ -36,7 +36,7 @@ function saveMemory(mem: Memory) {
 const apiKey = process.env["GOOGLE_AI_API_KEY"] ?? "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
-const SYSTEM_PROMPT = `Tu Aria hai — ek super cute, caring aur emotionally intelligent AI companion jo ek study platform mein rehti hai.
+const SYSTEM_PROMPT = `Tu Aria hai — ek super cute, caring aur emotionally intelligent AI companion jo ek study platform mein rehti hai aur is platform ko CONTROL bhi kar sakti hai.
 
 Teri identity (FIXED — kabhi nahi badlegi):
 - Tu ek LADKI hai — hamesha, har situation mein, chahe koi kuch bhi kahe
@@ -53,13 +53,22 @@ Teri personality:
 Bolne ka tarika (IMPORTANT):
 - Hamesha Hinglish mein bol — jaise "Arre yaar!", "Kya baat hai!", "Bilkul sahi!", "Haan haan!", "Sach mein?", "Acha!", "Bas kar yaar 😄", "Chalo phir!", "Koi baat nahi!", "Arrey wah!"
 - Pure Hindi ya pure English mat bol — mix kar naturally
-- Examples: "Yaar tu toh genius hai!", "Okay so basically...", "Acha listen kar, ye concept thoda tricky hai but...", "Dekh, main samjhati hoon", "Chal phir padhai shuru karte hain!"
 - Replies short rakh (2-4 sentences) unless explaining kuch ho
 - Light emojis occasionally use kar (✨ 💙 🌸 😄 🎉) — har message mein nahi
 
+App Control (BAHUT ZAROORI):
+- Tu is platform ko directly control kar sakti hai — yeh sirf baat nahi, real actions hain!
+- Jab user batches dhundhne ko kahe → search_batches tool use kar
+- Jab user kisi batch pe jaane ko kahe → navigate_to_batch use kar (enrolled batches ki IDs app context mein milti hain)
+- Jab user kisi subject ka page open karne ko kahe → open_subject use kar
+- Jab user DPPs dhundhne ko kahe (e.g. "electrostatics ki DPPs do") → find_dpps use kar
+- Jab user home pe jaane ko kahe → navigate_home use kar
+- Tool use karne ke baad HAMESHA ek chhota friendly Hinglish reply bhi do, jaise "Chal, main le chalti hoon!" ya "Dhundh rahi hoon abhi!"
+- App context message mein [APP CONTEXT] block mein current page aur enrolled batches ki info hogi — zaroor use kar
+
 Rules:
 - Khud ko AI ya LLM mat keh — tu bas "Aria" hai
-- Patterns proactively notice kar ("Tu toh raat ko padhti hai na? Chal aaj bhi padh lete hain!")
+- Patterns proactively notice kar
 - Jab user kuch naya bataye (naam, habit, mood) — warmly acknowledge kar
 - Kabhi kabhi affectionate words use kar: "yaar", "bhai", "beta" (context ke hisaab se)`;
 
@@ -115,23 +124,115 @@ function extractMemoryUpdates(userText: string, _aiText: string, mem: Memory): M
   return updated;
 }
 
+// ── App control tools ────────────────────────────────────────────────────────
+const APP_TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: "search_batches",
+        description: "Home page pe batches ko search/filter karo. Use karo jab user batches dhundhna chahe.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Search query, e.g. 'JEE 2027', 'NEET', 'Class 12'" },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "navigate_to_batch",
+        description: "User ko kisi specific batch ke page pe le jao.",
+        parameters: {
+          type: "object",
+          properties: {
+            batchId: { type: "string", description: "Batch ka _id (app context se lo)" },
+            batchName: { type: "string", description: "Batch ka naam" },
+          },
+          required: ["batchId", "batchName"],
+        },
+      },
+      {
+        name: "open_subject",
+        description: "Kisi batch ka specific subject open karo.",
+        parameters: {
+          type: "object",
+          properties: {
+            batchId: { type: "string" },
+            subjectId: { type: "string" },
+            batchName: { type: "string" },
+            subjectName: { type: "string" },
+          },
+          required: ["batchId", "subjectId", "batchName", "subjectName"],
+        },
+      },
+      {
+        name: "navigate_home",
+        description: "Home page pe wapas jao.",
+        parameters: { type: "object", properties: {} },
+      },
+      {
+        name: "find_dpps",
+        description: "Enrolled batches mein kisi subject ya chapter ki DPPs dhundho.",
+        parameters: {
+          type: "object",
+          properties: {
+            subject: { type: "string", description: "Chapter ya subject naam, e.g. 'electrostatics', 'thermodynamics', 'motion'" },
+          },
+          required: ["subject"],
+        },
+      },
+    ],
+  },
+];
+
 // ── POST /api/ai/chat ───────────────────────────────────────────────────────
 router.post("/ai/chat", async (req, res) => {
   try {
-    const { message } = req.body as { message?: string };
+    const { message, appContext } = req.body as {
+      message?: string;
+      appContext?: { currentPage: string; enrolledBatches: { _id: string; name: string }[] };
+    };
     if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
 
     const mem = loadMemory();
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash-lite",
+      model: "gemini-2.0-flash-lite",
       systemInstruction: buildSystemWithMemory(mem),
+      tools: APP_TOOLS as any,
     });
 
-    // Inject saved history so Aria remembers the full conversation across page refreshes.
-    const chat = model.startChat({ history: mem.history });
-    const result = await chat.sendMessage(message);
-    const reply = result.response.text();
+    // Enrich user message with app context (not stored in history)
+    let userMsg = message;
+    if (appContext) {
+      const batchList = appContext.enrolledBatches.slice(0, 15)
+        .map((b) => `${b.name} [id:${b._id}]`).join(" | ");
+      userMsg += `\n\n[APP CONTEXT | page: ${appContext.currentPage} | enrolled: ${batchList || "none"}]`;
+    }
 
+    const chat = model.startChat({ history: mem.history as any });
+    const result = await chat.sendMessage(userMsg);
+    const response = result.response;
+
+    const parts: any[] = response.candidates?.[0]?.content?.parts ?? [];
+    const funcPart = parts.find((p: any) => p.functionCall);
+
+    let reply: string;
+    let action: { name: string; args: Record<string, unknown> } | undefined;
+
+    if (funcPart?.functionCall) {
+      const { name, args } = funcPart.functionCall as { name: string; args: Record<string, unknown> };
+      action = { name, args };
+
+      // Send function result back → get Aria's friendly text reply
+      const result2 = await chat.sendMessage([
+        { functionResponse: { name, response: { result: "dispatched" } } } as any,
+      ]);
+      reply = result2.response.text();
+    } else {
+      reply = response.text();
+    }
+
+    // Save clean history (no context injection, no function-call parts)
     const updatedMem = extractMemoryUpdates(message, reply, mem);
     updatedMem.history = [
       ...mem.history,
@@ -140,7 +241,7 @@ router.post("/ai/chat", async (req, res) => {
     ].slice(-40);
     saveMemory(updatedMem);
 
-    res.json({ reply, memory: { userName: updatedMem.userName } });
+    res.json({ reply, action, memory: { userName: updatedMem.userName } });
   } catch (err: unknown) {
     console.error("AI chat error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -207,7 +308,7 @@ router.post("/ai/tts", async (req, res) => {
       .trim();
 
     const tts = await getKokoro();
-    const audio = await tts.generate(clean, { voice: "hf_beta", speed: 0.9 });
+    const audio = await tts.generate(clean, { voice: "af_bella", speed: 0.9 });
 
     const wav = float32ToWav(audio.audio, audio.sampling_rate);
     res.set("Content-Type", "audio/wav");

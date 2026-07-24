@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { onAriaAction } from "@/lib/ariaEventBus";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
@@ -550,6 +551,16 @@ export default function Home() {
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [tab, query]);
+
+  // Listen for Aria search commands
+  useEffect(() => {
+    return onAriaAction((action) => {
+      if (action.type === "search_batches") {
+        setQuery(action.query);
+        setTab("all");
+      }
+    });
+  }, []);
 
   // Close suggestions when clicking outside
   useEffect(() => {

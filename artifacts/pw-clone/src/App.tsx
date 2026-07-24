@@ -76,8 +76,8 @@ function Router() {
           </Switch>
         </motion.div>
       </AnimatePresence>
-      {/* Aria only on home page */}
-      {isHome && <AiGirl />}
+      {/* Aria available on all pages */}
+      <AiGirl />
     </>
   );
 }

@@ -70,6 +70,39 @@
           "text": "Acha $\\tan x$ ka expansion chahiye? Chal yeh bhi bata deti hoon! ✨\n\nIska formula thoda alag hai:\n$x + \\frac{x^3}{3} + \\frac{2x^5}{15} + \\frac{17x^7}{315} + \\dots$\n\nIsme fractions aur coefficients thode bade hote hain, toh isko yaad rakhne ke liye thodi practice karni padti hai yaar. Chalein ispe based koi pyara sa numerical solve karein? 😄"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tell me newton law of motion"
+        }
+      ]
+    },
+    {
+      "parts": [
+        {
+          "text": "Arre wah, Newton baba ke laws! Ye toh physics ki jaan hain yaar. 💙\n\nTotal 3 laws hain:\n1. **First Law (Law of Inertia):** Koi bhi cheez tab tak apni jagah se nahi hategi jab tak uspe koi bahar se force na lagaye. (Jaise tu aram se baitha ho aur koi utha de! 😄)\n2. **Second Law ($F = ma$):** Force is equal to mass times acceleration. Matlab jitna bhaari object hoga, utna hi zyada force chahiye use hilane ke liye.\n3. **Third Law (Action-Reaction):** Har action ka equal aur opposite reaction hota hai. Jaise rocket upar jata hai toh gas neeche push karti hai! 🚀\n\nBata, inme se kisi law ka derivation ya numerical dekhna hai kya?",
+          "thoughtSignature": "EjQKMgERTTIPm3atmsolIU5YeAzPQ+vMwmnRsXs/fpJQIloa4aF92RHvzMjj0xQf6tKWsDPt"
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tell me newton law of motion"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah, Newton baba ke laws! Ye toh physics ki jaan hain yaar. 💙\n\nTotal 3 laws hain:\n1. **First Law (Law of Inertia):** Koi bhi cheez tab tak apni jagah se nahi hategi jab tak uspe koi bahar se force na lagaye. (Jaise tu aram se baitha ho aur koi utha de! 😄)\n2. **Second Law ($F = ma$):** Force is equal to mass times acceleration. Matlab jitna bhaari object hoga, utna hi zyada force chahiye use hilane ke liye.\n3. **Third Law (Action-Reaction):** Har action ka equal aur opposite reaction hota hai. Jaise rocket upar jata hai toh gas neeche push karti hai! 🚀\n\nBata, inme se kisi law ka derivation ya numerical dekhna hai kya?"
+        }
+      ]
     }
   ]
 }

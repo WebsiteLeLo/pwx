@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Mic, MicOff, RotateCcw } from "lucide-react";
+import { X, Send, Mic, MicOff, RotateCcw, ExternalLink } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import "./AiGirl.css";
+import { emitAriaAction, type DppResult } from "@/lib/ariaEventBus";
+
 // AI backend base — empty string in dev (Vite proxy handles /api/*),
 // set VITE_AI_API_URL to the Render backend URL in production.
 const AI_BASE = (import.meta.env.VITE_AI_API_URL ?? "").replace(/\/$/, "");
 const aiUrl = (path: string) => `${AI_BASE}${path}`;
+const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type GirlState = "idle" | "talking" | "thinking";
-type Message = { role: "user" | "aria"; text: string; id: number };
+type Message = { role: "user" | "aria"; text: string; id: number; dppResults?: DppResult[]; dppSubject?: string };
 
 const CHAT_STORAGE_KEY = "aria-chat-messages";
 const MAX_STORED_MESSAGES = 50;
@@ -142,6 +146,78 @@ function GirlVideo({ state, className }: { state: GirlState; className: string }
   );
 }
 
+// ── DPP search across enrolled batches ───────────────────────────────────────
+async function executeFindDpps(subject: string): Promise<DppResult[]> {
+  const raw = localStorage.getItem("pwx_enrolled_batches");
+  const enrolled: { _id: string; name: string }[] = raw ? JSON.parse(raw) : [];
+  if (!enrolled.length) return [];
+
+  const results: DppResult[] = [];
+  for (const batch of enrolled.slice(0, 5)) {
+    try {
+      const detJson = await fetch(`${PW_API}/v3/batches/${batch._id}/details`).then((r) => r.json());
+      const subjects: any[] = detJson.data?.subjects ?? [];
+      for (const sub of subjects.slice(0, 10)) {
+        try {
+          const topJson = await fetch(
+            `${PW_API}/v2/batches/${batch._id}/subject/${sub._id}/topics?page=1`
+          ).then((r) => r.json());
+          const topics: any[] = topJson.data?.topics ?? [];
+          for (const topic of topics) {
+            if (topic.name?.toLowerCase().includes(subject.toLowerCase()) && topic.exercises > 0) {
+              results.push({
+                batchId: batch._id,
+                batchName: batch.name,
+                subjectId: sub._id,
+                subjectName: sub.subject,
+                topicId: topic._id,
+                topicName: topic.name,
+                dppCount: topic.exercises,
+              });
+            }
+          }
+        } catch { /* skip subject on error */ }
+        if (results.length >= 20) break;
+      }
+    } catch { /* skip batch on error */ }
+    if (results.length >= 20) break;
+  }
+  return results;
+}
+
+// ── DPP result card ──────────────────────────────────────────────────────────
+function DppResultCard({ results, subject }: { results: DppResult[]; subject: string }) {
+  if (!results.length) {
+    return (
+      <p className="text-slate-500 text-xs mt-1.5 italic">
+        "{subject}" ke liye koi DPP nahi mili enrolled batches mein.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1.5">
+      <p className="text-[11px] font-semibold text-violet-600 mb-1">
+        🔍 {results.length} DPP topic{results.length > 1 ? "s" : ""} mile:
+      </p>
+      {results.map((r, i) => (
+        <Link
+          key={i}
+          href={`/batch/${r.batchId}/subject/${r.subjectId}`}
+          className="flex items-center gap-2 p-2 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors cursor-pointer group"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-slate-800 truncate">{r.topicName}</p>
+            <p className="text-[10px] text-slate-500 truncate">
+              {r.batchName} · {r.subjectName} · {r.dppCount} DPPs
+            </p>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-600 flex-shrink-0" />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 // ── Chat bubble ───────────────────────────────────────────────────────────────
 function Bubble({ msg }: { msg: Message }) {
   const isAria = msg.role === "aria";
@@ -160,14 +236,16 @@ function Bubble({ msg }: { msg: Message }) {
         }`}
       >
         {isAria ? (
-          <div className="aria-message prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-            <ReactMarkdown
-              remarkPlugins={[remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-            >
-              {msg.text}
-            </ReactMarkdown>
-          </div>
+          <>
+            <div className="aria-message prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
+              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {msg.text}
+              </ReactMarkdown>
+            </div>
+            {msg.dppResults !== undefined && (
+              <DppResultCard results={msg.dppResults} subject={msg.dppSubject ?? ""} />
+            )}
+          </>
         ) : (
           msg.text
         )}
@@ -193,6 +271,7 @@ export default function AiGirl() {
     return stored.length > 0 ? stored : [INITIAL_MESSAGE];
   });
 
+  const [, navigate] = useLocation();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
@@ -217,11 +296,14 @@ export default function AiGirl() {
     if (open) setTimeout(() => inputRef.current?.focus(), 200);
   }, [open]);
 
-  const addMessage = useCallback((role: "user" | "aria", text: string) => {
-    const id = msgIdRef.current++;
-    setMessages((prev) => [...prev, { role, text, id }]);
-    return id;
-  }, []);
+  const addMessage = useCallback(
+    (role: "user" | "aria", text: string, extra?: { dppResults?: DppResult[]; dppSubject?: string }) => {
+      const id = msgIdRef.current++;
+      setMessages((prev) => [...prev, { role, text, id, ...extra }]);
+      return id;
+    },
+    []
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -232,22 +314,34 @@ export default function AiGirl() {
       setGirlState("thinking");
 
       try {
+        // Build app context — enrolled batches for Aria to reference
+        let enrolledBatches: { _id: string; name: string }[] = [];
+        try {
+          const raw = localStorage.getItem("pwx_enrolled_batches");
+          if (raw) enrolledBatches = JSON.parse(raw);
+        } catch { /* ignore */ }
+
         const res = await fetch(aiUrl("/api/ai/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text }),
+          body: JSON.stringify({
+            message: text,
+            appContext: { currentPage: window.location.pathname, enrolledBatches },
+          }),
         });
 
         const contentType = res.headers.get("content-type") ?? "";
-        if (!contentType.includes("application/json")) {
-          throw new Error("backend_not_configured");
-        }
+        if (!contentType.includes("application/json")) throw new Error("backend_not_configured");
 
-        let data: { reply?: string; error?: string; memory?: { userName?: string } };
+        let data: {
+          reply?: string;
+          error?: string;
+          memory?: { userName?: string };
+          action?: { name: string; args: Record<string, unknown> };
+        };
         try {
           data = await res.json();
         } catch {
-          // Empty or truncated body — likely a Render cold-start 503
           throw new Error(res.status === 503 ? "server_waking" : "bad_response");
         }
 
@@ -255,10 +349,45 @@ export default function AiGirl() {
         const reply = data.reply ?? "Yaar, kuch toh gadbad ho gayi!";
         if (data.memory?.userName) setUserName(data.memory.userName);
 
-        // Pre-fetch TTS audio while still in thinking state
-        const audio = await prepareSpeech(reply);
+        // ── Execute app action BEFORE showing reply ──────────────────────────
+        if (data.action) {
+          const { name, args } = data.action;
+          switch (name) {
+            case "search_batches":
+              emitAriaAction({ type: "search_batches", query: String(args.query ?? "") });
+              navigate("/");
+              break;
+            case "navigate_to_batch":
+              navigate(`/batch/${args.batchId}`);
+              break;
+            case "open_subject":
+              navigate(`/batch/${args.batchId}/subject/${args.subjectId}`);
+              break;
+            case "navigate_home":
+              navigate("/");
+              break;
+            case "find_dpps": {
+              const subject = String(args.subject ?? "");
+              // Show reply + searching indicator immediately
+              const audio0 = await prepareSpeech(reply);
+              addMessage("aria", reply);
+              setGirlState("talking");
+              await playAudio(audio0, reply, () => setGirlState("idle"));
+              setLoading(false);
+              // Async DPP search — add results card when done
+              executeFindDpps(subject).then((dppResults) => {
+                const resultText = dppResults.length
+                  ? `"${subject}" ke ${dppResults.length} DPP topics mile enrolled batches mein:`
+                  : `Yaar, "${subject}" ke liye koi DPP topic nahi mila enrolled batches mein.`;
+                addMessage("aria", resultText, { dppResults, dppSubject: subject });
+              });
+              return; // early return — audio already played
+            }
+          }
+        }
+        // ────────────────────────────────────────────────────────────────────
 
-        // Reveal message + talking video + voice all at once
+        const audio = await prepareSpeech(reply);
         addMessage("aria", reply);
         setGirlState("talking");
         await playAudio(audio, reply, () => setGirlState("idle"));
@@ -278,7 +407,7 @@ export default function AiGirl() {
         setLoading(false);
       }
     },
-    [loading, addMessage]
+    [loading, addMessage, navigate]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
