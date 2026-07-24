@@ -18,6 +18,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
     "kokoro-js": "^1.2.1",
+    "msedge-tts": "^2.0.7",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0"
   },
