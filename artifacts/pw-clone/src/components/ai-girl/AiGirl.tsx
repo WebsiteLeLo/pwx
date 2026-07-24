@@ -52,7 +52,52 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
-// ── Edge TTS via server — en-IN-NeerjaExpressiveNeural, free ─────────────────
+const ENGLISH_SPEECH_WORDS = new Set([
+  "app", "answer", "audio", "batch", "batches", "book", "browser", "button",
+  "calendar", "call", "chapter", "check", "class", "click", "code", "complete",
+  "concept", "connect", "course", "create", "creator", "dpp", "dpps", "easy",
+  "email", "error", "exam", "example", "explain", "favorite", "file", "find",
+  "focus", "form", "free", "gemini", "google", "help", "history", "home",
+  "idea", "important", "install", "language", "learn", "lesson", "link", "list",
+  "live", "login", "material", "message", "model", "name", "next", "note",
+  "open", "page", "password", "physics", "plan", "play", "practice", "problem",
+  "progress", "question", "read", "ready", "reply", "result", "save", "search",
+  "server", "share", "skip", "start", "study", "subject", "system", "test",
+  "the", "theory", "this", "that", "topic", "to", "try", "update", "video",
+  "voice", "watch", "welcome", "work", "working", "youtube", "is", "are", "am",
+  "was", "were", "be", "been", "being", "have", "has", "had", "do", "does",
+  "did", "will", "would", "could", "should", "of", "in", "on", "from", "here",
+  "there", "also", "all", "what", "when", "where", "which", "who", "with",
+]);
+
+const HINDI_SPEECH_WORDS = new Set([
+  "aaj", "acha", "achha", "agla", "agar", "apna", "apne", "arre", "arrey",
+  "aur", "bas", "bata", "batao", "baat", "bilkul", "bhi", "bol", "chal",
+  "chalo", "chahiye", "dekho", "diya", "ek", "hai", "hain", "ho", "hoga",
+  "hogi", "hoon", "haan", "jaana", "ka", "kaise", "kar", "karna", "karne",
+  "karo", "ke", "kya", "kyun", "ki", "koi", "kuch", "main", "mera", "meri",
+  "mil", "mujhe", "na", "nahi", "naam", "par", "padhai", "pe", "phir", "raha",
+  "rahi", "sach", "sab", "se", "sirf", "tera", "teri", "toh", "tum", "tumhe",
+  "tu", "ya", "yaar", "yeh", "yahan",
+]);
+
+function splitSpeechChunks(text: string): { text: string; lang: "hi-IN" | "en-IN" }[] {
+  const tokens = text.match(/[\u0900-\u097F]+|[A-Za-z]+(?:'[A-Za-z]+)?|\s+|[^A-Za-z\u0900-\u097F\s]+/g) ?? [text];
+  const chunks: { text: string; lang: "hi-IN" | "en-IN" }[] = [];
+  for (const token of tokens) {
+    const isWord = /^[A-Za-z]+(?:'[A-Za-z]+)?$/.test(token);
+    const lower = token.toLocaleLowerCase("en-IN");
+    const lang = isWord && !HINDI_SPEECH_WORDS.has(lower) &&
+      (ENGLISH_SPEECH_WORDS.has(lower) || /^[A-Z]{2,}$/.test(token))
+      ? "en-IN" : "hi-IN";
+    const last = chunks[chunks.length - 1];
+    if (last && last.lang === lang) last.text += token;
+    else chunks.push({ text: token, lang });
+  }
+  return chunks.filter((chunk) => chunk.text.trim());
+}
+
+// ── Edge TTS via server — mixed Hindi/English pronunciation ─────────────────
 async function prepareSpeech(text: string): Promise<HTMLAudioElement | null> {
   try {
     const clean = stripForSpeech(text);
@@ -89,22 +134,31 @@ function speakFallback(text: string, onEnd?: () => void) {
   if (!window.speechSynthesis) { onEnd?.(); return; }
   window.speechSynthesis.cancel();
   const clean = stripForSpeech(text);
-  const utterance = new SpeechSynthesisUtterance(clean);
-  utterance.lang = "hi-IN";
-  utterance.rate = 1.0;
-  utterance.pitch = 1.1;
-  utterance.onend = () => onEnd?.();
-  utterance.onerror = () => onEnd?.();
-  const doSpeak = () => {
+  const chunks = splitSpeechChunks(clean);
+  let chunkIndex = 0;
+
+  const speakNext = () => {
+    const chunk = chunks[chunkIndex++];
+    if (!chunk) { onEnd?.(); return; }
+    const utterance = new SpeechSynthesisUtterance(chunk.text);
+    utterance.lang = chunk.lang;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.1;
+    utterance.onend = speakNext;
+    utterance.onerror = speakNext;
     const voices = window.speechSynthesis.getVoices();
-    const voice =
-      voices.find((v) => v.lang === "hi-IN" && /google/i.test(v.name)) ??
-      voices.find((v) => v.lang === "hi-IN") ??
-      voices.find((v) => v.lang === "en-IN") ??
-      null;
+    const voice = chunk.lang === "hi-IN"
+      ? voices.find((v) => v.lang === "hi-IN" && /google/i.test(v.name)) ??
+        voices.find((v) => v.lang === "hi-IN") ??
+        null
+      : voices.find((v) => v.lang === "en-IN") ??
+        voices.find((v) => v.lang.startsWith("en-")) ??
+        null;
     if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   };
+
+  const doSpeak = () => speakNext();
   if (window.speechSynthesis.getVoices().length === 0) {
     window.speechSynthesis.onvoiceschanged = () => {
       window.speechSynthesis.onvoiceschanged = null;

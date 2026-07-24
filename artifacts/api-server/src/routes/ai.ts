@@ -209,23 +209,119 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ── Edge TTS — hi-IN-SwaraNeural ─────────────────────────────────────────────
-const EDGE_TTS_VOICE = "hi-IN-SwaraNeural";
+// ── Edge TTS — mixed Hindi + English pronunciation ──────────────────────────
+const HINDI_TTS_VOICE = "hi-IN-SwaraNeural";
+const ENGLISH_TTS_VOICE = "en-IN-NeerjaExpressiveNeural";
+
+// Aria's replies are intentionally written in Hinglish. Edge's Hindi voice
+// handles romanised Hindi well, but English words sound much clearer when
+// they are handed to the Indian English voice. This is deliberately a small
+// conservative dictionary: unknown romanised words stay with the Hindi voice
+// instead of being incorrectly pronounced as English.
+const ENGLISH_TTS_WORDS = new Set([
+  "about", "access", "action", "actually", "again", "app", "answer", "answers",
+  "any", "anything", "audio", "back", "batch", "batches", "because", "before",
+  "best", "better", "book", "books", "browser", "button", "calendar", "call",
+  "called", "can", "cancel", "chapter", "chapters", "check", "class", "classes",
+  "clear", "click", "close", "code", "complete", "computer", "concept",
+  "concepts", "connect", "continue", "correct", "course", "courses", "create",
+  "creator", "date", "day", "days", "dpp", "dpps", "easy", "email", "end",
+  "enrolled", "error", "exam", "exams", "example", "explain", "explaining",
+  "favorite", "feel", "file", "find", "first", "focus", "follow", "for",
+  "form", "free", "friend", "front", "full", "gemini", "good", "google",
+  "great", "happy", "help", "history", "home", "idea", "important", "inside",
+  "install", "internet", "just", "keep", "know", "language", "last", "learn",
+  "lesson", "link", "list", "listen", "live", "location", "login", "made",
+  "make", "material", "materials", "maybe", "message", "messages", "model",
+  "name", "names", "next", "nice", "note", "notes", "now", "number", "numbers",
+  "okay", "open", "option", "page", "pages", "password", "physics", "plan",
+  "play", "please", "practice", "problem", "problems", "process", "profile",
+  "progress", "question", "questions", "quick", "read", "ready", "really",
+  "record", "refresh", "remember", "reply", "result", "results", "right",
+  "save", "search", "searching", "see", "send", "server", "share", "skip",
+  "smart", "sorry", "start", "step", "study", "subject", "subjects", "sure",
+  "system", "test", "tests", "thank", "thanks", "the", "theory", "think",
+  "this", "that", "topic", "topics", "to", "try", "understand", "update",
+  "video", "videos", "voice", "wait", "want", "watch", "welcome", "what",
+  "when", "where", "which", "who", "why", "with", "work", "working", "yes",
+  "you", "your", "youtube", "is", "are", "am", "was", "were", "be", "been",
+  "being", "have", "has", "had", "do", "does", "did", "will", "would", "could",
+  "should", "of", "in", "on", "from", "here", "there", "also", "all",
+]);
+
+const HINDI_TTS_WORDS = new Set([
+  "aaj", "acha", "achha", "agla", "agar", "apna", "apne", "arre", "arrey",
+  "aur", "bas", "bata", "batao", "baat", "baatein", "bilkul", "bhi", "bina",
+  "bol", "bolna", "bolo", "chahti", "chal", "chalo", "chahiye", "dekho",
+  "dhoondh", "diya", "do", "ek", "hai", "hain", "ho", "hoga", "hogi", "hoon",
+  "hua", "hui", "hum", "haan", "jaa", "jaana", "jao", "ka", "kaa", "kaise",
+  "kar", "karna", "karne", "karo", "ke", "kya", "kyun", "ki", "kitna", "koi",
+  "kuch", "main", "mera", "meri", "mil", "milega", "mujhe", "na", "nahi",
+  "nahi", "naam", "ne", "niche", "par", "padhai", "pe", "phir", "raha",
+  "rahi", "rakh", "sach", "sab", "se", "sirf", "sun", "suno", "tera", "teri",
+  "toh", "tum", "tumhara", "tumhe", "tu", "ya", "yaar", "yeh", "ye", "yahan",
+  "zara",
+]);
+
+function isEnglishTtsWord(word: string): boolean {
+  const lower = word.toLocaleLowerCase("en-IN");
+  if (HINDI_TTS_WORDS.has(lower)) return false;
+  return ENGLISH_TTS_WORDS.has(lower) || /^[A-Z]{2,}$/.test(word);
+}
+
+function escapeSsml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function splitTtsRuns(text: string): { voice: string; text: string }[] {
+  const tokens = text.match(/[\u0900-\u097F]+|[A-Za-z]+(?:'[A-Za-z]+)?|\s+|[^A-Za-z\u0900-\u097F\s]+/g) ?? [text];
+  const runs: { voice: string; text: string }[] = [];
+
+  for (const token of tokens) {
+    const wordMatch = token.match(/^[A-Za-z]+(?:'[A-Za-z]+)?$/);
+    const voice = wordMatch && isEnglishTtsWord(token) ? ENGLISH_TTS_VOICE : HINDI_TTS_VOICE;
+    const last = runs[runs.length - 1];
+    if (last && last.voice === voice) last.text += token;
+    else runs.push({ voice, text: token });
+  }
+  return runs.filter(({ text: chunk }) => chunk.trim());
+}
 
 async function synthesiseWithEdgeTTS(text: string): Promise<Buffer> {
   const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
-  const tts = new MsEdgeTTS();
-  await tts.setMetadata(EDGE_TTS_VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
-  const { audioStream } = tts.toStream(text, { rate: "+25%" });
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    audioStream.on("end", () => resolve(Buffer.concat(chunks)));
-    audioStream.on("error", reject);
-  });
+  const runs = splitTtsRuns(text);
+  const audioParts: Buffer[] = [];
+
+  // The Edge Read Aloud service rejects multiple <voice> blocks in one SSML
+  // request. Synthesize each language run with its correct Indian voice and
+  // concatenate the resulting MP3 frames; browsers play the combined stream
+  // as one continuous response.
+  for (const { voice, text: chunk } of runs) {
+    const tts = new MsEdgeTTS();
+    try {
+      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+      const { audioStream } = tts.toStream(chunk, { rate: "+25%" });
+      const part = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        audioStream.on("data", (data: Buffer) => chunks.push(data));
+        audioStream.on("end", () => resolve(Buffer.concat(chunks)));
+        audioStream.on("error", reject);
+      });
+      audioParts.push(part);
+    } finally {
+      tts.close();
+    }
+  }
+
+  return Buffer.concat(audioParts);
 }
 
-// ── POST /api/ai/tts — Edge TTS (hi-IN-SwaraNeural) ─────────────────────────
+// ── POST /api/ai/tts — mixed Hindi/English Edge TTS ──────────────────────────
 router.post("/ai/tts", async (req, res) => {
   try {
     const { text } = req.body as { text?: string };
