@@ -8,7 +8,8 @@ const router = Router();
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin-secret-2024";
 
 function adminAuth(req: any, res: any, next: any) {
-  const key = req.headers["x-admin-key"] || req.query.adminKey;
+  const authHeader = req.headers["authorization"] || "";
+  const key = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.headers["x-admin-key"] || req.query.adminKey);
   if (key !== ADMIN_KEY) {
     return res.status(401).json({ error: "Unauthorized" });
   }

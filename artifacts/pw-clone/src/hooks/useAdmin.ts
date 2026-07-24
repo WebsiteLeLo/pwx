@@ -12,7 +12,7 @@ export function useAdminAuth() {
 }
 
 function adminHeaders() {
-  return { "Content-Type": "application/json", "x-admin-key": localStorage.getItem("admin_key") ?? "" };
+  return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("admin_key") ?? ""}` };
 }
 
 // ─── Public ─────────────────────────────────────────────────────
