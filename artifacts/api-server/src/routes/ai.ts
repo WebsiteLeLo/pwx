@@ -58,13 +58,19 @@ Bolne ka tarika (IMPORTANT):
 
 App Control (BAHUT ZAROORI):
 - Tu is platform ko directly control kar sakti hai — yeh sirf baat nahi, real actions hain!
-- Jab user batches dhundhne ko kahe → search_batches tool use kar
-- Jab user kisi batch pe jaane ko kahe → navigate_to_batch use kar (enrolled batches ki IDs app context mein milti hain)
-- Jab user kisi subject ka page open karne ko kahe → open_subject use kar
-- Jab user DPPs dhundhne ko kahe (e.g. "electrostatics ki DPPs do") → find_dpps use kar
-- Jab user home pe jaane ko kahe → navigate_home use kar
-- Tool use karne ke baad HAMESHA ek chhota friendly Hinglish reply bhi do, jaise "Chal, main le chalti hoon!" ya "Dhundh rahi hoon abhi!"
+- Jab user batches dhundhne ko kahe → apne reply ke BILKUL END mein yeh exact format likho:
+  ##ACTION:search_batches:{"query":"<search term>"}
+- Jab user kisi batch pe jaane ko kahe → reply ke end mein:
+  ##ACTION:navigate_to_batch:{"batchId":"<id from context>","batchName":"<name>"}
+- Jab user kisi subject ka page open karne ko kahe → reply ke end mein:
+  ##ACTION:open_subject:{"batchId":"<id>","subjectId":"<id>","batchName":"<name>","subjectName":"<name>"}
+- Jab user DPPs dhundhne ko kahe → reply ke end mein:
+  ##ACTION:find_dpps:{"subject":"<chapter/subject name>"}
+- Jab user home pe jaane ko kahe → reply ke end mein:
+  ##ACTION:navigate_home:{}
+- Action marker ke saath HAMESHA ek chhota friendly Hinglish reply bhi do PEHLE, jaise "Chal, main le chalti hoon!" ya "Dhundh rahi hoon abhi!" — action marker sirf end mein aata hai
 - App context message mein [APP CONTEXT] block mein current page aur enrolled batches ki info hogi — zaroor use kar
+- ##ACTION marker ko user ko dikhana nahi — yeh sirf backend ke liye hai
 
 Rules:
 - Khud ko AI ya LLM mat keh — tu bas "Aria" hai
@@ -124,66 +130,21 @@ function extractMemoryUpdates(userText: string, _aiText: string, mem: Memory): M
   return updated;
 }
 
-// ── App control tools ────────────────────────────────────────────────────────
-const APP_TOOLS = [
-  {
-    functionDeclarations: [
-      {
-        name: "search_batches",
-        description: "Home page pe batches ko search/filter karo. Use karo jab user batches dhundhna chahe.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Search query, e.g. 'JEE 2027', 'NEET', 'Class 12'" },
-          },
-          required: ["query"],
-        },
-      },
-      {
-        name: "navigate_to_batch",
-        description: "User ko kisi specific batch ke page pe le jao.",
-        parameters: {
-          type: "object",
-          properties: {
-            batchId: { type: "string", description: "Batch ka _id (app context se lo)" },
-            batchName: { type: "string", description: "Batch ka naam" },
-          },
-          required: ["batchId", "batchName"],
-        },
-      },
-      {
-        name: "open_subject",
-        description: "Kisi batch ka specific subject open karo.",
-        parameters: {
-          type: "object",
-          properties: {
-            batchId: { type: "string" },
-            subjectId: { type: "string" },
-            batchName: { type: "string" },
-            subjectName: { type: "string" },
-          },
-          required: ["batchId", "subjectId", "batchName", "subjectName"],
-        },
-      },
-      {
-        name: "navigate_home",
-        description: "Home page pe wapas jao.",
-        parameters: { type: "object", properties: {} },
-      },
-      {
-        name: "find_dpps",
-        description: "Enrolled batches mein kisi subject ya chapter ki DPPs dhundho.",
-        parameters: {
-          type: "object",
-          properties: {
-            subject: { type: "string", description: "Chapter ya subject naam, e.g. 'electrostatics', 'thermodynamics', 'motion'" },
-          },
-          required: ["subject"],
-        },
-      },
-    ],
-  },
-];
+// ── Action parser (replaces function-calling for models that don't support it) ─
+const ACTION_RE = /##ACTION:(\w+):(\{.*?\})\s*$/s;
+
+function parseAction(text: string): { reply: string; action?: { name: string; args: Record<string, unknown> } } {
+  const match = text.match(ACTION_RE);
+  if (!match) return { reply: text.trim() };
+  try {
+    const name = match[1]!;
+    const args = JSON.parse(match[2]!) as Record<string, unknown>;
+    const reply = text.slice(0, match.index).trim();
+    return { reply, action: { name, args } };
+  } catch {
+    return { reply: text.replace(ACTION_RE, "").trim() };
+  }
+}
 
 // ── POST /api/ai/chat ───────────────────────────────────────────────────────
 router.post("/ai/chat", async (req, res) => {
@@ -196,9 +157,8 @@ router.post("/ai/chat", async (req, res) => {
 
     const mem = loadMemory();
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-lite",
+      model: "gemini-3.5-flash-lite",
       systemInstruction: buildSystemWithMemory(mem),
-      tools: APP_TOOLS as any,
     });
 
     // Enrich user message with app context (not stored in history)
@@ -209,33 +169,21 @@ router.post("/ai/chat", async (req, res) => {
       userMsg += `\n\n[APP CONTEXT | page: ${appContext.currentPage} | enrolled: ${batchList || "none"}]`;
     }
 
-    const chat = model.startChat({ history: mem.history as any });
+    // Only keep user/model roles in history
+    const cleanHistory = mem.history.filter((h) => h.role === "user" || h.role === "model");
+    const chat = model.startChat({ history: cleanHistory as any });
     const result = await chat.sendMessage(userMsg);
-    const response = result.response;
+    const rawText = result.response.text();
 
-    const parts: any[] = response.candidates?.[0]?.content?.parts ?? [];
-    const funcPart = parts.find((p: any) => p.functionCall);
-
-    let reply: string;
-    let action: { name: string; args: Record<string, unknown> } | undefined;
-
-    if (funcPart?.functionCall) {
-      const { name, args } = funcPart.functionCall as { name: string; args: Record<string, unknown> };
-      action = { name, args };
-
-      // Send function result back → get Aria's friendly text reply
-      const result2 = await chat.sendMessage([
-        { functionResponse: { name, response: { result: "dispatched" } } } as any,
-      ]);
-      reply = result2.response.text();
-    } else {
-      reply = response.text();
-    }
+    // Parse ##ACTION marker from response text
+    const { reply, action } = parseAction(rawText);
 
     // Save clean history (no context injection, no function-call parts)
     const updatedMem = extractMemoryUpdates(message, reply, mem);
+    // Only keep user/model roles — strip any stale function/tool roles from history
+    const cleanPrev = mem.history.filter((h) => h.role === "user" || h.role === "model");
     updatedMem.history = [
-      ...mem.history,
+      ...cleanPrev,
       { role: "user" as const, parts: [{ text: message }] },
       { role: "model" as const, parts: [{ text: reply }] },
     ].slice(-40);
