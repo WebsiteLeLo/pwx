@@ -604,52 +604,20 @@ export default function AiGirl() {
     girlState === "thinking" ? "bg-yellow-400 animate-pulse" :
     girlState === "talking"  ? "bg-green-400 animate-pulse"  : "bg-white/60";
 
-  // Compute chat panel position using real visible viewport (keyboard-aware)
-  const panelStyle = (() => {
+  const isMobile = vv.width < 640;
+
+  // Desktop panel style — positioned near the button
+  const desktopPanelStyle = (() => {
     const margin = 8;
-    const isMobile = vv.width < 640;
-
-    // On mobile: full-width panel anchored to the top of the visible area,
-    // height = entire visible area so input is always above the keyboard.
-    if (isMobile) {
-      return {
-        position: "fixed" as const,
-        top: vv.offsetTop + margin,
-        left: margin,
-        right: margin,
-        width: undefined as undefined,
-        maxHeight: vv.height - margin * 2,
-        zIndex: 49,
-      };
-    }
-
-    // Desktop: position near the button, constrained to visible viewport
     const panelW = Math.min(384, vv.width - margin * 2);
     const panelH = Math.min(600, vv.height * 0.75);
-    // Button centre relative to visible viewport
-    const btnBottom = btnPos.y + BTN_SIZE; // in page coords; vv.offsetTop accounts for scroll
+    const btnBottom = btnPos.y + BTN_SIZE;
     const spaceAbove = btnPos.y - vv.offsetTop;
     const spaceBelow = vv.offsetTop + vv.height - btnBottom;
     const openAbove = spaceAbove > spaceBelow && spaceAbove > panelH + 8;
-
-    const top = openAbove
-      ? btnPos.y - panelH - 8
-      : btnBottom + 8;
-
-    const left = Math.max(
-      margin,
-      Math.min(btnPos.x, vv.width - panelW - margin)
-    );
-
-    return {
-      position: "fixed" as const,
-      top,
-      left,
-      right: undefined as undefined,
-      width: panelW,
-      maxHeight: panelH,
-      zIndex: 49,
-    };
+    const top = openAbove ? btnPos.y - panelH - 8 : btnBottom + 8;
+    const left = Math.max(margin, Math.min(btnPos.x, vv.width - panelW - margin));
+    return { position: "fixed" as const, top, left, width: panelW, maxHeight: panelH, zIndex: 49 };
   })();
 
   return (
@@ -694,23 +662,55 @@ export default function AiGirl() {
       {/* Chat panel */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            key="aria-panel"
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="flex flex-col overflow-hidden shadow-2xl rounded-2xl"
-            style={panelStyle}
-          >
-            {/* Video header */}
-            <div className="relative flex-shrink-0 bg-violet-900">
-              <div className="relative h-36 sm:h-40 overflow-hidden">
-                <GirlVideo state={girlState} className="w-full h-full object-cover object-top" />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-violet-700/80" />
+          <>
+            {/* Mobile backdrop */}
+            {isMobile && (
+              <motion.div
+                key="aria-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40"
+                onClick={() => setOpen(false)}
+              />
+            )}
 
-                {/* Status */}
-                <div className="absolute top-2 left-3">
+            {/* Chat panel — bottom sheet on mobile, floating on desktop */}
+            <motion.div
+              key="aria-panel"
+              initial={isMobile ? { y: "100%" } : { opacity: 0, y: 24, scale: 0.97 }}
+              animate={isMobile ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+              exit={isMobile ? { y: "100%" } : { opacity: 0, y: 24, scale: 0.97 }}
+              transition={isMobile
+                ? { type: "spring", stiffness: 320, damping: 32 }
+                : { type: "spring", stiffness: 300, damping: 28 }
+              }
+              className="flex flex-col overflow-hidden shadow-2xl"
+              style={isMobile ? {
+                position: "fixed",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: `${vv.height * 0.82}px`,
+                zIndex: 50,
+                borderRadius: "20px 20px 0 0",
+              } : desktopPanelStyle}
+            >
+              {/* ── Header ── */}
+              <div className="relative flex-shrink-0 bg-violet-900 overflow-hidden"
+                style={{ height: isMobile ? 120 : 160 }}>
+
+                {/* Drag handle (mobile only) */}
+                {isMobile && (
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/30" />
+                )}
+
+                <GirlVideo state={girlState} className="absolute inset-0 w-full h-full object-cover object-top" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-violet-800/80" />
+
+                {/* Status pill */}
+                <div className="absolute top-5 left-3">
                   <span className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-xs text-white/90">
                     <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
                     {statusLabel}
@@ -718,94 +718,67 @@ export default function AiGirl() {
                 </div>
 
                 {/* Controls */}
-                <div className="absolute top-2 right-2 flex gap-1.5">
-                  <button
-                    onClick={resetMemory}
-                    title="Memory clear karo"
-                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation"
-                  >
+                <div className="absolute top-4 right-2 flex gap-1.5">
+                  <button onClick={resetMemory} title="Chat clear karo"
+                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation">
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation"
-                  >
+                  <button onClick={() => setOpen(false)}
+                    className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white transition-colors touch-manipulation">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
                 {/* Name tag */}
-                <div className="absolute bottom-2 left-3 text-white">
+                <div className="absolute bottom-2.5 left-3 text-white">
                   <p className="font-semibold text-sm leading-none">Aria ✨</p>
-                  {userName && (
-                    <p className="text-xs text-white/70 mt-0.5">Hey {userName}, kya haal hai!</p>
-                  )}
+                  {userName && <p className="text-xs text-white/70 mt-0.5">Hey {userName}!</p>}
                 </div>
               </div>
-            </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto bg-violet-50/95 backdrop-blur-md px-3 py-3 min-h-0 overscroll-contain">
-              {messages.map((msg) => (
-                <Bubble key={msg.id} msg={msg} />
-              ))}
-              {loading && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex justify-start mb-2"
-                >
-                  <div className="bg-white/90 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm flex gap-1 items-center">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s` }}
-                      />
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-              <div ref={bottomRef} />
-            </div>
+              {/* ── Messages ── */}
+              <div className="flex-1 overflow-y-auto bg-violet-50/98 px-3 py-3 min-h-0 overscroll-contain">
+                {messages.map((msg) => (
+                  <Bubble key={msg.id} msg={msg} />
+                ))}
+                {loading && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start mb-2">
+                    <div className="bg-white/90 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm flex gap-1 items-center">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce"
+                          style={{ animationDelay: `${i * 0.15}s` }} />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+                <div ref={bottomRef} />
+              </div>
 
-            {/* Input */}
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center gap-2 px-3 py-2.5 bg-white/95 backdrop-blur-md border-t border-violet-100 flex-shrink-0"
-            >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={userName ? `Bolo ${userName}, kya hua?` : "Kuch bhi poocho…"}
-                disabled={loading || listening}
-                className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
-                style={{ fontSize: "16px" }} /* prevent iOS auto-zoom on focus */
-              />
-              <button
-                type="button"
-                onClick={listening ? stopListening : startListening}
-                disabled={loading}
-                className={`p-2.5 rounded-xl transition-colors touch-manipulation flex-shrink-0 ${
-                  listening
-                    ? "bg-red-100 text-red-500 animate-pulse"
-                    : "bg-violet-100 text-violet-500 hover:bg-violet-200"
-                }`}
-                title={listening ? "Rokna hai?" : "Mic se bolo"}
-              >
-                {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="p-2.5 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors touch-manipulation flex-shrink-0"
-                title="Bhejo"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </motion.div>
+              {/* ── Input ── */}
+              <form onSubmit={handleSubmit}
+                className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-violet-100 flex-shrink-0">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={userName ? `Bolo ${userName}…` : "Kuch bhi poocho…"}
+                  disabled={loading || listening}
+                  className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-violet-400/50 disabled:opacity-60 transition"
+                  style={{ fontSize: "16px" }}
+                />
+                <button type="button" onClick={listening ? stopListening : startListening} disabled={loading}
+                  className={`p-2.5 rounded-xl transition-colors touch-manipulation flex-shrink-0 ${
+                    listening ? "bg-red-100 text-red-500 animate-pulse" : "bg-violet-100 text-violet-500 hover:bg-violet-200"
+                  }`}>
+                  {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+                <button type="submit" disabled={!input.trim() || loading}
+                  className="p-2.5 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors touch-manipulation flex-shrink-0">
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>
