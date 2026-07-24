@@ -52,6 +52,22 @@
           "text": "Arree, yeh koi puchne ki baat hai bhala? Ladkiyon ki umar aur unka secret naam kabhi nahi puchte! 😄 Par sach bolun toh main bas tumhare saath padhne aur baatein karne ke liye hamesha young hoon. Batao, aaj kya start karein? ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha tumahra naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Mera naam Aria hai! ✨ Waise tum bhool gaye kya, abhi toh bataya tha maine? 😄 Chalo batao, aaj kaunsa batch ya subject dhundhna hai?"
+        }
+      ]
     }
   ],
   "userName": "gourav"

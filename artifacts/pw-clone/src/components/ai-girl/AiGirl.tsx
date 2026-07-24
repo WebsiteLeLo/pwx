@@ -358,6 +358,21 @@ export default function AiGirl() {
     });
   }, []);
 
+  // Track visible viewport (shrinks when mobile keyboard opens)
+  const [vv, setVv] = useState(() => ({
+    width:     window.visualViewport?.width  ?? window.innerWidth,
+    height:    window.visualViewport?.height ?? window.innerHeight,
+    offsetTop: window.visualViewport?.offsetTop ?? 0,
+  }));
+  useEffect(() => {
+    const vp = window.visualViewport;
+    if (!vp) return;
+    const update = () => setVv({ width: vp.width, height: vp.height, offsetTop: vp.offsetTop });
+    vp.addEventListener("resize", update);
+    vp.addEventListener("scroll", update);
+    return () => { vp.removeEventListener("resize", update); vp.removeEventListener("scroll", update); };
+  }, []);
+
   // Re-clamp when window is resized
   useEffect(() => {
     const onResize = () => setBtnPos((p) => clampPos(p.x, p.y));
@@ -645,31 +660,48 @@ export default function AiGirl() {
     girlState === "thinking" ? "bg-yellow-400 animate-pulse" :
     girlState === "talking"  ? "bg-green-400 animate-pulse"  : "bg-white/60";
 
-  // Compute chat panel position relative to the draggable button
+  // Compute chat panel position using real visible viewport (keyboard-aware)
   const panelStyle = (() => {
     const margin = 8;
-    const panelW = Math.min(384, window.innerWidth - margin * 2); // 384 = w-96
-    const panelH = Math.min(600, window.innerHeight * 0.75);
-    const spaceBelow = window.innerHeight - (btnPos.y + BTN_SIZE);
-    const spaceAbove = btnPos.y;
-    const spaceRight = window.innerWidth - btnPos.x;
+    const isMobile = vv.width < 640;
+
+    // On mobile: full-width panel anchored to the top of the visible area,
+    // height = entire visible area so input is always above the keyboard.
+    if (isMobile) {
+      return {
+        position: "fixed" as const,
+        top: vv.offsetTop + margin,
+        left: margin,
+        right: margin,
+        width: undefined as undefined,
+        maxHeight: vv.height - margin * 2,
+        zIndex: 49,
+      };
+    }
+
+    // Desktop: position near the button, constrained to visible viewport
+    const panelW = Math.min(384, vv.width - margin * 2);
+    const panelH = Math.min(600, vv.height * 0.75);
+    // Button centre relative to visible viewport
+    const btnBottom = btnPos.y + BTN_SIZE; // in page coords; vv.offsetTop accounts for scroll
+    const spaceAbove = btnPos.y - vv.offsetTop;
+    const spaceBelow = vv.offsetTop + vv.height - btnBottom;
     const openAbove = spaceAbove > spaceBelow && spaceAbove > panelH + 8;
 
-    // Vertical: prefer above if more room, else below
     const top = openAbove
       ? btnPos.y - panelH - 8
-      : btnPos.y + BTN_SIZE + 8;
+      : btnBottom + 8;
 
-    // Horizontal: align left edge with button, but clamp to screen
     const left = Math.max(
       margin,
-      Math.min(btnPos.x, window.innerWidth - panelW - margin)
+      Math.min(btnPos.x, vv.width - panelW - margin)
     );
 
     return {
       position: "fixed" as const,
       top,
       left,
+      right: undefined as undefined,
       width: panelW,
       maxHeight: panelH,
       zIndex: 49,
