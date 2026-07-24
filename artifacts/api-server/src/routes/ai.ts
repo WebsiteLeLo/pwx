@@ -2,7 +2,12 @@ import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 const router = Router();
+const execFileAsync = promisify(execFile);
 // process.cwd() = artifacts/api-server when the server starts, so this is reliable
 const MEMORY_FILE = path.join(process.cwd(), "ai-memory.json");
 
@@ -269,15 +274,6 @@ function isEnglishTtsWord(word: string): boolean {
   return ENGLISH_TTS_WORDS.has(lower) || /^[A-Z]{2,}$/.test(word);
 }
 
-function escapeSsml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
 function splitTtsRuns(text: string): { voice: string; text: string }[] {
   const tokens = text.match(/[\u0900-\u097F]+|[A-Za-z]+(?:'[A-Za-z]+)?|\s+|[^A-Za-z\u0900-\u097F\s]+/g) ?? [text];
   const runs: { voice: string; text: string }[] = [];
@@ -298,9 +294,7 @@ async function synthesiseWithEdgeTTS(text: string): Promise<Buffer> {
   const audioParts: Buffer[] = [];
 
   // The Edge Read Aloud service rejects multiple <voice> blocks in one SSML
-  // request. Synthesize each language run with its correct Indian voice and
-  // concatenate the resulting MP3 frames; browsers play the combined stream
-  // as one continuous response.
+  // request. Synthesize each language run with its correct Indian voice.
   for (const { voice, text: chunk } of runs) {
     const tts = new MsEdgeTTS();
     try {
@@ -318,7 +312,62 @@ async function synthesiseWithEdgeTTS(text: string): Promise<Buffer> {
     }
   }
 
-  return Buffer.concat(audioParts);
+  // Each Edge response includes a small silence/padding at its boundaries.
+  // Trim only the beginning and end of each run before joining them; trimming
+  // the final file would also remove intentional pauses inside a sentence.
+  const workDir = await mkdtemp(path.join(tmpdir(), "aria-tts-"));
+  try {
+    const ffmpeg = process.env["FFMPEG_PATH"] ?? "ffmpeg";
+    const trimmedPaths: string[] = [];
+    for (const [index, part] of audioParts.entries()) {
+      const inputPath = path.join(workDir, `part-${index}.mp3`);
+      const outputPath = path.join(workDir, `trimmed-${index}.mp3`);
+      await writeFile(inputPath, part);
+      await execFileAsync(ffmpeg, [
+        "-y",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", inputPath,
+        "-af",
+        // Trim leading padding, reverse, trim the former trailing padding,
+        // then reverse back. Using stop_periods here would stop at the first
+        // natural pause inside a phrase and truncate the rest of the audio.
+        "silenceremove=start_periods=1:start_duration=0.04:start_threshold=-42dB,areverse,silenceremove=start_periods=1:start_duration=0.04:start_threshold=-42dB,areverse",
+        "-ar", "24000",
+        "-ac", "1",
+        "-c:a", "libmp3lame",
+        "-b:a", "96k",
+        outputPath,
+      ]);
+      trimmedPaths.push(outputPath);
+    }
+
+    const concatPath = path.join(workDir, "concat.txt");
+    const concatManifest = trimmedPaths.map((filePath) => `file '${filePath}'`).join("\n");
+    await writeFile(concatPath, `${concatManifest}\n`);
+    const finalPath = path.join(workDir, "final.mp3");
+    await execFileAsync(ffmpeg, [
+      "-y",
+      "-hide_banner",
+      "-loglevel", "error",
+      "-f", "concat",
+      "-safe", "0",
+      "-i", concatPath,
+      "-ar", "24000",
+      "-ac", "1",
+      "-c:a", "libmp3lame",
+      "-b:a", "96k",
+      finalPath,
+    ]);
+    return await readFile(finalPath);
+  } catch (error) {
+    // TTS should remain available even if ffmpeg is unavailable in a
+    // different deployment environment.
+    console.error("TTS boundary trim unavailable; using untrimmed segments:", error);
+    return Buffer.concat(audioParts);
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 // ── POST /api/ai/tts — mixed Hindi/English Edge TTS ──────────────────────────

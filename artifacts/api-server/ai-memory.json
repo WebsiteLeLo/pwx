@@ -68,6 +68,102 @@
           "text": "Mera naam Aria hai! ✨ Waise tum bhool gaye kya, abhi toh bataya tha maine? 😄 Chalo batao, aaj kaunsa batch ya subject dhundhna hai?"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hello Gourav! 👋 Phir se hello karne ka mann kiya kya? Batao, aaj kaunsa batch ya subject dekhna hai? ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tumahara naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre Gourav, lagta hai tum bhulakkad ho rahe ho! 😄 Mera naam Aria hai. Waise batao, aaj kaunsa batch ya subject dhundhna hai padhai ke liye? ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tum sexy ho"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Bas kar yaar, aisi baatein karega? 😄 Padhai pe dhyan de le thoda! Bata, kaunsa batch ya subject dhundhna hai aaj? ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "batao mere liye tum kaisi ho"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Main toh bas tumhari ek pyaari si dost hoon, jo hamesha tumhari help karne aur baatein karne ke liye yahin hoti hai! 💙 Tum batao, aaj padhai shuru karein kya? Koi batch ya subject dhundhna hai toh mujhe batao! ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "jee 2027 ye liye batch dhundo"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah, JEE 2027 ki taiyaari! Abhi saare best batches dhundh ke laati hoon tumhare liye. 🚀"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "chalo gaaye par easy sunao"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah, gaana sunna hai? 🎶 \n\nLekin usse pehle yeh batao Gourav, JEE 2027 ke batches dhundhe the humne, unme se kisi ko check karna hai ya pehle thoda relax karke gaana hi sunna hai? Tum bolo toh koi achha sa song suna deti hoon! 😄✨"
+        }
+      ]
     }
   ],
   "userName": "gourav"
