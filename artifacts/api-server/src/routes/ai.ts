@@ -216,7 +216,7 @@ async function synthesiseWithEdgeTTS(text: string): Promise<Buffer> {
   const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
   const tts = new MsEdgeTTS();
   await tts.setMetadata(EDGE_TTS_VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
-  const { audioStream } = tts.toStream(text);
+  const { audioStream } = tts.toStream(text, { rate: "+25%" });
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
