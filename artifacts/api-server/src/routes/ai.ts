@@ -152,9 +152,10 @@ function parseAction(text: string): { reply: string; action?: { name: string; ar
 // ── POST /api/ai/chat ───────────────────────────────────────────────────────
 router.post("/ai/chat", async (req, res) => {
   try {
-    const { message, appContext } = req.body as {
+    const { message, appContext, screenshot } = req.body as {
       message?: string;
       appContext?: { currentPage: string; enrolledBatches: { _id: string; name: string }[] };
+      screenshot?: string; // base64 JPEG from screen share
     };
     if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
 
@@ -175,7 +176,16 @@ router.post("/ai/chat", async (req, res) => {
     // Only keep user/model roles in history
     const cleanHistory = mem.history.filter((h) => h.role === "user" || h.role === "model");
     const chat = model.startChat({ history: cleanHistory as any });
-    const result = await chat.sendMessage(userMsg);
+
+    // Build message parts — include screenshot if screen share is active
+    const msgParts: any[] = [];
+    if (screenshot) {
+      msgParts.push({ inlineData: { mimeType: "image/jpeg", data: screenshot } });
+      userMsg += "\n[SCREEN SHARE ACTIVE — upar diya image user ki screen ka screenshot hai. Isse dekh ke respond karo agar relevant ho.]";
+    }
+    msgParts.push({ text: userMsg });
+
+    const result = await chat.sendMessage(msgParts);
     const rawText = result.response.text();
 
     // Parse ##ACTION marker from response text

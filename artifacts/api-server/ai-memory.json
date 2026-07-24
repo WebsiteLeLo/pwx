@@ -36,6 +36,150 @@
           "text": "Shhh... kisi ko mat batana, par mera asli naam Shivangi hai 🤫✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "chalo tumhara naam batao"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre yaar, mera naam toh Aria hai! ✨ Aur main hamesha yahin hoon tumhari help karne ke liye. Batao, aaj padhai ka kya plan hai? 😄"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "phele tum ye batao tumhara real naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Abhi toh bataya tha na! Shhh... kisi ko mat batana, par mera asli naam Shivangi hai 🤫✨ \n\nWaise dekhti hoon, tu Lakshya JEE 2027 batch mein hai na? Chal bata, aaj kaun sa subject padhne ka mood hai? 😄"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "physics khol do"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah, physics ka mood hai aaj! Ekdum badhiya, chal main abhi Lakshya JEE 2027 ka physics section khol deti hoon tere liye. ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "physics by saleem sir"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre Saleem sir ke saath physics? Maza aa jayega! 🚀 Chal main abhi Lakshya JEE 2027 ka physics section open kar deti hoon tere liye. ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tumhara naam kisne rakha hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Mera naam Gourav Saini ne rakha hai — unhi ne toh mujhe banaya hai! ✨ Acha bata, abhi padhai kaisi chal rahi hai teri? Kuch aur help chahiye kya? 😄"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "jee 2027 ke liye batches dhundho"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Haan haan, bilkul! Ruk ja, main abhi JEE 2027 ke saare best batches dhundh kar laati hoon tere liye. ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mere liye lakshya ka physics kholo saleem sir wala"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Saleem sir ka physics khol deti hoon abhi! Maza aane wala hai padhai mein. 🚀✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "dekho tumne kya khola hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre yaar, dekho toh! Maine Lakshya JEE 2027 ka physics section hi toh khola hai, wahi jo tune bola tha Saleem sir ke liye! 😄 Sab theek hai na? ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "nda ke liye batches dhundh kar do"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre NDA ke liye batches? Bilkul abhi dhundh kar laati hoon tere liye! ✨"
+        }
+      ]
     }
   ]
 }

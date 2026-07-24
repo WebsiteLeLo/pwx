@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { LoadingBar } from "@/components/loading-bar";
 import DevToolsBlocked from "@/pages/devtools-blocked";
+import { NotificationBanner } from "@/components/notification-banner";
+import { MaintenanceGate } from "@/components/maintenance-gate";
 
 // Pages
 import Home from "@/pages/home";
@@ -21,6 +23,7 @@ import DppQuiz from "@/pages/dpp-quiz";
 import BatchCalendar from "@/pages/batch-calendar";
 import NotFound from "@/pages/not-found";
 import AiGirl from "@/components/ai-girl/AiGirl";
+import AdminPanel from "@/pages/admin";
 
 const queryClient = new QueryClient({
   defaultOptions: {

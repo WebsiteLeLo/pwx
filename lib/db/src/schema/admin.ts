@@ -1,0 +1,29 @@
+import { pgTable, text, serial, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+// Notifications sent by admin to all users
+export const notificationsTable = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("info"), // info | warning | success | error
+  active: boolean("active").notNull().default(true),
+  link: text("link"),
+  linkLabel: text("link_label"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+});
+
+export const insertNotificationSchema = createInsertSchema(notificationsTable).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notificationsTable.$inferSelect;
+
+// Site-wide settings (key-value store)
+export const siteSettingsTable = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type SiteSetting = typeof siteSettingsTable.$inferSelect;
