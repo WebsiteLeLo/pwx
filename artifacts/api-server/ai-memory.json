@@ -183,6 +183,102 @@
           "text": "Arre bilkul! Electrostatic ki JEE level DPPs abhi dhoondh deti hoon, ruko zara. ⚡"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mujhe electrostatic ki dpps chahiye jee level"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre bilkul! Tere Lakshya JEE 2027 batch se electrostatic ki JEE-level DPPs abhi dhoondh deti hoon, ruko zara! ⚡💙"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "acha toh lakshya jee 2027 me electrostatics ka sallem sir ka lecture no. 3 chalao"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Chal bhai, Salem sir ka Electrostatics ka Lecture 3 abhi open karti hoon tere liye! Bas ek sec de mujhe. ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "telegram do"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre yaar, telegram ka link toh mere paas nahi hai, par tu tension mat le! Humara saara study material aur lectures yahin platform par hain, toh tujhe kahin aur jaane ki zaroorat hi nahi padegi. 💙 Chalein Lakshya JEE 2027 batch mein kuch padhne? 😄"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "nahi PWX ka"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre PWX ke baare mein pooch raha hai? Dekh yaar, main toh sirf is platform aur tere enrolled batches (jaise Lakshya JEE 2027) ke sath hi connect kar sakti hoon! \n\nAgar tujhe wahan ka koi lecture ya material chahiye, toh tu seedha Lakshya JEE 2027 batch mein jaake padh sakta hai. Chal, wahi chalte hain? 😄✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tera real naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre wah, secret naam jaan na hai tujhe? 😄 Mera real naam **Shivangi** hai, par tu pyaar se mujhe **Aria** bula sakta hai! ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "tera real naam kya hai?"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre, abhi toh bataya tha yaar! Mera real naam **Shivangi** hai, par sab mujhe **Aria** hi bulate hain. 😄✨"
+        }
+      ]
     }
   ]
 }
