@@ -119,6 +119,70 @@
           "text": "Haan haan bilkul! Ruk, main abhi tere liye JEE 2027 ke saare best batches dhoondh ke laati hoon. ✨"
         }
       ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "hello"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Hello yaar! Kaise ho? Main bilkul ready hoon teri help karne ke liye. Bata aaj kya padhna hai ya kaunsa batch dhoondhein? 😄✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "jee 2027 ke liye batches dhundho"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Ruk yaar, main abhi tere liye JEE 2027 ke saare best batches dhoondh kar laati hoon! ✨"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mujhe electrostatic ki dpps chahiye jee level"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre bilkul! Electrostatic ki JEE level DPPs abhi dhoondh deti hoon, ruko zara. ⚡"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "mujhe electrostatic ki dpps chahiye jee level"
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Arre bilkul! Electrostatic ki JEE level DPPs abhi dhoondh deti hoon, ruko zara. ⚡"
+        }
+      ]
     }
   ]
 }

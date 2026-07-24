@@ -147,6 +147,31 @@ function GirlVideo({ state, className }: { state: GirlState; className: string }
 }
 
 // ── DPP search across enrolled batches ───────────────────────────────────────
+/** Fetch all pages of topics for a subject (up to maxPages). */
+async function fetchAllTopics(batchId: string, subId: string, maxPages = 8): Promise<any[]> {
+  const all: any[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    try {
+      const json = await fetch(
+        `${PW_API}/v2/batches/${batchId}/subject/${subId}/topics?page=${page}`
+      ).then((r) => r.json());
+      // API returns { data: Topic[] } — data is the array directly
+      const page_topics: any[] = Array.isArray(json.data) ? json.data : [];
+      if (page_topics.length === 0) break;
+      all.push(...page_topics);
+      if (page_topics.length < 10) break; // last page
+    } catch { break; }
+  }
+  return all;
+}
+
+/** Fuzzy match: every word in query must appear in target. */
+function topicMatches(topicName: string, query: string): boolean {
+  const t = topicName.toLowerCase();
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every((w) => t.includes(w));
+}
+
 async function executeFindDpps(subject: string): Promise<DppResult[]> {
   const raw = localStorage.getItem("pwx_enrolled_batches");
   const enrolled: { _id: string; name: string }[] = raw ? JSON.parse(raw) : [];
@@ -157,14 +182,12 @@ async function executeFindDpps(subject: string): Promise<DppResult[]> {
     try {
       const detJson = await fetch(`${PW_API}/v3/batches/${batch._id}/details`).then((r) => r.json());
       const subjects: any[] = detJson.data?.subjects ?? [];
-      for (const sub of subjects.slice(0, 10)) {
+      for (const sub of subjects) {
         try {
-          const topJson = await fetch(
-            `${PW_API}/v2/batches/${batch._id}/subject/${sub._id}/topics?page=1`
-          ).then((r) => r.json());
-          const topics: any[] = topJson.data?.topics ?? [];
+          const topics = await fetchAllTopics(batch._id, sub._id);
           for (const topic of topics) {
-            if (topic.name?.toLowerCase().includes(subject.toLowerCase()) && topic.exercises > 0) {
+            const hasDpp = (topic.exercises ?? 0) > 0 || (topic.notes ?? 0) > 0;
+            if (hasDpp && topicMatches(topic.name ?? "", subject)) {
               results.push({
                 batchId: batch._id,
                 batchName: batch.name,
@@ -172,7 +195,7 @@ async function executeFindDpps(subject: string): Promise<DppResult[]> {
                 subjectName: sub.subject,
                 topicId: topic._id,
                 topicName: topic.name,
-                dppCount: topic.exercises,
+                dppCount: topic.exercises ?? topic.notes ?? 1,
               });
             }
           }
