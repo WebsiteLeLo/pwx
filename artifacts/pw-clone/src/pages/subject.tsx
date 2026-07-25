@@ -401,7 +401,7 @@ export default function Subject() {
                       className={`mr-3 p-1.5 rounded-lg border transition-all ${
                         pinned
                           ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                          : "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-muted opacity-0 group-hover:opacity-100"
+                          : "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                       }`}
                     >
                       <AnimatePresence mode="wait" initial={false}>

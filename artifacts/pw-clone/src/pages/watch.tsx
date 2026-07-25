@@ -88,8 +88,8 @@ export default function Watch() {
           border: "1px solid rgba(255,255,255,0.15)",
           borderRadius: 8,
           color: "#fff",
-          padding: "6px 12px",
-          fontSize: 13,
+          padding: "10px 16px",
+          fontSize: 14,
           fontWeight: 500,
           cursor: "pointer",
           backdropFilter: "blur(6px)",
@@ -143,8 +143,8 @@ export default function Watch() {
                   transition={{ duration: 3 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.8 }}
                   style={{
                     position: "absolute",
-                    width: size,
-                    height: size,
+                    width: `min(${size}px, 85vw)`,
+                    height: `min(${size}px, 85vw)`,
                     borderRadius: "50%",
                     border: `1px solid ${ringColor}`,
                     pointerEvents: "none",

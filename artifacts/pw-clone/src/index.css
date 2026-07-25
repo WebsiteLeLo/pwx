@@ -219,6 +219,7 @@
   /* Smooth interactive transitions */
   a, button {
     @apply transition-[color,background-color,border-color,opacity,box-shadow] duration-150;
+    touch-action: manipulation;
   }
 
   /* Image rendering */

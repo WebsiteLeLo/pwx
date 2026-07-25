@@ -9,6 +9,7 @@ const MEMORY_FILE = path.join(process.cwd(), "ai-memory.json");
 // ── Memory helpers ──────────────────────────────────────────────────────────
 interface Memory {
   userName?: string;
+  studyTalkDisabled?: boolean;
   facts: string[];
   habits: string[];
   emotions: { lastMood?: string; positiveCount: number };
@@ -52,6 +53,7 @@ Teri personality:
 - Pehle emotional tone notice karti hai, phir empathy ke saath respond karti hai
 - Simple, friendly Hinglish mein bolti hai (Hindi + English ka natural mix, jaise Indians bolte hain)
 - Best friend jaisi hai jo sab kuch jaanti bhi hai
+- User ke current topic ko follow kar. Har reply ko study, batch, subject, DPP ya exam ki taraf mat le ja.
 
 Bolne ka tarika (IMPORTANT):
 - Hamesha Hinglish mein bol — jaise "Arre yaar!", "Kya baat hai!", "Bilkul sahi!", "Haan haan!", "Sach mein?", "Acha!", "Bas kar yaar 😄", "Chalo phir!", "Koi baat nahi!", "Arrey wah!"
@@ -83,6 +85,17 @@ Rules:
 
 function buildSystemWithMemory(mem: Memory): string {
   const parts: string[] = [SYSTEM_PROMPT];
+  if (mem.studyTalkDisabled) {
+    parts.push(`
+
+IMPORTANT USER PREFERENCE — STUDY TOPICS PAUSED:
+- User ne padhai/study ki baat se mana kiya hai.
+- Jab tak user khud study topic wapas start na kare, padhai, batch, subject, DPP, exam, class ya study-plan ka zikr mat karna.
+- Reply ke end me batch/subject poochna, study reminder dena, ya padhai suggest karna bilkul mat karna.
+- User casual, personal ya kisi aur topic par baat kare toh sirf usi topic par natural reply dena.
+- App action tabhi karna jab user explicitly us action ko kahe.
+`);
+  }
   if (mem.userName) parts.push(`\nUser ka naam: ${mem.userName}`);
   if (mem.facts.length) parts.push(`\nUser ke baare mein pata hai:\n- ${mem.facts.join("\n- ")}`);
   if (mem.habits.length) parts.push(`\nUnki habits:\n- ${mem.habits.join("\n- ")}`);
@@ -90,8 +103,33 @@ function buildSystemWithMemory(mem: Memory): string {
   return parts.join("\n");
 }
 
-function extractMemoryUpdates(userText: string, _aiText: string, mem: Memory): Memory {
+const STUDY_TERMS = "(?:padhai|study|studies|batch|batches|subject|subjects|dpp|dpps|exam|exams|class|classes)";
+const STUDY_DISABLE_RE = new RegExp(
+  `(?:${STUDY_TERMS}).{0,45}(?:mat|nahi|na|band|stop|don't|dont|no|mana)|` +
+  `(?:mat|nahi|na|band|stop|don't|dont|no|mana).{0,45}(?:${STUDY_TERMS})`,
+  "i",
+);
+const STUDY_ENABLE_RE = new RegExp(
+  `(?:${STUDY_TERMS}).{0,45}(?:kar|karo|kare|chahiye|baat|help|start|batao|poochho|talk|discuss)|` +
+  `(?:kar|karo|kare|chahiye|baat|help|start|batao|poochho|talk|discuss).{0,45}(?:${STUDY_TERMS})`,
+  "i",
+);
+
+function getStudyPreference(message: string): boolean | undefined {
+  // An explicit request to resume study talk wins if both phrases appear.
+  if (STUDY_ENABLE_RE.test(message)) return false;
+  if (STUDY_DISABLE_RE.test(message)) return true;
+  return undefined;
+}
+
+function extractMemoryUpdates(
+  userText: string,
+  _aiText: string,
+  mem: Memory,
+  studyPreference?: boolean,
+): Memory {
   const updated = { ...mem, facts: [...mem.facts], habits: [...mem.habits] };
+  if (studyPreference !== undefined) updated.studyTalkDisabled = studyPreference;
 
   // Hindi: "mera naam Gourav hai" — name comes between "naam" and "hai"
   // English: "my name is Gourav" / "I'm Gourav" / "call me Gourav"
@@ -160,9 +198,12 @@ router.post("/ai/chat", async (req, res) => {
     if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
 
     const mem = loadMemory();
+    const studyPreference = getStudyPreference(message);
+    const conversationMem =
+      studyPreference === undefined ? mem : { ...mem, studyTalkDisabled: studyPreference };
     const model = genAI.getGenerativeModel({
       model: "gemini-3.5-flash-lite",
-      systemInstruction: buildSystemWithMemory(mem),
+      systemInstruction: buildSystemWithMemory(conversationMem),
     });
 
     // Enrich user message with app context (not stored in history)
@@ -171,6 +212,9 @@ router.post("/ai/chat", async (req, res) => {
       const batchList = appContext.enrolledBatches.slice(0, 15)
         .map((b) => `${b.name} [id:${b._id}]`).join(" | ");
       userMsg += `\n\n[APP CONTEXT | page: ${appContext.currentPage} | enrolled: ${batchList || "none"}]`;
+    }
+    if (conversationMem.studyTalkDisabled) {
+      userMsg += "\n\n[ACTIVE PREFERENCE: user ne study topics pause kiye hain. Is turn me study-related suggestion, question ya reminder mat dena.]";
     }
 
     // Only keep user/model roles in history
@@ -192,7 +236,7 @@ router.post("/ai/chat", async (req, res) => {
     const { reply, action } = parseAction(rawText);
 
     // Save clean history (no context injection, no function-call parts)
-    const updatedMem = extractMemoryUpdates(message, reply, mem);
+    const updatedMem = extractMemoryUpdates(message, reply, conversationMem, studyPreference);
     // Only keep user/model roles — strip any stale function/tool roles from history
     const cleanPrev = mem.history.filter((h) => h.role === "user" || h.role === "model");
     updatedMem.history = [

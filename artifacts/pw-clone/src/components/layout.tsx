@@ -33,19 +33,19 @@ function BottomNav() {
 
   return (
     <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border/50 bg-background" style={{ transform: "translateZ(0)", willChange: "transform" }}>
-      <div className="flex items-stretch h-16">
+      <div className="flex items-stretch" style={{ height: "calc(56px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}>
         {NAV_ITEMS.map(({ href, label, Icon }) => {
           const active = href === "/" ? location === "/" : location.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation ${
+                active ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <span className={`flex items-center justify-center w-6 h-6 rounded-lg transition-colors ${active ? "bg-primary/15" : ""}`}>
-                <Icon className="w-4 h-4" />
+              <span className={`flex items-center justify-center w-10 h-10 rounded-xl transition-colors ${active ? "bg-primary/15" : ""}`}>
+                <Icon className="w-5 h-5" />
               </span>
               {label}
             </Link>

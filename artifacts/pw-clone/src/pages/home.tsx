@@ -172,9 +172,9 @@ function PinnedChaptersSection() {
             <button
               onClick={() => unpin(chapter.topicId)}
               title="Unpin chapter"
-              className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-all"
+              className="absolute top-2 right-2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 touch-manipulation"
             >
-              <PinOff className="w-3.5 h-3.5" />
+              <PinOff className="w-4 h-4" />
             </button>
           </motion.div>
         ))}
@@ -205,7 +205,7 @@ function ShareStrip() {
         target="_blank"
         rel="noopener noreferrer"
         title="Share on WhatsApp"
-        className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+        className="p-2.5 rounded-lg hover:bg-secondary transition-colors touch-manipulation"
         style={{ color: "#25D366" }}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -217,7 +217,7 @@ function ShareStrip() {
         target="_blank"
         rel="noopener noreferrer"
         title="Share on Telegram"
-        className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+        className="p-2.5 rounded-lg hover:bg-secondary transition-colors touch-manipulation"
         style={{ color: "#29a7e0" }}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -227,7 +227,7 @@ function ShareStrip() {
       <button
         onClick={handleCopy}
         title="Copy link"
-        className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+        className="p-2.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground touch-manipulation"
       >
         {copied
           ? <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -315,10 +315,10 @@ function ContinueWatchingSection({
               </Link>
               <button
                 onClick={() => onRemove(item.scheduleId)}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+                className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-black/90 touch-manipulation"
                 title="Remove from history"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </motion.div>
           );
