@@ -87,8 +87,8 @@ function Router() {
               </Switch>
             </motion.div>
           </AnimatePresence>
-          {/* Aria available on all pages */}
-          <AiGirl />
+          {/* Aria — video player pages pe nahi dikhni */}
+          {location !== "/watch" && location !== "/schedule-watch" && <AiGirl />}
         </MaintenanceGate>
       )}
     </>
