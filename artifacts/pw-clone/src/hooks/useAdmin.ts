@@ -34,8 +34,9 @@ export function usePublicNotifications() {
       if (!r.ok) return [];
       return r.json();
     },
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
+    staleTime: 0,
+    refetchInterval: 1000 * 10,
+    refetchOnMount: true,
   });
 }
 
@@ -47,8 +48,9 @@ export function useMaintenanceMode() {
       if (!r.ok) return null;
       return r.json();
     },
-    staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60,
+    staleTime: 0,
+    refetchInterval: 1000 * 15,
+    refetchOnMount: true,
   });
 }
 
