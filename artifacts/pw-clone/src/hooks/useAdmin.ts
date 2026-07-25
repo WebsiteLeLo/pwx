@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiUrl } from "@/lib/apiUrl";
 
-const API = "/api";
+const api = (path: string) => apiUrl(path);
 
 export function useAdminAuth() {
   return {
@@ -29,7 +30,7 @@ export function usePublicNotifications() {
   return useQuery({
     queryKey: ["public-notifications"],
     queryFn: async () => {
-      const r = await fetch(`${API}/notifications`);
+      const r = await fetch(api("/notifications"));
       if (!r.ok) return [];
       return r.json();
     },
@@ -42,7 +43,7 @@ export function useMaintenanceMode() {
   return useQuery({
     queryKey: ["settings", "maintenance"],
     queryFn: async () => {
-      const r = await fetch(`${API}/settings/maintenance`);
+      const r = await fetch(api("/settings/maintenance"));
       if (!r.ok) return null;
       return r.json();
     },
@@ -57,7 +58,7 @@ export function useAdminNotifications() {
   return useQuery({
     queryKey: ["admin-notifications"],
     queryFn: async () => {
-      const r = await fetch(withKey(`${API}/admin/notifications`), { headers: adminHeaders() });
+      const r = await fetch(withKey(api("/admin/notifications")), { headers: adminHeaders() });
       if (!r.ok) throw new Error("Unauthorized");
       return r.json();
     },
@@ -68,7 +69,7 @@ export function useCreateNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      const r = await fetch(withKey(`${API}/admin/notifications`), {
+      const r = await fetch(withKey(api("/admin/notifications")), {
         method: "POST",
         headers: adminHeaders(),
         body: JSON.stringify(data),
@@ -84,7 +85,7 @@ export function useToggleNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      const r = await fetch(withKey(`${API}/admin/notifications/${id}`), {
+      const r = await fetch(withKey(api(`/admin/notifications/${id}`)), {
         method: "PATCH",
         headers: adminHeaders(),
         body: JSON.stringify({ active }),
@@ -100,7 +101,7 @@ export function useDeleteNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(withKey(`${API}/admin/notifications/${id}`), {
+      const r = await fetch(withKey(api(`/admin/notifications/${id}`)), {
         method: "DELETE",
         headers: adminHeaders(),
       });
@@ -115,7 +116,7 @@ export function useAdminSettings() {
   return useQuery({
     queryKey: ["admin-settings"],
     queryFn: async () => {
-      const r = await fetch(withKey(`${API}/admin/settings`), { headers: adminHeaders() });
+      const r = await fetch(withKey(api("/admin/settings")), { headers: adminHeaders() });
       if (!r.ok) throw new Error("Unauthorized");
       return r.json();
     },
@@ -126,7 +127,7 @@ export function useUpdateSetting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
-      const r = await fetch(withKey(`${API}/admin/settings/${key}`), {
+      const r = await fetch(withKey(api(`/admin/settings/${key}`)), {
         method: "PUT",
         headers: adminHeaders(),
         body: JSON.stringify({ value }),
@@ -143,7 +144,7 @@ export function useUpdateSetting() {
 
 export async function verifyAdminKey(key: string): Promise<boolean> {
   try {
-    const r = await fetch(`${API}/admin/auth`, {
+    const r = await fetch(api("/admin/auth"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),
