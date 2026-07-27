@@ -48,7 +48,17 @@ The Vite dev server proxies `/api` → `http://localhost:8080`.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `DATABASE_URL` | Only for DB migrations | PostgreSQL connection string for Drizzle |
+| `DATABASE_URL` | Auto-injected by Replit | PostgreSQL connection string (runtime-managed) |
+| `GOOGLE_AI_API_KEY` | Optional | Enables AI companion (Aria) features |
+| `DRIVE_API_KEY` | Optional | Google Drive API key for proxy routes |
+| `ADMIN_KEY` | Optional | Admin panel secret (defaults to `admin-secret-2024`) |
+
+## Setup notes
+
+- Run `pnpm install` at workspace root to install all dependencies
+- Run `pnpm --filter @workspace/db exec drizzle-kit push` to push DB schema
+- The Vite dev server proxies `/api` → `http://localhost:8080`
+- Build scripts for `msedge-tts`, `onnxruntime-node`, `protobufjs`, `sharp`, `workerd` must be approved via `pnpm approve-builds` after fresh installs
 
 ## User preferences
 
