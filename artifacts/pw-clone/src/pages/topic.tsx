@@ -5,7 +5,7 @@ import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
 
 type TabKey = ContentType;
@@ -331,6 +331,19 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     <Calendar className="w-3 h-3 flex-shrink-0" />
                     {dateStr}
                   </div>
+                )}
+                {vid?._id && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(`https://t.me/AS_MultiverseRoBot?start=${batchId}_${vid._id}`, "_blank", "noopener,noreferrer");
+                    }}
+                    className="mt-1 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </button>
                 )}
               </div>
             </motion.div>
