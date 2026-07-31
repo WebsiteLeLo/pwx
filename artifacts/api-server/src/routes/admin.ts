@@ -56,7 +56,7 @@ router.get("/admin/notifications", adminAuth, async (_req, res) => {
 router.post("/admin/notifications", adminAuth, async (req, res) => {
   try {
     const { title, message, type = "info", link, linkLabel, expiresAt } = req.body;
-    if (!title || !message) return res.status(400).json({ error: "title and message required" });
+    if (!title || !message) { res.status(400).json({ error: "title and message required" }); return; }
     const [row] = await db
       .insert(notificationsTable)
       .values({

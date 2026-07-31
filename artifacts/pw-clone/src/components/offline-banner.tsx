@@ -17,6 +17,7 @@ export function OfflineBanner() {
       return () => clearTimeout(t);
     }
     setPrevOffline(isOffline);
+    return;
   }, [isOffline]);
 
   const visible = isOffline || showOnline;

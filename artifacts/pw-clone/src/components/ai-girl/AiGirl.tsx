@@ -330,7 +330,7 @@ export default function AiGirl() {
   );
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null);
 
   // ── Draggable position ──────────────────────────────────────────────────────
   const [btnPos, setBtnPos] = useState<{ x: number; y: number }>(loadBtnPos);
@@ -570,7 +570,7 @@ export default function AiGirl() {
     rec.lang = "hi-IN";
     rec.interimResults = false;
     rec.onstart = () => setListening(true);
-    rec.onresult = (e) => {
+    rec.onresult = (e: any) => {
       const transcript = e.results[0][0].transcript;
       setListening(false);
       sendMessage(transcript);
@@ -787,7 +787,9 @@ export default function AiGirl() {
 
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    SpeechRecognition: new (...args: any[]) => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    webkitSpeechRecognition: new (...args: any[]) => any;
   }
 }

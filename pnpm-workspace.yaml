@@ -39,8 +39,13 @@ minimumReleaseAgeExclude:
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+  - msedge-tts
   - msw
+  - onnxruntime-node
+  - protobufjs
+  - sharp
   - unrs-resolver
+  - workerd
 
 overrides:
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0

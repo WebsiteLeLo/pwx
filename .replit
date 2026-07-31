@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "php-8.2"]
+modules = ["nodejs-20", "web", "php-8.2", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -28,13 +28,13 @@ args = "artifacts/api-server: API Server"
 name = "artifacts/pw-clone: web"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/pw-clone run dev"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "artifacts/api-server: API Server"

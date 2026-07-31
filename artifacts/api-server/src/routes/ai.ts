@@ -239,11 +239,11 @@ router.post("/ai/chat", async (req, res) => {
     const updatedMem = extractMemoryUpdates(message, reply, conversationMem, studyPreference);
     // Only keep user/model roles — strip any stale function/tool roles from history
     const cleanPrev = mem.history.filter((h) => h.role === "user" || h.role === "model");
-    updatedMem.history = [
+    updatedMem.history = ([
       ...cleanPrev,
       { role: "user" as const, parts: [{ text: message }] },
       { role: "model" as const, parts: [{ text: reply }] },
-    ].slice(-40);
+    ] as typeof updatedMem.history).slice(-40);
     saveMemory(updatedMem);
 
     res.json({ reply, action, memory: { userName: updatedMem.userName } });

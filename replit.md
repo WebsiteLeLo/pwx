@@ -39,7 +39,7 @@ Two workflows run the app:
 
 | Workflow | Command | Port |
 |---|---|---|
-| `artifacts/pw-clone: web` | `pnpm --filter @workspace/pw-clone run dev` | 20318 |
+| `artifacts/pw-clone: web` | `pnpm --filter @workspace/pw-clone run dev` | 5000 |
 | `artifacts/api-server: API Server` | `pnpm --filter @workspace/api-server run dev` | 8080 |
 
 The Vite dev server proxies `/api` → `http://localhost:8080`.
