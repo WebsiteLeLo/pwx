@@ -34,8 +34,8 @@ export function usePublicNotifications() {
       if (!r.ok) return [];
       return r.json();
     },
-    staleTime: 0,
-    refetchInterval: 1000 * 10,
+    staleTime: 1000 * 60 * 2,      // 2 min fresh — no refetch needed within this window
+    refetchInterval: 1000 * 60 * 2, // poll every 2 minutes (was every 10 sec)
     refetchOnMount: true,
   });
 }
@@ -48,8 +48,8 @@ export function useMaintenanceMode() {
       if (!r.ok) return null;
       return r.json();
     },
-    staleTime: 0,
-    refetchInterval: 1000 * 15,
+    staleTime: 1000 * 60 * 5,      // 5 min fresh
+    refetchInterval: 1000 * 60 * 5, // poll every 5 minutes (was every 15 sec)
     refetchOnMount: true,
   });
 }

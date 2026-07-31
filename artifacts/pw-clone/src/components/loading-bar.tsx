@@ -2,7 +2,10 @@ import { useIsFetching } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function LoadingBar() {
-  const isFetching = useIsFetching();
+  // Only count initial loads (status === "pending"), not background refetches/polls
+  const isFetching = useIsFetching({
+    predicate: (query) => query.state.status === "pending",
+  });
 
   return (
     <AnimatePresence>
