@@ -265,7 +265,7 @@ proxyRouter.get("/proxy", async (req, res) => {
   }
 });
 
-proxyRouter.get("/dash-seg/:sig/*path", async (req, res) => {
+proxyRouter.get("/dash-seg/:sig/{*path}", async (req, res) => {
   const { sig, path: pathParam } = req.params as unknown as { sig: string; path: string };
 
   let sigQs: string;

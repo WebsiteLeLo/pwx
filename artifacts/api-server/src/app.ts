@@ -60,7 +60,7 @@ if (process.env.NODE_ENV === "production") {
 
   // SPA catch-all: inject per-route meta into index.html for every non-file request
   const ssrMiddleware = createSsrMiddleware(frontendDist);
-  app.get("*", ssrMiddleware);
+  app.get("/{*path}", ssrMiddleware);
 }
 
 export default app;
