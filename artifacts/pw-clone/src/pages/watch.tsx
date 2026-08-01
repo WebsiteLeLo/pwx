@@ -213,6 +213,32 @@ export default function Watch() {
                   style={{ width: "60%", height: "100%", background: barFg, borderRadius: 99 }}
                 />
               </div>
+
+              {/* StudyStark credit */}
+              <a
+                href="https://studystark.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "5px 12px 5px 7px",
+                  borderRadius: 999,
+                  background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                  border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                  textDecoration: "none",
+                  marginTop: 4,
+                }}
+              >
+                <img
+                  src="/studystark-logo.jpg"
+                  alt="StudyStark"
+                  style={{ width: 24, height: 24, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 11, color: subColor, lineHeight: 1 }}>Powered by&nbsp;</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: logoColor, lineHeight: 1 }}>StudyStark</span>
+              </a>
             </motion.div>
           );
         })()}
