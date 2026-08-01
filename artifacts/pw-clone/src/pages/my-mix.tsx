@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
@@ -113,6 +114,13 @@ function MixCard({ mix, onDelete, onRename }: { mix: MixBatch; onDelete: () => v
 }
 
 function MixListPage() {
+  usePageMeta({
+    title: "My Study Mix | Custom PW Batch",
+    description:
+      "Create your personalised study mix from Physics Wallah batches. Combine Physics from one batch, Maths from another — study exactly what you need on PWX.",
+    canonical: "/my-mix",
+  });
+
   const { mixes, createMix, deleteMix, renameMix } = useCustomBatches();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");

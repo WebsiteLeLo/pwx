@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { onAriaAction } from "@/lib/ariaEventBus";
+import { usePageMeta } from "@/hooks/usePageMeta";
 import { useBatches } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
@@ -493,6 +494,13 @@ function MixCard({ mix, index }: { mix: { id: string; name: string; createdAt: n
 }
 
 export default function Home() {
+  usePageMeta({
+    title: "PW Free Batches | IIT JEE & NEET Free Video Lectures",
+    description:
+      "Browse 12,000+ Physics Wallah free batches for IIT JEE, NEET & Foundation. Watch free video lectures, DPP quizzes and study materials — no subscription required.",
+    canonical: "/",
+  });
+
   const { data, isLoading, isError, refetch } = useBatches();
   const { enrolled, enroll, unenroll, isEnrolled } = useEnrolledBatches();
   const { mixes } = useCustomBatches();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { usePageMeta, breadcrumbSchema, courseSchema } from "@/hooks/usePageMeta";
 import { useBatchDetails, useTodaysSchedule, useBatchTests, useTestInstructions, getScheduleItemKind, getPdfUrl, type ScheduleItem, type Batch, type Test } from "@/hooks/usePWApi";
 import { useCustomBatches, MixSubject } from "@/hooks/useCustomBatches";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
@@ -811,6 +812,31 @@ export default function Batch() {
   const [activeTab, setActiveTab] = useState<BatchTab>("subjects");
 
   const enrolled = isEnrolled(batchId!);
+  const batchName = data?.data.name || "";
+
+  // Hook must be called unconditionally — before any early returns
+  usePageMeta({
+    title: batchName
+      ? `${batchName} Free Batch | Physics Wallah`
+      : "PW Free Batch | Physics Wallah",
+    description: batchName
+      ? `Watch ${batchName} free batch on PWX. Free video lectures, DPP quizzes and study materials for IIT JEE & NEET by Physics Wallah — no subscription needed.`
+      : "Watch this Physics Wallah free batch on PWX. Free lectures, DPP quizzes and study materials for IIT JEE & NEET.",
+    canonical: `/batch/${batchId}`,
+    schema: [
+      breadcrumbSchema([
+        { label: "Home", href: "/" },
+        { label: batchName || "Batch", href: `/batch/${batchId}` },
+      ]),
+      ...(batchName
+        ? [courseSchema({
+            name: `${batchName} — Physics Wallah Free Batch`,
+            description: `Free IIT JEE & NEET batch by Physics Wallah with video lectures, DPP quizzes and study material.`,
+            url: `/batch/${batchId}`,
+          })]
+        : []),
+    ],
+  });
 
   if (isError) {
     return (
@@ -826,8 +852,6 @@ export default function Batch() {
       </Layout>
     );
   }
-
-  const batchName = data?.data.name || "Loading...";
 
   const handleShare = async () => {
     const url = ogUrl(`/og/batch/${batchId}`);

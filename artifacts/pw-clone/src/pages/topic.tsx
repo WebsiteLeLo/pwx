@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { usePageMeta, breadcrumbSchema } from "@/hooks/usePageMeta";
 import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
 import { Layout } from "@/components/layout";
 import { Link, useParams, useLocation } from "wouter";
@@ -384,6 +385,18 @@ export default function Topic() {
   const batchName = batchData?.data.name || "Batch";
   const subjectName = fromMixSubject || batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
   const topicName = topicsData?.data.find(t => t._id === topicId)?.name || "Topic";
+
+  usePageMeta({
+    title: `${topicName} — ${subjectName} | Free PW Videos & Notes`,
+    description: `Watch ${topicName} free video lectures in ${subjectName} (${batchName}) on PWX. Download notes and DPP sheets for IIT JEE & NEET preparation.`,
+    canonical: `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`,
+    schema: breadcrumbSchema([
+      { label: "Home", href: "/" },
+      { label: batchName, href: `/batch/${batchId}` },
+      { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
+      { label: topicName },
+    ]),
+  });
 
   const subjectHref = fromMix
     ? `/batch/${batchId}/subject/${subjectId}?fromMix=${fromMix}&fromMixName=${encodeURIComponent(fromMixName)}&fromMixSubject=${encodeURIComponent(subjectName)}`

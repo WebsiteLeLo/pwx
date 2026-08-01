@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
 import { useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem } from "@/hooks/usePWApi";
@@ -394,6 +395,13 @@ function BatchScheduleSection({ batchId, batchName, now }: BatchScheduleSectionP
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Schedule() {
+  usePageMeta({
+    title: "Today's PW Live Class Schedule | Physics Wallah",
+    description:
+      "Check today's Physics Wallah live class schedule on PWX. See lecture timings, live and upcoming classes for IIT JEE and NEET batches — updated every 2 minutes.",
+    canonical: "/schedule",
+  });
+
   const { enrolled } = useEnrolledBatches();
   const [now, setNow] = useState(Date.now());
 

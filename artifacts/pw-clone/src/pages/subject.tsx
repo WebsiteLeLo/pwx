@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { usePageMeta, breadcrumbSchema } from "@/hooks/usePageMeta";
 import { useTopics, useBatchDetails, Topic } from "@/hooks/usePWApi";
 import { usePinnedChapters } from "@/hooks/usePinnedChapters";
 import { useChapterOrder } from "@/hooks/useChapterOrder";
@@ -166,6 +167,17 @@ export default function Subject() {
 
   const batchName = batchData?.data.name || "Batch";
   const subjectName = batchData?.data.subjects.find(s => s._id === subjectId)?.subject || "Subject";
+
+  usePageMeta({
+    title: `${subjectName} — ${batchName} | Free PW Lectures`,
+    description: `Browse all ${subjectName} chapters in ${batchName} on PWX. Free Physics Wallah video lectures, notes and DPP sheets for IIT JEE & NEET.`,
+    canonical: `/batch/${batchId}/subject/${subjectId}`,
+    schema: breadcrumbSchema([
+      { label: "Home", href: "/" },
+      { label: batchName, href: `/batch/${batchId}` },
+      { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
+    ]),
+  });
 
   const { orderedTopics, saveOrder, resetOrder, hasCustomOrder } = useChapterOrder(subjectId!, allTopics);
 
