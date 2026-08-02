@@ -16,6 +16,13 @@ export default function Watch() {
 
   const src = srcs[player];
 
+  // Auto-dismiss loader after 4 s — cross-origin iframes on mobile often skip onLoad
+  useEffect(() => {
+    if (loaded) return;
+    const t = setTimeout(() => setLoaded(true), 4000);
+    return () => clearTimeout(t);
+  }, [loaded, player]);
+
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const batchId   = sp.get("batchId")  || "";

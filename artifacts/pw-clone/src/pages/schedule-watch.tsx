@@ -44,59 +44,55 @@ export default function ScheduleWatch() {
     : "";
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-black text-white">
-      <header className="absolute top-0 w-full z-50 p-3 sm:p-4 bg-gradient-to-b from-black/90 to-transparent flex items-center justify-between pointer-events-none">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-white hover:bg-white/20 hover:text-white pointer-events-auto gap-1.5"
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Back</span>
-        </Button>
+    <div style={{ position: "fixed", inset: 0, background: "#000" }}>
+      {/* Minimal back button — icon only, small footprint, pointer-events only on itself */}
+      <button
+        onClick={() => window.history.back()}
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 36,
+          height: 36,
+          background: "rgba(0,0,0,0.55)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: "50%",
+          color: "#fff",
+          cursor: "pointer",
+          backdropFilter: "blur(6px)",
+          flexShrink: 0,
+        }}
+        title="Back"
+      >
+        <ArrowLeft size={16} />
+      </button>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-primary-foreground">
-            <PlaySquare className="w-3.5 h-3.5 fill-current" />
-          </div>
-          <span className="font-bold tracking-tight text-sm">
-            PW<span className="text-primary">X</span>
-          </span>
+      {hasParams ? (
+        <iframe
+          src={playerUrl}
+          style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+          title={params.title}
+        />
+      ) : (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", height: "100%", color: "#fff", textAlign: "center", padding: 16,
+        }}>
+          <PlaySquare style={{ width: 48, height: 48, marginBottom: 16, opacity: 0.3 }} />
+          <p style={{ color: "rgba(255,255,255,0.5)", marginBottom: 16 }}>
+            Invalid video parameters. Please go back and select a video.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => window.history.back()}>
+            Go Back
+          </Button>
         </div>
-
-        {params.title && (
-          <div className="hidden md:block max-w-xs truncate text-xs text-zinc-400 pointer-events-none">
-            {params.title}
-          </div>
-        )}
-        <div className="w-20 md:hidden" />
-      </header>
-
-      <main className="flex-1 w-full h-[100dvh] flex flex-col items-center justify-center bg-black">
-        {hasParams ? (
-          <iframe
-            src={playerUrl}
-            className="w-full h-full border-none block"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            title={params.title}
-          />
-        ) : (
-          <div className="text-center text-muted-foreground px-4">
-            <PlaySquare className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p>Invalid video parameters. Please go back and select a video.</p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => window.history.back()}
-            >
-              Go Back
-            </Button>
-          </div>
-        )}
-      </main>
+      )}
     </div>
   );
 }
