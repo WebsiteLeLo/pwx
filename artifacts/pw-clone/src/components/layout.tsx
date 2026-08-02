@@ -78,6 +78,7 @@ function BottomNav() {
 
 export function Layout({ children, breadcrumbs }: LayoutProps) {
   const { isDark, toggleTheme } = useTheme();
+  const [pathname] = useLocation();
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary selection:text-primary-foreground overflow-x-hidden">
@@ -96,16 +97,23 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
 
           {/* Desktop nav links */}
           <nav className="hidden sm:flex ml-4 items-center gap-1">
-            {NAV_ITEMS.map(({ href, label, Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map(({ href, label, Icon }) => {
+              const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="ml-auto flex items-center gap-1">

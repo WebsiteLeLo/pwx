@@ -438,7 +438,7 @@ function BatchCard({
         </div>
 
         {/* Enroll / Unenroll button */}
-        <div className="mt-4 pt-4 border-t border-border/40">
+        <div className="mt-auto pt-3">
           {enrolled ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -561,7 +561,7 @@ export default function Home() {
     setTgModal({ batchName: batch.name });
   }
 
-  const [tab, setTab] = useState<Tab>("enrolled");
+  const [tab, setTab] = useState<Tab>(() => enrolled.length > 0 ? "enrolled" : "all");
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -690,10 +690,10 @@ export default function Home() {
       </div>
 
       {/* Tabs + Search */}
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Tabs */}
-          <div className="flex items-center bg-secondary/50 rounded-lg p-1 gap-1 w-fit">
+      <div className="flex flex-col gap-3 mb-6">
+        {/* Tab row */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-secondary/50 rounded-lg p-1 gap-1">
             <button
               onClick={() => setTab("all")}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -725,57 +725,56 @@ export default function Home() {
               )}
             </button>
           </div>
-
-          {/* Search bar with autocomplete */}
-          <div className="relative flex-1 max-w-lg" ref={searchRef}>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search batches or teachers..."
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => setShowSuggestions(true)}
-              className="w-full pl-9 pr-9 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-            />
-            {query && (
-              <button
-                onClick={() => { setQuery(""); setShowSuggestions(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-
-            {/* Autocomplete dropdown */}
-            <AnimatePresence>
-              {showSuggestions && hasSuggestions && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.12 }}
-                  className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden"
-                >
-                  {suggestions.map((name) => (
-                    <button
-                      key={name}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setQuery(name);
-                        setShowSuggestions(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted text-left transition-colors"
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">{name}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
         </div>
 
+        {/* Search bar — full-width, always below tabs */}
+        <div className="relative" ref={searchRef}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search batches or teachers..."
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+            onFocus={() => setShowSuggestions(true)}
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+          />
+          {query && (
+            <button
+              onClick={() => { setQuery(""); setShowSuggestions(false); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Autocomplete dropdown */}
+          <AnimatePresence>
+            {showSuggestions && hasSuggestions && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.12 }}
+                className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden"
+              >
+                {suggestions.map((name) => (
+                  <button
+                    key={name}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setQuery(name);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted text-left transition-colors"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{name}</span>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Empty state for enrolled tab — only when no batches AND no mixes */}
