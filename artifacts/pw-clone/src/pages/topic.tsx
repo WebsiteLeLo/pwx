@@ -6,8 +6,9 @@ import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2 } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
+import { useCompletedItems } from "@/hooks/useCompletedItems";
 
 type TabKey = ContentType;
 
@@ -36,6 +37,7 @@ interface NoteItemProps {
 }
 
 function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
+  const { toggle, isCompleted } = useCompletedItems();
   const count = content.homeworkIds?.length || 1;
   const isDpp = contentType === "DppNotes";
   const { data, isLoading } = useAttachmentUrls(batchId, subjectId, content._id, count, isDpp);
@@ -82,40 +84,69 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
     );
   }
 
+  const dppItemId = (i: number) => `${content._id}-${i}`;
+
   return (
     <>
-      {pdfs.map(({ title, url }, i) => (
-        <motion.div
-          key={url ?? `${content._id}-${i}`}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.2, delay: (baseIndex + i) * 0.04 }}
-          className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:bg-card/80 transition-all"
-          data-testid={`card-note-${content._id}-${i}`}
-        >
-          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-            {contentType === "DppNotes"
-              ? <BookOpen className="w-5 h-5" />
-              : <FileText className="w-5 h-5" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate">{title}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
-          </div>
-          {url ? (
-            <Button
-              variant="outline"
-              className="flex items-center gap-1.5 cursor-pointer touch-manipulation"
-              onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-            >
-              <ExternalLink className="w-4 h-4" />
-              Open
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">Unavailable</span>
-          )}
-        </motion.div>
-      ))}
+      {pdfs.map(({ title, url }, i) => {
+        const itemId = dppItemId(i);
+        const done = contentType === "DppNotes" && isCompleted(itemId);
+        return (
+          <motion.div
+            key={url ?? itemId}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2, delay: (baseIndex + i) * 0.04 }}
+            className={`flex items-center gap-4 p-4 bg-card rounded-xl border transition-all ${
+              done
+                ? "border-green-500/40 bg-green-500/5"
+                : "border-border/50 hover:border-primary/30 hover:bg-card/80"
+            }`}
+            data-testid={`card-note-${content._id}-${i}`}
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${done ? "bg-green-500/15 text-green-500" : "bg-primary/10 text-primary"}`}>
+              {done
+                ? <CheckCircle2 className="w-5 h-5" />
+                : contentType === "DppNotes"
+                  ? <BookOpen className="w-5 h-5" />
+                  : <FileText className="w-5 h-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`font-semibold text-sm truncate ${done ? "line-through text-muted-foreground" : ""}`}>{title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{done ? "Completed" : "PDF Document"}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {contentType === "DppNotes" && (
+                <button
+                  onClick={() =>
+                    toggle({ id: itemId, type: "dpp", batchId, title })
+                  }
+                  title={done ? "Mark as incomplete" : "Mark as done"}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all touch-manipulation ${
+                    done
+                      ? "bg-green-500/15 border-green-500/40 text-green-500 hover:bg-green-500/25"
+                      : "border-border/50 text-muted-foreground hover:border-green-500/50 hover:text-green-500 hover:bg-green-500/10"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                </button>
+              )}
+              {url ? (
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-1.5 cursor-pointer touch-manipulation"
+                  onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open
+                </Button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Unavailable</span>
+              )}
+            </div>
+          </motion.div>
+        );
+      })}
     </>
   );
 }
@@ -229,6 +260,7 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
 /* ── Videos ── */
 function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
   const { data, isLoading, isError, refetch } = useAllTopicContents(batchId, subjectId, topicId, contentType);
+  const { toggle, isCompleted } = useCompletedItems();
 
   if (isLoading) {
     return (
@@ -278,6 +310,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
 
         const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&topicId=${encodeURIComponent(topicId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
 
+        const done = isCompleted(content._id);
         return (
           <Link
             key={content._id}
@@ -287,7 +320,9 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: index * 0.04 }}
-              className="group flex flex-col bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+              className={`group flex flex-col bg-card rounded-xl border overflow-hidden transition-colors cursor-pointer ${
+                done ? "border-green-500/40" : "border-border/50 hover:border-primary/50"
+              }`}
               data-testid={`card-video-${content._id}`}
             >
               <div className="relative aspect-video bg-muted overflow-hidden">
@@ -296,7 +331,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     src={thumb}
                     alt={title}
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${done ? "opacity-60" : ""}`}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-secondary to-background flex items-center justify-center">
@@ -308,6 +343,14 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     <Play className="w-5 h-5 fill-current" />
                   </div>
                 </div>
+                {/* Completed overlay badge */}
+                {done && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-12 h-12 rounded-full bg-green-500/90 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-white fill-white" />
+                    </div>
+                  </div>
+                )}
                 {dur && (
                   <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-xs font-medium text-white flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -324,7 +367,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 />
               </div>
               <div className="p-4 flex flex-col gap-1.5">
-                <h3 className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                <h3 className={`font-semibold text-sm leading-snug line-clamp-2 transition-colors ${done ? "text-muted-foreground line-through" : "group-hover:text-primary"}`}>
                   {title}
                 </h3>
                 {dateStr && (
@@ -333,19 +376,36 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     {dateStr}
                   </div>
                 )}
-                {vid?._id && (
+                {/* Mark done / Download row */}
+                <div className="mt-1 flex gap-1.5">
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.open(`https://t.me/AS_MultiverseRoBot?start=${batchId}_${vid._id}`, "_blank", "noopener,noreferrer");
+                      toggle({ id: content._id, type: "video", batchId, title });
                     }}
-                    className="mt-1 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer"
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      done
+                        ? "bg-green-500/15 text-green-500 border-green-500/30 hover:bg-green-500/25"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground border-border/40 hover:border-green-500/40 hover:text-green-600"
+                    }`}
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    Download
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {done ? "Completed" : "Mark Done"}
                   </button>
-                )}
+                  {vid?._id && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(`https://t.me/AS_MultiverseRoBot?start=${batchId}_${vid._id}`, "_blank", "noopener,noreferrer");
+                      }}
+                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           </Link>

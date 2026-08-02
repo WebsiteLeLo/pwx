@@ -6,6 +6,7 @@ import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
 import { useCustomBatches } from "@/hooks/useCustomBatches";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/useWatchHistory";
 import { usePinnedChapters } from "@/hooks/usePinnedChapters";
+import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { Layout } from "@/components/layout";
 import { LazyImage } from "@/components/lazy-image";
 import { Link } from "wouter";
@@ -30,6 +31,7 @@ import {
   PinOff,
   FileText,
   PlaySquare,
+  BarChart2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -235,6 +237,73 @@ function ShareStrip() {
           : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
         }
       </button>
+    </div>
+  );
+}
+
+// ── Progress Dashboard ────────────────────────────────────────────────────────
+function ProgressDashboard({ enrolledBatches }: { enrolledBatches: { _id: string; name: string }[] }) {
+  const { allBatchStats } = useCompletedItems();
+  const stats = allBatchStats();
+
+  // Only show batches that have at least one completion
+  const activeBatches = enrolledBatches.filter(
+    (b) => stats[b._id] && (stats[b._id].videos > 0 || stats[b._id].dpps > 0),
+  );
+
+  if (activeBatches.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart2 className="w-4 h-4 text-primary" />
+        <h2 className="text-base font-bold">Your Progress</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {activeBatches.map((batch) => {
+          const s = stats[batch._id] ?? { videos: 0, dpps: 0 };
+          return (
+            <Link key={batch._id} href={`/batch/${batch._id}`}>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col gap-3 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/40 transition-colors cursor-pointer"
+              >
+                <p className="font-semibold text-sm leading-snug line-clamp-1">{batch.name}</p>
+                <div className="flex items-center gap-4">
+                  {/* Videos stat */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Play className="w-3.5 h-3.5 text-primary fill-current" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold leading-none">{s.videos}</p>
+                      <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Lectures</p>
+                    </div>
+                  </div>
+                  <div className="w-px h-8 bg-border/50" />
+                  {/* DPPs stat */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-3.5 h-3.5 text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold leading-none">{s.dpps}</p>
+                      <p className="text-[10px] text-muted-foreground leading-none mt-0.5">DPPs</p>
+                    </div>
+                  </div>
+                  <div className="ml-auto">
+                    <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Done
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -629,6 +698,9 @@ export default function Home() {
 
       {/* Pinned Chapters */}
       <PinnedChaptersSection />
+
+      {/* Progress Dashboard */}
+      <ProgressDashboard enrolledBatches={enrolled} />
 
       {/* Header */}
       <div className="mb-5 flex items-center justify-between gap-4">
