@@ -8,6 +8,7 @@ import { LoadingBar } from "@/components/loading-bar";
 import DevToolsBlocked from "@/pages/devtools-blocked";
 import { NotificationBanner } from "@/components/notification-banner";
 import { MaintenanceGate } from "@/components/maintenance-gate";
+import { TelegramGate } from "@/components/telegram-gate";
 
 // Pages
 import Home from "@/pages/home";
@@ -61,6 +62,7 @@ function Router() {
       {isAdmin ? (
         <AdminPanel />
       ) : (
+        <TelegramGate>
         <MaintenanceGate>
           <NotificationBanner />
           <AnimatePresence mode="wait" initial={false}>
@@ -94,6 +96,7 @@ function Router() {
           {/* Aria — video player pages pe nahi dikhni */}
           {location !== "/watch" && location !== "/schedule-watch" && <AiGirl />}
         </MaintenanceGate>
+        </TelegramGate>
       )}
     </>
   );
