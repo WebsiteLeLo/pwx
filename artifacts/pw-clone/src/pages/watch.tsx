@@ -29,14 +29,15 @@ export default function Watch() {
       backUrlRef.current = `/batch/${batchId}`;
     }
 
+    const videoId = sp.get("videoId") || sp.get("childId") || sp.get("ContentId") || "";
     const p = new URLSearchParams({
-      batch_id:   batchId,
-      subject_id: subjectId,
-      video_id:   sp.get("videoId") || sp.get("childId") || sp.get("ContentId") || "",
-      video_type: "new",
-      title:      sp.get("title") || "",
+      batch_id:    batchId,
+      subject_id:  subjectId,
+      video_id:    videoId,
+      schedule_id: videoId,
+      title:       sp.get("title") || "",
     });
-    setSrc(`https://vidcloud.eu.org/play.php?${p.toString()}`);
+    setSrc(`https://learnbyakp.online/study-v2/player?${p.toString()}`);
 
     // ── Intercept any top-level navigation the iframe fires ──
     // When "Back to Batch" is clicked inside the iframe it tries to navigate
