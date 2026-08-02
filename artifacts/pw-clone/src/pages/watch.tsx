@@ -4,18 +4,23 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 
+type PlayerMode = "akp" | "vidcloud";
+
 export default function Watch() {
-  const [src, setSrc] = useState("");
+  const [srcs, setSrcs] = useState({ akp: "", vidcloud: "" });
+  const [player, setPlayer] = useState<PlayerMode>("akp");
   const [loaded, setLoaded] = useState(false);
   const backUrlRef = useRef("/");
   const [, navigate] = useLocation();
   const { isDark } = useTheme();
 
+  const src = srcs[player];
+
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const batchId  = sp.get("batchId")  || "";
+    const batchId   = sp.get("batchId")  || "";
     const subjectId = sp.get("subjectId") || "";
-    const topicId  = sp.get("topicId")  || "";
+    const topicId   = sp.get("topicId")  || "";
 
     // Build back URL — explicit backUrl wins, then fall back by available params
     const backUrl = sp.get("backUrl");
@@ -30,14 +35,21 @@ export default function Watch() {
     }
 
     const videoId = sp.get("videoId") || sp.get("childId") || sp.get("ContentId") || "";
-    const p = new URLSearchParams({
-      batch_id:    batchId,
-      subject_id:  subjectId,
-      video_id:    videoId,
-      schedule_id: videoId,
-      title:       sp.get("title") || "",
+    const title   = sp.get("title") || "";
+
+    const akpParams = new URLSearchParams({
+      batch_id: batchId, subject_id: subjectId,
+      video_id: videoId, schedule_id: videoId, title,
     });
-    setSrc(`https://learnbyakp.online/study-v2/player?${p.toString()}`);
+    const vcParams = new URLSearchParams({
+      batch_id: batchId, subject_id: subjectId,
+      video_id: videoId, video_type: "new", title,
+    });
+
+    setSrcs({
+      akp:      `https://learnbyakp.online/study-v2/player?${akpParams.toString()}`,
+      vidcloud: `https://vidcloud.eu.org/play.php?${vcParams.toString()}`,
+    });
 
     // ── Intercept any top-level navigation the iframe fires ──
     // When "Back to Batch" is clicked inside the iframe it tries to navigate
@@ -74,31 +86,46 @@ export default function Watch() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
-      {/* Icon-only back button — sits in the corner without overlapping the player title */}
+      {/* Back button */}
       <button
         onClick={() => navigate(backUrlRef.current)}
         style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 36,
-          height: 36,
-          background: "rgba(0,0,0,0.55)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          borderRadius: "50%",
-          color: "#fff",
-          cursor: "pointer",
-          backdropFilter: "blur(6px)",
-          flexShrink: 0,
+          position: "absolute", top: 10, left: 10, zIndex: 20,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 36, height: 36,
+          background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: "50%", color: "#fff", cursor: "pointer",
+          backdropFilter: "blur(6px)", flexShrink: 0,
         }}
         title="Back to Chapter"
       >
         <ArrowLeft size={16} />
       </button>
+
+      {/* Player switcher */}
+      <div style={{
+        position: "absolute", top: 10, right: 10, zIndex: 20,
+        display: "flex", gap: 4,
+        background: "rgba(0,0,0,0.6)", borderRadius: 20,
+        padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
+        backdropFilter: "blur(6px)",
+      }}>
+        {(["akp", "vidcloud"] as PlayerMode[]).map((p, i) => (
+          <button
+            key={p}
+            onClick={() => { setPlayer(p); setLoaded(false); }}
+            style={{
+              padding: "4px 10px", borderRadius: 16, border: "none",
+              fontSize: 11, fontWeight: 600, cursor: "pointer",
+              background: player === p ? "#5a4bda" : "transparent",
+              color: player === p ? "#fff" : "rgba(255,255,255,0.55)",
+              transition: "all 0.2s",
+            }}
+          >
+            P{i + 1}
+          </button>
+        ))}
+      </div>
 
       {/* Loading overlay — theme-aware */}
       <AnimatePresence>
@@ -222,6 +249,7 @@ export default function Watch() {
 
       {src && (
         <iframe
+          key={player}
           src={src}
           onLoad={() => setLoaded(true)}
           style={{ width: "100%", height: "100%", border: "none", display: "block" }}
