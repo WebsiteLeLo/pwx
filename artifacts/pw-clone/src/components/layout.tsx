@@ -1,9 +1,10 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Brain } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
 import { OfflineBanner } from "@/components/offline-banner";
+import { useCompletedItems } from "@/hooks/useCompletedItems";
 
 export interface BreadcrumbItem {
   label: string;
@@ -23,9 +24,27 @@ function TelegramIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function RevisionBadge() {
+  const { getDueNow } = useCompletedItems();
+  const due = getDueNow();
+  if (due.length === 0) return null;
+  return (
+    <Link href="/revision">
+      <button className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors">
+        <Brain className="w-4 h-4" />
+        <span className="hidden sm:inline">Revise</span>
+        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+          {due.length}
+        </span>
+      </button>
+    </Link>
+  );
+}
+
 const NAV_ITEMS = [
-  { href: "/",       label: "Home",   Icon: Home   },
-  { href: "/my-mix", label: "My Mix", Icon: Layers },
+  { href: "/",          label: "Home",     Icon: Home   },
+  { href: "/my-mix",    label: "My Mix",   Icon: Layers },
+  { href: "/revision",  label: "Revision", Icon: Brain  },
 ];
 
 function BottomNav() {
@@ -99,6 +118,9 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
                 ? <Sun className="w-4 h-4" />
                 : <Moon className="w-4 h-4" />}
             </button>
+
+            {/* Revision badge */}
+            <RevisionBadge />
 
             {/* Telegram */}
             <a

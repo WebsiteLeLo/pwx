@@ -382,7 +382,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      toggle({ id: content._id, type: "video", batchId, title });
+                      toggle({ id: content._id, type: "video", batchId, subjectId, topicId, title });
                     }}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                       done
