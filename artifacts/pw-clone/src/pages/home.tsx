@@ -840,29 +840,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* StudyStark Credit */}
-      <div className="mt-10 mb-2 flex justify-center">
-        <a
-          href="https://studystark.in/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center gap-3 px-5 py-3 rounded-2xl border border-border/50 bg-card hover:border-primary/40 hover:bg-card/80 transition-all shadow-sm"
-        >
-          <img
-            src="/studystark-logo.jpg"
-            alt="StudyStark Logo"
-            className="w-9 h-9 rounded-xl object-cover flex-shrink-0"
-          />
-          <div className="text-left">
-            <p className="text-[11px] text-muted-foreground leading-none mb-0.5">Video Player powered by</p>
-            <p className="text-sm font-bold tracking-wide group-hover:text-primary transition-colors">StudyStark</p>
-          </div>
-          <svg className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary/60 transition-colors ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 17L17 7M17 7H7M17 7v10"/>
-          </svg>
-        </a>
-      </div>
-
       {/* Telegram enroll modal */}
       <AnimatePresence>
         {tgModal && (

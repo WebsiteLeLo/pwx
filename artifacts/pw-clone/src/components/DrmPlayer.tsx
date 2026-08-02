@@ -535,32 +535,6 @@ export function DrmPlayer({
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: "rgba(0,0,0,.82)" }}>
           <div className="w-10 h-10 rounded-full border-[3px] animate-spin" style={{ borderColor: `rgba(90,75,218,.18)`, borderTopColor: ACCENT }} />
           <p className="text-sm text-white/65">{statusMsg}</p>
-          {/* StudyStark credit */}
-          <a
-            href="https://studystark.in/"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginTop: "8px",
-              padding: "6px 14px 6px 8px",
-              borderRadius: "999px",
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              textDecoration: "none",
-            }}
-          >
-            <img
-              src="/studystark-logo.jpg"
-              alt="StudyStark"
-              style={{ width: "26px", height: "26px", borderRadius: "6px", objectFit: "cover", flexShrink: 0 }}
-            />
-            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>Powered by&nbsp;</span>
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.85)", lineHeight: 1 }}>StudyStark</span>
-          </a>
         </div>
       )}
 
