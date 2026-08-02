@@ -72,7 +72,7 @@ router.post("/bot/webhook", async (req, res) => {
         return;
       }
 
-      const session = getSession(sessionId);
+      const session = await getSession(sessionId);
       if (!session) {
         await sendMessage(chatId,
           `⏰ Yeh link expire ho gaya hai.\n\nWebsite pe wapas jaao aur naya code request karo.`
@@ -93,7 +93,7 @@ router.post("/bot/webhook", async (req, res) => {
 
       // Issue code
       const code = randomCode();
-      setCode(sessionId, code, userId, userName);
+      await setCode(sessionId, code, userId, userName);
 
       await sendMessage(chatId,
         `✅ Channel membership confirm ho gayi!\n\n` +

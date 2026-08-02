@@ -1,69 +1,98 @@
 /**
- * In-memory store for Telegram verification sessions.
- * sessionId → session data (expires automatically via TTL check)
+ * Database-backed session store for Telegram verification.
+ * Replaces the in-memory Map so sessions survive server restarts / cold starts.
  */
+import { pool } from "@workspace/db";
+
+const SESSION_TTL_MIN = 10; // minutes a session lives before bot interaction
+const CODE_TTL_MIN    =  5; // minutes a code is valid after being issued
 
 export interface TgSession {
-  code: string | null;       // 6-digit code sent to user via bot
-  userId: number | null;     // Telegram user ID (set after bot interaction)
-  userName: string | null;   // Telegram first name
-  verified: boolean;         // Has the code been verified on the website?
-  createdAt: number;         // ms timestamp
-  codeIssuedAt: number | null; // when the code was sent
+  code: string | null;
+  userId: number | null;
+  userName: string | null;
+  verified: boolean;
+  createdAt: Date;
+  codeIssuedAt: Date | null;
 }
 
-const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const CODE_TTL_MS   =  5 * 60 * 1000; //  5 minutes
+export async function createSession(sessionId: string): Promise<void> {
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MIN * 60 * 1000);
+  await pool.query(
+    `INSERT INTO tg_sessions (session_id, expires_at)
+     VALUES ($1, $2)
+     ON CONFLICT (session_id) DO NOTHING`,
+    [sessionId, expiresAt],
+  );
+}
 
-const store = new Map<string, TgSession>();
-
-// Periodic cleanup to avoid memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, s] of store) {
-    if (now - s.createdAt > SESSION_TTL_MS) store.delete(id);
-  }
-}, 60_000);
-
-export function createSession(sessionId: string): TgSession {
-  const s: TgSession = {
-    code: null,
-    userId: null,
-    userName: null,
-    verified: false,
-    createdAt: Date.now(),
-    codeIssuedAt: null,
+export async function getSession(sessionId: string): Promise<TgSession | undefined> {
+  const res = await pool.query(
+    `SELECT code, user_id, user_name, verified, created_at, code_issued_at
+     FROM tg_sessions
+     WHERE session_id = $1 AND expires_at > NOW() AND verified = false`,
+    [sessionId],
+  );
+  if (res.rowCount === 0) return undefined;
+  const row = res.rows[0];
+  return {
+    code: row.code ?? null,
+    userId: row.user_id ? Number(row.user_id) : null,
+    userName: row.user_name ?? null,
+    verified: row.verified,
+    createdAt: row.created_at,
+    codeIssuedAt: row.code_issued_at ?? null,
   };
-  store.set(sessionId, s);
-  return s;
 }
 
-export function getSession(sessionId: string): TgSession | undefined {
-  const s = store.get(sessionId);
-  if (!s) return undefined;
-  if (Date.now() - s.createdAt > SESSION_TTL_MS) {
-    store.delete(sessionId);
-    return undefined;
-  }
-  return s;
+export async function setCode(
+  sessionId: string,
+  code: string,
+  userId: number,
+  userName: string,
+): Promise<boolean> {
+  const codeExpiresAt = new Date(Date.now() + CODE_TTL_MIN * 60 * 1000);
+  const res = await pool.query(
+    `UPDATE tg_sessions
+     SET code = $2, user_id = $3, user_name = $4, code_issued_at = NOW(),
+         expires_at = $5
+     WHERE session_id = $1 AND expires_at > NOW()`,
+    [sessionId, code, userId, userName, codeExpiresAt],
+  );
+  return (res.rowCount ?? 0) > 0;
 }
 
-export function setCode(sessionId: string, code: string, userId: number, userName: string): boolean {
-  const s = store.get(sessionId);
-  if (!s) return false;
-  s.code = code;
-  s.userId = userId;
-  s.userName = userName;
-  s.codeIssuedAt = Date.now();
-  return true;
+export async function verifyCode(
+  sessionId: string,
+  code: string,
+): Promise<TgSession | null> {
+  // Check code exists, is not expired, and matches
+  const res = await pool.query(
+    `SELECT code, user_id, user_name, created_at, code_issued_at
+     FROM tg_sessions
+     WHERE session_id = $1
+       AND expires_at > NOW()
+       AND code = $2
+       AND verified = false`,
+    [sessionId, code.trim()],
+  );
+  if (res.rowCount === 0) return null;
+
+  // Mark as used (delete row — one-time use)
+  await pool.query(`DELETE FROM tg_sessions WHERE session_id = $1`, [sessionId]);
+
+  const row = res.rows[0];
+  return {
+    code: row.code,
+    userId: row.user_id ? Number(row.user_id) : null,
+    userName: row.user_name ?? null,
+    verified: true,
+    createdAt: row.created_at,
+    codeIssuedAt: row.code_issued_at ?? null,
+  };
 }
 
-export function verifyCode(sessionId: string, code: string): TgSession | null {
-  const s = getSession(sessionId);
-  if (!s || !s.code || !s.codeIssuedAt) return null;
-  if (Date.now() - s.codeIssuedAt > CODE_TTL_MS) return null; // code expired
-  if (s.code !== code.trim()) return null;
-  s.verified = true;
-  store.delete(sessionId); // one-time use
-  return s;
+// Cleanup expired sessions (call periodically or on startup)
+export async function pruneExpiredSessions(): Promise<void> {
+  await pool.query(`DELETE FROM tg_sessions WHERE expires_at < NOW()`);
 }

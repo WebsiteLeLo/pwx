@@ -22,6 +22,17 @@ export async function ensureTables() {
         value JSONB NOT NULL,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS tg_sessions (
+        session_id TEXT PRIMARY KEY,
+        code TEXT,
+        user_id BIGINT,
+        user_name TEXT,
+        verified BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        code_issued_at TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL
+      );
     `);
     logger.info("DB tables verified/created");
   } catch (err) {
