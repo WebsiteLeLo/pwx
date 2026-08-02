@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STORAGE_KEY = "pwx_tg_auth";
+const SESSION_KEY = "pwx_tg_session"; // sessionStorage key for current session
 const EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
 const CHANNEL_URL = "https://t.me/pwxonrender";
 
@@ -26,30 +27,51 @@ function getStoredAuth(): StoredAuth | null {
 }
 
 type Step = "join" | "code";
-type Status = "idle" | "loading" | "invalid_code" | "expired" | "error";
+type Status = "idle" | "loading" | "invalid_code" | "session_error" | "error";
+
+function getSavedSession(): { sessionId: string; botLink: string } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function TelegramGate({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<StoredAuth | null>(getStoredAuth);
   const [step, setStep] = useState<Step>("join");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [botLink, setBotLink] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(
+    () => getSavedSession()?.sessionId ?? null,
+  );
+  const [botLink, setBotLink] = useState<string | null>(
+    () => getSavedSession()?.botLink ?? null,
+  );
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
-  // Auto-create session so bot link is ready when user clicks
+  // Create (or restore) a session
   const createSession = useCallback(async () => {
+    setSessionLoading(true);
     try {
       const res = await fetch("/api/auth/session", { method: "POST" });
       const json = (await res.json()) as { sessionId: string; botLink: string };
       setSessionId(json.sessionId);
       setBotLink(json.botLink);
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(json));
     } catch {
-      // retry silently
+      setSessionId(null);
+      setBotLink(null);
+    } finally {
+      setSessionLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!auth) createSession();
+    if (auth) return;
+    // Only create a new session if we don't have one already
+    if (!getSavedSession()) createSession();
   }, [auth, createSession]);
 
   const handleGetCode = useCallback(() => {
@@ -58,7 +80,11 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
   }, [botLink]);
 
   const handleVerify = useCallback(async () => {
-    if (!sessionId || !code.trim()) return;
+    if (!code.trim()) return;
+    if (!sessionId) {
+      setStatus("session_error");
+      return;
+    }
     setStatus("loading");
     try {
       const res = await fetch("/api/auth/verify", {
@@ -78,6 +104,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
           expires: Date.now() + EXPIRY_MS,
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        sessionStorage.removeItem(SESSION_KEY);
         setAuth(stored);
       } else if (json.reason === "invalid_code") {
         setStatus("invalid_code");
@@ -93,6 +120,9 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
     setCode("");
     setStatus("idle");
     setStep("join");
+    sessionStorage.removeItem(SESSION_KEY);
+    setSessionId(null);
+    setBotLink(null);
     await createSession();
   }, [createSession]);
 
@@ -231,7 +261,17 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                       exit={{ opacity: 0 }}
                       className="text-red-400 text-xs text-center mb-3"
                     >
-                      ❌ Code गलत है या expire हो गया। फिर से try करें।
+                      ❌ Code गलत है या expire हो गया। नीचे "नया code लें" दबाओ।
+                    </motion.p>
+                  )}
+                  {status === "session_error" && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-yellow-400 text-xs text-center mb-3"
+                    >
+                      ⚠️ Session expire हो गई। नीचे "नया code लें" दबाओ।
                     </motion.p>
                   )}
                   {status === "error" && (
@@ -248,7 +288,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
 
                 <button
                   onClick={handleVerify}
-                  disabled={code.length < 6 || status === "loading"}
+                  disabled={code.length < 6 || status === "loading" || status === "session_error"}
                   className="w-full py-3 rounded-xl bg-[#0088cc] hover:bg-[#0099dd] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center justify-center gap-2"
                 >
                   {status === "loading" ? (
