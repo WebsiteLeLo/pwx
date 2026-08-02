@@ -22,6 +22,7 @@ import { MyMixList, MyMixDetail } from "@/pages/my-mix";
 import DppQuiz from "@/pages/dpp-quiz";
 import BatchCalendar from "@/pages/batch-calendar";
 import RevisionPage from "@/pages/revision";
+import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import AiGirl from "@/components/ai-girl/AiGirl";
 import AdminPanel from "@/pages/admin";
@@ -85,6 +86,7 @@ function Router() {
                 <Route path="/my-mix/:mixId" component={MyMixDetail} />
                 <Route path="/dpp-quiz" component={DppQuiz} />
                 <Route path="/revision" component={RevisionPage} />
+                <Route path="/dashboard" component={Dashboard} />
                 <Route component={NotFound} />
               </Switch>
             </motion.div>

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Brain } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Brain, BarChart2 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -42,9 +42,10 @@ function RevisionBadge() {
 }
 
 const NAV_ITEMS = [
-  { href: "/",          label: "Home",     Icon: Home   },
-  { href: "/my-mix",    label: "My Mix",   Icon: Layers },
-  { href: "/revision",  label: "Revision", Icon: Brain  },
+  { href: "/",           label: "Home",      Icon: Home     },
+  { href: "/my-mix",     label: "My Mix",    Icon: Layers   },
+  { href: "/dashboard",  label: "Dashboard", Icon: BarChart2 },
+  { href: "/revision",   label: "Revision",  Icon: Brain    },
 ];
 
 function BottomNav() {

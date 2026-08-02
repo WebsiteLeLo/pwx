@@ -241,72 +241,47 @@ function ShareStrip() {
   );
 }
 
-// ── Progress Dashboard ────────────────────────────────────────────────────────
-function ProgressDashboard({ enrolledBatches }: { enrolledBatches: { _id: string; name: string }[] }) {
-  const { allBatchStats } = useCompletedItems();
-  const stats = allBatchStats();
+// ── Progress Summary (compact home card linking to /dashboard) ────────────────
+function ProgressSummary({ enrolledBatches }: { enrolledBatches: { _id: string; name: string }[] }) {
+  const { items, getDueNow } = useCompletedItems();
+  if (enrolledBatches.length === 0 || items.length === 0) return null;
 
-  if (enrolledBatches.length === 0) return null;
+  const totalVideos = items.filter((i) => i.type === "video").length;
+  const totalDpps   = items.filter((i) => i.type === "dpp").length;
+  const due         = getDueNow().length;
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-2 mb-3">
-        <BarChart2 className="w-4 h-4 text-primary" />
-        <h2 className="text-base font-bold">Progress Dashboard</h2>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {enrolledBatches.map((batch) => {
-          const s = stats[batch._id] ?? { videos: 0, dpps: 0 };
-          const hasAny = s.videos > 0 || s.dpps > 0;
-          return (
-            <Link key={batch._id} href={`/batch/${batch._id}`}>
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col gap-3 p-4 bg-card rounded-xl border border-border/50 hover:border-primary/40 transition-colors cursor-pointer"
-              >
-                <p className="font-semibold text-sm leading-snug line-clamp-1">{batch.name}</p>
-                <div className="flex items-center gap-4">
-                  {/* Videos stat */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Play className="w-3.5 h-3.5 text-primary fill-current" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold leading-none">{s.videos}</p>
-                      <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Lectures</p>
-                    </div>
-                  </div>
-                  <div className="w-px h-8 bg-border/50" />
-                  {/* DPPs stat */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-3.5 h-3.5 text-orange-400" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold leading-none">{s.dpps}</p>
-                      <p className="text-[10px] text-muted-foreground leading-none mt-0.5">DPPs</p>
-                    </div>
-                  </div>
-                  <div className="ml-auto">
-                    {hasAny ? (
-                      <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
-                        <CheckCircle2 className="w-3 h-3" />
-                        {s.videos + s.dpps} done
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-muted-foreground px-2 py-1 rounded-full bg-muted border border-border/40">
-                        Not started
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
+    <Link href="/dashboard">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 flex items-center gap-4 p-4 bg-card rounded-2xl border border-border/50 hover:border-primary/40 transition-colors cursor-pointer group"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <BarChart2 className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground mb-1">Your Progress</p>
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="flex items-center gap-1.5 text-sm font-bold">
+              <Play className="w-3.5 h-3.5 text-primary fill-current" />
+              {totalVideos} lectures
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold">
+              <FileText className="w-3.5 h-3.5 text-orange-400" />
+              {totalDpps} DPPs
+            </span>
+            {due > 0 && (
+              <span className="flex items-center gap-1 text-xs font-semibold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                <Flame className="w-3 h-3" />
+                {due} due for revision
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+      </motion.div>
+    </Link>
   );
 }
 
@@ -701,8 +676,8 @@ export default function Home() {
       {/* Pinned Chapters */}
       <PinnedChaptersSection />
 
-      {/* Progress Dashboard */}
-      <ProgressDashboard enrolledBatches={enrolled} />
+      {/* Progress Summary → links to /dashboard */}
+      <ProgressSummary enrolledBatches={enrolled} />
 
       {/* Header */}
       <div className="mb-5 flex items-center justify-between gap-4">
