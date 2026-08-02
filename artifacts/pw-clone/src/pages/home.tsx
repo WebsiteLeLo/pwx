@@ -32,6 +32,8 @@ import {
   FileText,
   PlaySquare,
   BarChart2,
+  ChevronRight,
+  Flame,
 } from "lucide-react";
 import {
   AlertDialog,

@@ -1,4 +1,4 @@
-const CACHE_NAME = "pwx-v3";
+const CACHE_NAME = "pwx-v4";
 const SEG_CACHE_NAME = "pwx-segments-v1";
 const API_CACHE_NAME = "pwx-api-v1";
 
@@ -146,9 +146,10 @@ self.addEventListener("fetch", (event) => {
       const networkFetch = fetch(request)
         .then((response) => {
           if (response.ok && response.status < 400) {
+            const clone = response.clone();
             caches
               .open(CACHE_NAME)
-              .then((cache) => cache.put(request, response.clone()));
+              .then((cache) => cache.put(request, clone));
           }
           return response;
         })
