@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
@@ -73,6 +74,31 @@ export default function Watch() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
+      {/* Icon-only back button — sits in the corner without overlapping the player title */}
+      <button
+        onClick={() => navigate(backUrlRef.current)}
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 36,
+          height: 36,
+          background: "rgba(0,0,0,0.55)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: "50%",
+          color: "#fff",
+          cursor: "pointer",
+          backdropFilter: "blur(6px)",
+          flexShrink: 0,
+        }}
+        title="Back to Chapter"
+      >
+        <ArrowLeft size={16} />
+      </button>
 
       {/* Loading overlay — theme-aware */}
       <AnimatePresence>
