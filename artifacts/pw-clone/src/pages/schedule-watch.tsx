@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
-import { DrmPlayer } from "@/components/DrmPlayer";
 import { ArrowLeft, PlaySquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const PLAYER_BASE = "https://learnbyakp.online/study-v2/player";
 
 export default function ScheduleWatch() {
   const [params, setParams] = useState({
@@ -38,6 +39,10 @@ export default function ScheduleWatch() {
 
   const hasParams = !!(params.batchId && params.scheduleId);
 
+  const playerUrl = hasParams
+    ? `${PLAYER_BASE}?batch_id=${encodeURIComponent(params.batchId)}&subject_id=${encodeURIComponent(params.subjectId)}&video_id=${encodeURIComponent(params.scheduleId)}&schedule_id=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title)}`
+    : "";
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-black text-white">
       <header className="absolute top-0 w-full z-50 p-3 sm:p-4 bg-gradient-to-b from-black/90 to-transparent flex items-center justify-between pointer-events-none">
@@ -70,15 +75,13 @@ export default function ScheduleWatch() {
 
       <main className="flex-1 w-full h-[100dvh] flex flex-col items-center justify-center bg-black">
         {hasParams ? (
-          <div className="w-full h-full">
-            <DrmPlayer
-              batchId={params.batchId}
-              subjectId={params.subjectId}
-              childId={params.scheduleId}
-              title={params.title}
-              poster={params.thumbnail || undefined}
-            />
-          </div>
+          <iframe
+            src={playerUrl}
+            className="w-full h-full border-none block"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+            title={params.title}
+          />
         ) : (
           <div className="text-center text-muted-foreground px-4">
             <PlaySquare className="w-12 h-12 mx-auto mb-4 opacity-30" />
