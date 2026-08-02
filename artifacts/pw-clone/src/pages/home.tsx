@@ -246,22 +246,18 @@ function ProgressDashboard({ enrolledBatches }: { enrolledBatches: { _id: string
   const { allBatchStats } = useCompletedItems();
   const stats = allBatchStats();
 
-  // Only show batches that have at least one completion
-  const activeBatches = enrolledBatches.filter(
-    (b) => stats[b._id] && (stats[b._id].videos > 0 || stats[b._id].dpps > 0),
-  );
-
-  if (activeBatches.length === 0) return null;
+  if (enrolledBatches.length === 0) return null;
 
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-3">
         <BarChart2 className="w-4 h-4 text-primary" />
-        <h2 className="text-base font-bold">Your Progress</h2>
+        <h2 className="text-base font-bold">Progress Dashboard</h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {activeBatches.map((batch) => {
+        {enrolledBatches.map((batch) => {
           const s = stats[batch._id] ?? { videos: 0, dpps: 0 };
+          const hasAny = s.videos > 0 || s.dpps > 0;
           return (
             <Link key={batch._id} href={`/batch/${batch._id}`}>
               <motion.div
@@ -293,10 +289,16 @@ function ProgressDashboard({ enrolledBatches }: { enrolledBatches: { _id: string
                     </div>
                   </div>
                   <div className="ml-auto">
-                    <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Done
-                    </div>
+                    {hasAny ? (
+                      <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                        <CheckCircle2 className="w-3 h-3" />
+                        {s.videos + s.dpps} done
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground px-2 py-1 rounded-full bg-muted border border-border/40">
+                        Not started
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
