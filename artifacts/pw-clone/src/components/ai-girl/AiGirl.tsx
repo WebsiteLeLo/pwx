@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Mic, MicOff, RotateCcw, ExternalLink } from "lucide-react";
+import { X, Send, Mic, MicOff, RotateCcw, ExternalLink, Sparkles } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -622,42 +622,72 @@ export default function AiGirl() {
 
   return (
     <>
-      {/* Draggable floating button */}
-      <div
-        style={{
-          position: "fixed",
-          left: btnPos.x,
-          top: btnPos.y,
-          width: BTN_SIZE,
-          height: BTN_SIZE,
-          zIndex: 50,
-          touchAction: "none",
-          cursor: "grab",
-          userSelect: "none",
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        title={open ? "Aria band karo (drag karke move karo)" : "Aria se baat karo (drag karke move karo)"}
-      >
-        <motion.div
-          className="w-full h-full rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 bg-violet-900"
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.95 }}
-          style={{ pointerEvents: "none" }}
+      {/* ── Mobile trigger: clean pill button above bottom nav ── */}
+      {isMobile ? (
+        <motion.button
+          onClick={() => setOpen((v) => !v)}
+          whileTap={{ scale: 0.93 }}
+          style={{
+            position: "fixed",
+            bottom: "calc(56px + env(safe-area-inset-bottom) + 10px)",
+            right: 14,
+            zIndex: 50,
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border transition-colors touch-manipulation ${
+            open
+              ? "bg-violet-600 border-violet-500 text-white"
+              : "bg-background border-violet-500/60 text-violet-400 hover:bg-violet-500/10"
+          }`}
+          aria-label={open ? "Close Aria" : "Chat with Aria"}
         >
           {open ? (
-            <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
-              <X className="w-5 h-5 sm:w-6 sm:h-6 text-white/80" />
-            </div>
+            <X className="w-4 h-4" />
           ) : (
-            <>
-              <GirlVideo state="idle" className="w-full h-full object-cover object-top" />
-              <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
-            </>
+            <Sparkles className="w-4 h-4" />
           )}
-        </motion.div>
-      </div>
+          <span className="text-sm font-semibold leading-none">Aria</span>
+          {!open && (
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          )}
+        </motion.button>
+      ) : (
+        /* ── Desktop: draggable video circle ── */
+        <div
+          style={{
+            position: "fixed",
+            left: btnPos.x,
+            top: btnPos.y,
+            width: BTN_SIZE,
+            height: BTN_SIZE,
+            zIndex: 50,
+            touchAction: "none",
+            cursor: "grab",
+            userSelect: "none",
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          title={open ? "Aria band karo (drag karke move karo)" : "Aria se baat karo (drag karke move karo)"}
+        >
+          <motion.div
+            className="w-full h-full rounded-full overflow-hidden shadow-2xl border-2 border-violet-400/70 bg-violet-900"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            style={{ pointerEvents: "none" }}
+          >
+            {open ? (
+              <div className="w-full h-full bg-gradient-to-br from-violet-700 to-purple-900 flex items-center justify-center">
+                <X className="w-6 h-6 text-white/80" />
+              </div>
+            ) : (
+              <>
+                <GirlVideo state="idle" className="w-full h-full object-cover object-top" />
+                <span className="absolute inset-0 rounded-full ring-2 ring-violet-400 animate-ping opacity-40 pointer-events-none" />
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       {/* Chat panel */}
       <AnimatePresence>
