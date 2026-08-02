@@ -1,6 +1,49 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+type Lang = "hi" | "en";
+
+const t = {
+  hi: {
+    title: "Access Verify करें",
+    subtitle: (ch: string) => <>Website use करने के लिए{" "}<a href={`https://t.me/${ch}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">@{ch}</a>{" "}channel join करना ज़रूरी है।</>,
+    step1Title: "Channel Join करें",
+    step2Title: "Access Code लें",
+    step2Sub: "नीचे button दबाओ → Telegram bot खुलेगा → code मिलेगा",
+    getCode: "Telegram से Code लें",
+    loading: "Loading...",
+    alreadyHave: "Already code मिल गया? Enter करें →",
+    codeTitle: "Code Enter करें",
+    codeSub: "Telegram bot से मिला 6-digit code यहाँ enter करें।",
+    verify: "Access करें ✓",
+    verifying: "Verifying...",
+    back: "← वापस जाएं / नया code लें",
+    errInvalid: "❌ Code गलत है या expire हो गया। नीचे \"नया code लें\" दबाओ।",
+    errSession: "⚠️ Session expire हो गई। नीचे \"नया code लें\" दबाओ।",
+    errNetwork: "⚠️ Network error। दोबारा try करें।",
+    footer: "सिर्फ channel membership verify होती है • कोई personal data store नहीं होता",
+  },
+  en: {
+    title: "Verify Access",
+    subtitle: (ch: string) => <>To use this website, you must join the{" "}<a href={`https://t.me/${ch}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">@{ch}</a>{" "}Telegram channel.</>,
+    step1Title: "Join the Channel",
+    step2Title: "Get Access Code",
+    step2Sub: "Press the button below → Telegram bot opens → receive your code",
+    getCode: "Get Code via Telegram",
+    loading: "Loading...",
+    alreadyHave: "Already have a code? Enter it →",
+    codeTitle: "Enter Your Code",
+    codeSub: "Enter the 6-digit code sent by the Telegram bot.",
+    verify: "Get Access ✓",
+    verifying: "Verifying...",
+    back: "← Go back / Get new code",
+    errInvalid: "❌ Code is incorrect or expired. Press \"Get new code\" below.",
+    errSession: "⚠️ Session expired. Press \"Get new code\" below.",
+    errNetwork: "⚠️ Network error. Please try again.",
+    footer: "Only channel membership is verified • No personal data is stored",
+  },
+};
+
 const STORAGE_KEY = "pwx_tg_auth";
 const SESSION_KEY = "pwx_tg_session"; // sessionStorage key for current session
 const EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours
@@ -39,6 +82,7 @@ function getSavedSession(): { sessionId: string; botLink: string } | null {
 }
 
 export function TelegramGate({ children }: { children: React.ReactNode }) {
+  const [lang, setLang] = useState<Lang>("en");
   const [auth, setAuth] = useState<StoredAuth | null>(getStoredAuth);
   const [step, setStep] = useState<Step>("join");
   const [sessionId, setSessionId] = useState<string | null>(
@@ -129,6 +173,9 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
   // Already verified — render app
   if (auth) return <>{children}</>;
 
+  const tx = t[lang];
+  const CHANNEL = "pwxonrender";
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
       <motion.div
@@ -138,9 +185,19 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
         className="w-full max-w-sm"
       >
         {/* Card */}
-        <div className="bg-[#111118] border border-white/8 rounded-2xl p-8 shadow-2xl">
+        <div className="bg-[#111118] border border-white/8 rounded-2xl p-8 shadow-2xl relative">
+
+          {/* Language toggle — top right */}
+          <button
+            onClick={() => setLang(l => l === "en" ? "hi" : "en")}
+            className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/6 hover:bg-white/10 border border-white/8 text-zinc-400 hover:text-white text-xs font-medium transition-all"
+          >
+            <span className="text-base leading-none">{lang === "en" ? "🇮🇳" : "🇬🇧"}</span>
+            {lang === "en" ? "हिन्दी" : "English"}
+          </button>
+
           {/* Icon */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-6 mt-2">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0088cc] to-[#005fa3] flex items-center justify-center shadow-lg shadow-blue-900/30">
               <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white">
                 <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
@@ -151,26 +208,17 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
           <AnimatePresence mode="wait">
             {step === "join" ? (
               <motion.div
-                key="join"
+                key={`join-${lang}`}
                 initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 16 }}
                 transition={{ duration: 0.25 }}
               >
                 <h1 className="text-xl font-bold text-white text-center mb-1">
-                  Access Verify करें
+                  {tx.title}
                 </h1>
                 <p className="text-zinc-500 text-sm text-center mb-6 leading-relaxed">
-                  Website use करने के लिए{" "}
-                  <a
-                    href={CHANNEL_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300"
-                  >
-                    @pwxonrender
-                  </a>{" "}
-                  channel join करना ज़रूरी है।
+                  {tx.subtitle(CHANNEL)}
                 </p>
 
                 {/* Step 1 */}
@@ -179,7 +227,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                     1
                   </span>
                   <div>
-                    <p className="text-white text-sm font-medium">Channel Join करें</p>
+                    <p className="text-white text-sm font-medium">{tx.step1Title}</p>
                     <a
                       href={CHANNEL_URL}
                       target="_blank"
@@ -197,10 +245,8 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                     2
                   </span>
                   <div>
-                    <p className="text-white text-sm font-medium">Access Code लें</p>
-                    <p className="text-zinc-500 text-xs">
-                      नीचे button दबाओ → Telegram bot खुलेगा → code मिलेगा
-                    </p>
+                    <p className="text-white text-sm font-medium">{tx.step2Title}</p>
+                    <p className="text-zinc-500 text-xs">{tx.step2Sub}</p>
                   </div>
                 </div>
 
@@ -212,29 +258,29 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                   <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0">
                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                   </svg>
-                  {botLink ? "Telegram से Code लें" : "Loading..."}
+                  {botLink ? tx.getCode : tx.loading}
                 </button>
 
                 <button
                   onClick={() => setStep("code")}
                   className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
                 >
-                  Already code मिल गया? Enter करें →
+                  {tx.alreadyHave}
                 </button>
               </motion.div>
             ) : (
               <motion.div
-                key="code"
+                key={`code-${lang}`}
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.25 }}
               >
                 <h1 className="text-xl font-bold text-white text-center mb-1">
-                  Code Enter करें
+                  {tx.codeTitle}
                 </h1>
                 <p className="text-zinc-500 text-sm text-center mb-6">
-                  Telegram bot से मिला 6-digit code यहाँ enter करें।
+                  {tx.codeSub}
                 </p>
 
                 {/* Code input */}
@@ -261,7 +307,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                       exit={{ opacity: 0 }}
                       className="text-red-400 text-xs text-center mb-3"
                     >
-                      ❌ Code गलत है या expire हो गया। नीचे "नया code लें" दबाओ।
+                      {tx.errInvalid}
                     </motion.p>
                   )}
                   {status === "session_error" && (
@@ -271,7 +317,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                       exit={{ opacity: 0 }}
                       className="text-yellow-400 text-xs text-center mb-3"
                     >
-                      ⚠️ Session expire हो गई। नीचे "नया code लें" दबाओ।
+                      {tx.errSession}
                     </motion.p>
                   )}
                   {status === "error" && (
@@ -281,7 +327,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                       exit={{ opacity: 0 }}
                       className="text-red-400 text-xs text-center mb-3"
                     >
-                      ⚠️ Network error। दोबारा try करें।
+                      {tx.errNetwork}
                     </motion.p>
                   )}
                 </AnimatePresence>
@@ -298,10 +344,10 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                         transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
                         className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
                       />
-                      Verifying...
+                      {tx.verifying}
                     </>
                   ) : (
-                    "Access करें ✓"
+                    tx.verify
                   )}
                 </button>
 
@@ -309,7 +355,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                   onClick={handleNewSession}
                   className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
                 >
-                  ← वापस जाएं / नया code लें
+                  {tx.back}
                 </button>
               </motion.div>
             )}
@@ -317,7 +363,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
         </div>
 
         <p className="text-center text-zinc-700 text-xs mt-4">
-          सिर्फ channel membership verify होती है • कोई personal data store नहीं होता
+          {tx.footer}
         </p>
       </motion.div>
     </div>
