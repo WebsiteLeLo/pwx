@@ -80,19 +80,26 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
   const src = srcs[player];
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black" style={{ isolation: "isolate" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
       {/* Floating close button */}
       <button
         onClick={onClose}
-        className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-black/80 transition-colors text-sm font-medium cursor-pointer"
+        style={{
+          position: "absolute", top: 10, left: 10, zIndex: 50,
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "6px 12px", borderRadius: 8,
+          background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)",
+          color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500,
+          cursor: "pointer", backdropFilter: "blur(6px)",
+        }}
       >
-        <X className="w-4 h-4" />
+        <X style={{ width: 16, height: 16 }} />
         Close
       </button>
 
       {/* Player switcher */}
       <div style={{
-        position: "absolute", top: 10, right: 10, zIndex: 20,
+        position: "absolute", top: 10, right: 10, zIndex: 50,
         display: "flex", gap: 4,
         background: "rgba(0,0,0,0.6)", borderRadius: 20,
         padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
@@ -115,11 +122,11 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
         ))}
       </div>
 
-      {/* Iframe — full screen */}
+      {/* Iframe — full screen, behind controls */}
       <iframe
         key={player}
         src={src}
-        className="w-full h-full border-none block"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", display: "block", zIndex: 1 }}
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
         allowFullScreen
         referrerPolicy="no-referrer"
