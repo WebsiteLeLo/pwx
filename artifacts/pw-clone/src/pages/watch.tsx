@@ -9,6 +9,7 @@ type PlayerMode = "akp" | "vidcloud";
 export default function Watch() {
   const [srcs, setSrcs] = useState({ akp: "", vidcloud: "" });
   const [player, setPlayer] = useState<PlayerMode>("akp");
+  const [isLive, setIsLive] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const backUrlRef = useRef("/");
   const [, navigate] = useLocation();
@@ -41,17 +42,28 @@ export default function Watch() {
       backUrlRef.current = `/batch/${batchId}`;
     }
 
-    const videoId = sp.get("videoId") || sp.get("childId") || sp.get("ContentId") || "";
-    const title   = sp.get("title") || "";
+    const videoId    = sp.get("videoId") || sp.get("childId") || sp.get("ContentId") || "";
+    const title      = sp.get("title") || "";
+    const videoType  = sp.get("video_type") || "";
+    const live       = videoType === "live";
+
+    setIsLive(live);
+    if (live) setPlayer("vidcloud");
 
     const akpParams = new URLSearchParams({
       batch_id: batchId, subject_id: subjectId,
       video_id: videoId, schedule_id: videoId, title,
     });
-    const vcParams = new URLSearchParams({
-      batch_id: batchId, subject_id: subjectId,
-      video_id: videoId, video_type: "new", title,
-    });
+    const vcParams = live
+      ? new URLSearchParams({
+          batch_id: batchId, subject_id: subjectId,
+          topic_id: topicId, video_id: videoId,
+          video_name: title, video_type: "live", play_type: "Lecture",
+        })
+      : new URLSearchParams({
+          batch_id: batchId, subject_id: subjectId,
+          video_id: videoId, video_type: "new", title,
+        });
 
     setSrcs({
       akp:      `https://learnbyakp.online/study-v2/player?${akpParams.toString()}`,

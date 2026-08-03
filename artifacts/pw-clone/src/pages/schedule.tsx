@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
@@ -9,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Radio, Clock, ChevronRight, ChevronLeft, BookOpen, PlayCircle,
-  RefreshCw, AlertCircle, CheckCircle2, Loader2, FileText, Dumbbell, X,
+  RefreshCw, AlertCircle, CheckCircle2, Loader2, FileText, Dumbbell,
   Zap, FlaskConical, Calculator, Dna, BookText,
 } from "lucide-react";
 
@@ -65,84 +64,10 @@ const KIND_META: Record<string, { label: string; icon: ReactNode; color: string 
   other:    { label: "Material", icon: <BookOpen className="w-3 h-3" />, color: "bg-secondary text-muted-foreground border-border/40" },
 };
 
-// ── Live iframe modal ─────────────────────────────────────────────────────────
-type LivePlayerMode = "vidcloud" | "akp";
-interface LiveSrcs { vidcloud: string; akp: string; }
-
-function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: string; onClose: () => void }) {
-  const [player, setPlayer] = useState<LivePlayerMode>("vidcloud");
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return createPortal(
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", flexDirection: "column" }}>
-      {/* Top bar — separate from iframe, no z-index battle */}
-      <div style={{
-        flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "6px 10px", background: "rgba(0,0,0,0.85)", borderBottom: "1px solid rgba(255,255,255,0.08)",
-      }}>
-        <button
-          onClick={onClose}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 12px", borderRadius: 8,
-            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500, cursor: "pointer",
-          }}
-        >
-          <X style={{ width: 15, height: 15 }} />
-          Close
-        </button>
-
-        {/* Player switcher — P1=VidCloud, P2=AKP */}
-        <div style={{
-          display: "flex", gap: 4,
-          background: "rgba(255,255,255,0.07)", borderRadius: 20,
-          padding: "3px 4px", border: "1px solid rgba(255,255,255,0.12)",
-        }}>
-          {(["vidcloud", "akp"] as LivePlayerMode[]).map((p, i) => (
-            <button
-              key={p}
-              onClick={() => setPlayer(p)}
-              style={{
-                padding: "4px 14px", borderRadius: 16, border: "none",
-                fontSize: 12, fontWeight: 600, cursor: "pointer",
-                background: player === p ? "#e53935" : "transparent",
-                color: player === p ? "#fff" : "rgba(255,255,255,0.5)",
-                transition: "all 0.2s",
-              }}
-            >
-              P{i + 1}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Iframe fills remaining height */}
-      <iframe
-        key={player}
-        src={srcs[player]}
-        style={{ flex: 1, width: "100%", border: "none", display: "block" }}
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
-        allowFullScreen
-        referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups"
-        title={title}
-      />
-    </div>,
-    document.body
-  );
-}
-
 // ── PW-style schedule card ─────────────────────────────────────────────────────
 interface ScheduleCardProps { item: ScheduleItem; batchName: string; now: number; }
 
 function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
-  const [liveModal, setLiveModal] = useState<LiveSrcs | null>(null);
   const status      = getLectureStatus(item);
   const kind        = getScheduleItemKind(item);
   const isVideo     = kind === "video";
@@ -188,16 +113,13 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
 
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
-    if (status === "live") {
-      setLiveModal(buildLiveSrcs());
-    } else {
-      const params = new URLSearchParams({
-        batchId, subjectId, videoId: scheduleId,
-        title: item.data.topic.trim(),
-        backUrl: `/batch/${batchId}`,
-      });
-      window.location.href = `/watch?${params.toString()}`;
-    }
+    const params = new URLSearchParams({
+      batchId, subjectId, videoId: scheduleId,
+      title: item.data.topic.trim(),
+      backUrl: `/schedule`,
+      ...(status === "live" ? { video_type: "live", topicId } : {}),
+    });
+    window.location.href = `/watch?${params.toString()}`;
   };
 
   const handleMaterialOpen = (e: React.MouseEvent) => {
