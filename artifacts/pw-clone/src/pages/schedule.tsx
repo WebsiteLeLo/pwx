@@ -65,19 +65,17 @@ const KIND_META: Record<string, { label: string; icon: ReactNode; color: string 
 };
 
 // ── Live iframe modal ─────────────────────────────────────────────────────────
-type LivePlayerMode = "akp" | "vidcloud";
-interface LiveSrcs { akp: string; vidcloud: string; }
+type LivePlayerMode = "vidcloud" | "akp";
+interface LiveSrcs { vidcloud: string; akp: string; }
 
 function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: string; onClose: () => void }) {
-  const [player, setPlayer] = useState<LivePlayerMode>("akp");
+  const [player, setPlayer] = useState<LivePlayerMode>("vidcloud");
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
-
-  const src = srcs[player];
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
@@ -97,7 +95,7 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
         Close
       </button>
 
-      {/* Player switcher */}
+      {/* Player switcher — P1=VidCloud, P2=AKP */}
       <div style={{
         position: "absolute", top: 10, right: 10, zIndex: 50,
         display: "flex", gap: 4,
@@ -105,7 +103,7 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
         padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
         backdropFilter: "blur(6px)",
       }}>
-        {(["akp", "vidcloud"] as LivePlayerMode[]).map((p, i) => (
+        {(["vidcloud", "akp"] as LivePlayerMode[]).map((p, i) => (
           <button
             key={p}
             onClick={() => setPlayer(p)}
@@ -125,7 +123,7 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
       {/* Iframe — full screen, behind controls */}
       <iframe
         key={player}
-        src={src}
+        src={srcs[player]}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", display: "block", zIndex: 1 }}
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
         allowFullScreen
