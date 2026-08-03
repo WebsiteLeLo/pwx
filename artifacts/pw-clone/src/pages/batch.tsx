@@ -71,46 +71,8 @@ const KIND_META: Record<string, { label: string; icon: React.ReactNode; color: s
   other:    { label: "Material", icon: <BookOpen className="w-3 h-3" />, color: "bg-secondary text-muted-foreground border-border/40" },
 };
 
-// ── Live iframe modal ────────────────────────────────────────────────────────
-function LivePlayerModal({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[9999] bg-black"
-      style={{ isolation: "isolate" }}
-    >
-      {/* Floating close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-black/80 transition-colors text-sm font-medium cursor-pointer"
-      >
-        <X className="w-4 h-4" />
-        Close
-      </button>
-
-      {/* Iframe — full screen */}
-      <iframe
-        src={src}
-        className="w-full h-full border-none block"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
-        allowFullScreen
-        referrerPolicy="no-referrer"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups"
-        title={title}
-      />
-    </div>
-  );
-}
-
 // ── Schedule card (PW-style) ──────────────────────────────────────────────────
 function LiveScheduleCard({ item }: { item: ScheduleItem }) {
-  const [liveModal, setLiveModal] = useState<string | null>(null);
   const status    = getLectureStatus(item);
   const kind      = getScheduleItemKind(item);
   const isVideo   = kind === "video";
@@ -134,33 +96,15 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
   // Initials for avatar fallback
   const meta = getSubjectMeta(subjectName);
 
-  const buildLiveUrl = () => {
-    const p = new URLSearchParams({
-      batch_id:   batchId,
-      subject_id: subjectId,
-      topic_id:   topicId,
-      video_id:   scheduleId,
-      video_name: item.data.topic.trim(),
-      video_img:  thumbUrl ?? "",
-      video_type: "live",
-      play_type:  "Lecture",
-    });
-    return `https://vidcloud.eu.org/play.php?${p.toString()}`;
-  };
-
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
-    if (status === "live") {
-      setLiveModal(buildLiveUrl());
-    } else {
-      // completed → internal /watch (video_type=new via existing player)
-      const params = new URLSearchParams({
-        batchId, subjectId, videoId: scheduleId,
-        title: item.data.topic.trim(),
-        backUrl: `/batch/${batchId}`,
-      });
-      window.location.href = `/watch?${params.toString()}`;
-    }
+    const params = new URLSearchParams({
+      batchId, subjectId, videoId: scheduleId,
+      title: item.data.topic.trim(),
+      backUrl: `/batch/${batchId}`,
+      ...(status === "live" ? { video_type: "live", topicId } : {}),
+    });
+    window.location.href = `/watch?${params.toString()}`;
   };
 
   const handleMaterialOpen = (e: React.MouseEvent) => {
@@ -180,10 +124,6 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 
   return (
     <>
-      {liveModal && (
-        <LivePlayerModal src={liveModal} title={item.data.topic.trim()} onClose={() => setLiveModal(null)} />
-      )}
-
       <motion.div
         initial={{ opacity: 0, x: 16 }}
         animate={{ opacity: 1, x: 0 }}
