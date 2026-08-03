@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
@@ -77,9 +78,9 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", flexDirection: "column" }}>
-      {/* Top bar — completely separate from iframe, no z-index battle */}
+      {/* Top bar — separate from iframe, no z-index battle */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "6px 10px", background: "rgba(0,0,0,0.85)", borderBottom: "1px solid rgba(255,255,255,0.08)",
@@ -132,7 +133,8 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
         sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups"
         title={title}
       />
-    </div>
+    </div>,
+    document.body
   );
 }
 
