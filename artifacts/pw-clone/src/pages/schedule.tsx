@@ -78,53 +78,54 @@ function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: stri
   }, [onClose]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
-      {/* Floating close button */}
-      <button
-        onClick={onClose}
-        style={{
-          position: "absolute", top: 10, left: 10, zIndex: 50,
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 12px", borderRadius: 8,
-          background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)",
-          color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500,
-          cursor: "pointer", backdropFilter: "blur(6px)",
-        }}
-      >
-        <X style={{ width: 16, height: 16 }} />
-        Close
-      </button>
-
-      {/* Player switcher — P1=VidCloud, P2=AKP */}
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", flexDirection: "column" }}>
+      {/* Top bar — completely separate from iframe, no z-index battle */}
       <div style={{
-        position: "absolute", top: 10, right: 10, zIndex: 50,
-        display: "flex", gap: 4,
-        background: "rgba(0,0,0,0.6)", borderRadius: 20,
-        padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
-        backdropFilter: "blur(6px)",
+        flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "6px 10px", background: "rgba(0,0,0,0.85)", borderBottom: "1px solid rgba(255,255,255,0.08)",
       }}>
-        {(["vidcloud", "akp"] as LivePlayerMode[]).map((p, i) => (
-          <button
-            key={p}
-            onClick={() => setPlayer(p)}
-            style={{
-              padding: "4px 10px", borderRadius: 16, border: "none",
-              fontSize: 11, fontWeight: 600, cursor: "pointer",
-              background: player === p ? "#e53935" : "transparent",
-              color: player === p ? "#fff" : "rgba(255,255,255,0.55)",
-              transition: "all 0.2s",
-            }}
-          >
-            P{i + 1}
-          </button>
-        ))}
+        <button
+          onClick={onClose}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 12px", borderRadius: 8,
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500, cursor: "pointer",
+          }}
+        >
+          <X style={{ width: 15, height: 15 }} />
+          Close
+        </button>
+
+        {/* Player switcher — P1=VidCloud, P2=AKP */}
+        <div style={{
+          display: "flex", gap: 4,
+          background: "rgba(255,255,255,0.07)", borderRadius: 20,
+          padding: "3px 4px", border: "1px solid rgba(255,255,255,0.12)",
+        }}>
+          {(["vidcloud", "akp"] as LivePlayerMode[]).map((p, i) => (
+            <button
+              key={p}
+              onClick={() => setPlayer(p)}
+              style={{
+                padding: "4px 14px", borderRadius: 16, border: "none",
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+                background: player === p ? "#e53935" : "transparent",
+                color: player === p ? "#fff" : "rgba(255,255,255,0.5)",
+                transition: "all 0.2s",
+              }}
+            >
+              P{i + 1}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Iframe — full screen, behind controls */}
+      {/* Iframe fills remaining height */}
       <iframe
         key={player}
         src={srcs[player]}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", display: "block", zIndex: 1 }}
+        style={{ flex: 1, width: "100%", border: "none", display: "block" }}
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
         allowFullScreen
         referrerPolicy="no-referrer"
