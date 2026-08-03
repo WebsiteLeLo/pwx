@@ -65,12 +65,19 @@ const KIND_META: Record<string, { label: string; icon: ReactNode; color: string 
 };
 
 // ── Live iframe modal ─────────────────────────────────────────────────────────
-function LivePlayerModal({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
+type LivePlayerMode = "akp" | "vidcloud";
+interface LiveSrcs { akp: string; vidcloud: string; }
+
+function LivePlayerModal({ srcs, title, onClose }: { srcs: LiveSrcs; title: string; onClose: () => void }) {
+  const [player, setPlayer] = useState<LivePlayerMode>("akp");
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  const src = srcs[player];
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black" style={{ isolation: "isolate" }}>
@@ -82,8 +89,35 @@ function LivePlayerModal({ src, title, onClose }: { src: string; title: string; 
         <X className="w-4 h-4" />
         Close
       </button>
+
+      {/* Player switcher */}
+      <div style={{
+        position: "absolute", top: 10, right: 10, zIndex: 20,
+        display: "flex", gap: 4,
+        background: "rgba(0,0,0,0.6)", borderRadius: 20,
+        padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
+        backdropFilter: "blur(6px)",
+      }}>
+        {(["akp", "vidcloud"] as LivePlayerMode[]).map((p, i) => (
+          <button
+            key={p}
+            onClick={() => setPlayer(p)}
+            style={{
+              padding: "4px 10px", borderRadius: 16, border: "none",
+              fontSize: 11, fontWeight: 600, cursor: "pointer",
+              background: player === p ? "#e53935" : "transparent",
+              color: player === p ? "#fff" : "rgba(255,255,255,0.55)",
+              transition: "all 0.2s",
+            }}
+          >
+            P{i + 1}
+          </button>
+        ))}
+      </div>
+
       {/* Iframe — full screen */}
       <iframe
+        key={player}
         src={src}
         className="w-full h-full border-none block"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; camera; microphone"
@@ -100,7 +134,7 @@ function LivePlayerModal({ src, title, onClose }: { src: string; title: string; 
 interface ScheduleCardProps { item: ScheduleItem; batchName: string; now: number; }
 
 function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
-  const [liveModal, setLiveModal] = useState<string | null>(null);
+  const [liveModal, setLiveModal] = useState<LiveSrcs | null>(null);
   const status      = getLectureStatus(item);
   const kind        = getScheduleItemKind(item);
   const isVideo     = kind === "video";
@@ -119,8 +153,8 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   const teacherName: string = raw.teacherName || raw.teacher?.name || raw.instructorName || "";
   const meta = getSubjectMeta(subjectName);
 
-  const buildLiveUrl = () => {
-    const p = new URLSearchParams({
+  const buildLiveSrcs = (): LiveSrcs => {
+    const common = {
       batch_id:   batchId,
       subject_id: subjectId,
       topic_id:   topicId,
@@ -129,14 +163,19 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
       video_img:  thumbUrl ?? "",
       video_type: "live",
       play_type:  "Lecture",
-    });
-    return `https://vidcloud.eu.org/play.php?${p.toString()}`;
+    };
+    const akpParams = new URLSearchParams({ ...common, schedule_id: scheduleId });
+    const vcParams  = new URLSearchParams(common);
+    return {
+      akp:      `https://learnbyakp.online/study-v2/player?${akpParams.toString()}`,
+      vidcloud: `https://vidcloud.eu.org/play.php?${vcParams.toString()}`,
+    };
   };
 
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
     if (status === "live") {
-      setLiveModal(buildLiveUrl());
+      setLiveModal(buildLiveSrcs());
     } else {
       const params = new URLSearchParams({
         batchId, subjectId, videoId: scheduleId,
@@ -167,7 +206,7 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
 
   return (
     <>
-      {liveModal && <LivePlayerModal src={liveModal} title={item.data.topic.trim()} onClose={() => setLiveModal(null)} />}
+      {liveModal && <LivePlayerModal srcs={liveModal} title={item.data.topic.trim()} onClose={() => setLiveModal(null)} />}
 
       <motion.div
         initial={{ opacity: 0, x: 16 }}
