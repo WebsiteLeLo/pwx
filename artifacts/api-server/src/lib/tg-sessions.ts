@@ -4,7 +4,7 @@
  */
 import { pool } from "@workspace/db";
 
-const SESSION_TTL_MIN = 10; // minutes a session lives before bot interaction
+const SESSION_TTL_MIN = 30; // minutes a session lives before bot interaction
 const CODE_TTL_MIN    =  5; // minutes a code is valid after being issued
 
 export interface TgSession {
