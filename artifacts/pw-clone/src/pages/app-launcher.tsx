@@ -296,14 +296,8 @@ export default function AppLauncher() {
           }}
         >
           {/* Icon */}
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mb-3 self-center"
-            style={{ background: "linear-gradient(135deg,#3b82f6,#6366f1)" }}
-          >
-            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-            </svg>
+          <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg mb-3 self-center bg-white">
+            <img src="/pw-logo.png" alt="PW Logo" className="w-full h-full object-contain p-1" />
           </div>
           {/* Name */}
           <div className="w-full">
@@ -339,14 +333,8 @@ export default function AppLauncher() {
             </span>
           )}
           {/* Icon */}
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mb-3 self-center"
-            style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
-          >
-            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7"/>
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-            </svg>
+          <div className="w-14 h-14 rounded-xl overflow-hidden shadow-lg mb-3 self-center bg-white">
+            <img src="/vibrant-logo.jpg" alt="Vibrant Academy Logo" className="w-full h-full object-contain p-0.5" />
           </div>
           {/* Name */}
           <div className="w-full">
