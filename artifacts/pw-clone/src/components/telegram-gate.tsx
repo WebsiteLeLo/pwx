@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTelegramGateSetting } from "@/hooks/useAdmin";
 
 type Lang = "hi" | "en";
 
@@ -82,6 +83,7 @@ function getSavedSession(): { sessionId: string; botLink: string } | null {
 }
 
 export function TelegramGate({ children }: { children: React.ReactNode }) {
+  const { data: gateSetting, isLoading: gateLoading } = useTelegramGateSetting();
   const [lang, setLang] = useState<Lang>("en");
   const [auth, setAuth] = useState<StoredAuth | null>(getStoredAuth);
   const [step, setStep] = useState<Step>("join");
@@ -169,6 +171,10 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
     setBotLink(null);
     await createSession();
   }, [createSession]);
+
+  // Gate disabled by admin — bypass entirely (while loading, default to showing gate)
+  const gateEnabled = gateLoading ? true : (gateSetting?.value?.enabled ?? true);
+  if (!gateEnabled) return <>{children}</>;
 
   // Already verified — render app
   if (auth) return <>{children}</>;
