@@ -1,24 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
-const SS_AUTH_KEY = "ss_tg_auth";
-const EXPIRY_MS   = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SS_AUTH_KEY     = "ss_tg_auth";
+const SS_SESSION_KEY  = "ss_tg_session";
+const EXPIRY_MS       = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-function getSSAuth(): boolean {
+interface SSStoredAuth { user: { id: string; name: string }; expires: number; }
+
+function getSSAuth(): SSStoredAuth | null {
   try {
     const raw = localStorage.getItem(SS_AUTH_KEY);
-    if (!raw) return false;
-    const { expires } = JSON.parse(raw);
-    if (Date.now() > expires) { localStorage.removeItem(SS_AUTH_KEY); return false; }
-    return true;
-  } catch { return false; }
+    if (!raw) return null;
+    const auth = JSON.parse(raw) as SSStoredAuth;
+    if (Date.now() > auth.expires) { localStorage.removeItem(SS_AUTH_KEY); return null; }
+    return auth;
+  } catch { return null; }
 }
 
-function setSSAuth() {
-  localStorage.setItem(SS_AUTH_KEY, JSON.stringify({ expires: Date.now() + EXPIRY_MS }));
+function getSSSavedSession(): { sessionId: string; botLink: string } | null {
+  try {
+    const raw = sessionStorage.getItem(SS_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
 // ── Telegram SVG ─────────────────────────────────────────────────────────────
@@ -31,13 +37,78 @@ function TgIcon({ className }: { className?: string }) {
 }
 
 // ── StudySquad Gate Modal ────────────────────────────────────────────────────
-function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [joined, setJoined] = useState(false);
+type SSStep   = "join" | "code";
+type SSStatus = "idle" | "loading" | "invalid_code" | "session_error" | "error";
+
+function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess: (user: { id: string; name: string }) => void }) {
+  const [step,          setStep]          = useState<SSStep>("join");
+  const [sessionId,     setSessionId]     = useState<string | null>(() => getSSSavedSession()?.sessionId ?? null);
+  const [botLink,       setBotLink]       = useState<string | null>(() => getSSSavedSession()?.botLink ?? null);
+  const [sessionLoading,setSessionLoading]= useState(false);
+  const [code,          setCode]          = useState("");
+  const [status,        setStatus]        = useState<SSStatus>("idle");
+
+  const createSession = useCallback(async () => {
+    setSessionLoading(true);
+    try {
+      const res  = await fetch("/api/ss-auth/session", { method: "POST" });
+      const json = (await res.json()) as { sessionId: string; botLink: string | null };
+      setSessionId(json.sessionId);
+      setBotLink(json.botLink);
+      if (json.botLink) {
+        sessionStorage.setItem(SS_SESSION_KEY, JSON.stringify({ sessionId: json.sessionId, botLink: json.botLink }));
+      }
+    } catch {
+      setSessionId(null); setBotLink(null);
+    } finally {
+      setSessionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!getSSSavedSession()) createSession();
+  }, [createSession]);
+
+  const handleGetCode = useCallback(() => {
+    if (botLink) window.open(botLink, "_blank");
+    setStep("code");
+  }, [botLink]);
+
+  const handleVerify = useCallback(async () => {
+    if (!code.trim()) return;
+    if (!sessionId) { setStatus("session_error"); return; }
+    setStatus("loading");
+    try {
+      const res  = await fetch("/api/ss-auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, code: code.trim() }),
+      });
+      const json = (await res.json()) as { ok: boolean; reason?: string; user?: { id: string; name: string } };
+      if (json.ok && json.user) {
+        const stored: SSStoredAuth = { user: json.user, expires: Date.now() + EXPIRY_MS };
+        localStorage.setItem(SS_AUTH_KEY, JSON.stringify(stored));
+        sessionStorage.removeItem(SS_SESSION_KEY);
+        onSuccess(json.user);
+      } else if (json.reason === "invalid_code") {
+        setStatus("invalid_code");
+      } else {
+        setStatus("error");
+      }
+    } catch { setStatus("error"); }
+  }, [sessionId, code, onSuccess]);
+
+  const handleNewSession = useCallback(async () => {
+    setCode(""); setStatus("idle"); setStep("join");
+    sessionStorage.removeItem(SS_SESSION_KEY);
+    setSessionId(null); setBotLink(null);
+    await createSession();
+  }, [createSession]);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
       <motion.div
@@ -49,7 +120,7 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
         style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.08)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top accent bar */}
+        {/* Accent bar */}
         <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#7c3aed,#a855f7,#7c3aed)" }} />
 
         <div className="p-7">
@@ -58,82 +129,117 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
               style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}>
               <svg className="w-9 h-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
               </svg>
             </div>
           </div>
 
-          {/* Text */}
-          <h2 className="text-white text-xl font-bold text-center mb-1">Vibracnt Academy</h2>
-          <p className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
-            Access करने के लिए{" "}
-            <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer"
-              className="text-violet-400 hover:text-violet-300 font-medium">
-              @studysquadpro
-            </a>{" "}
-            Telegram channel join करना ज़रूरी है।
-          </p>
+          <AnimatePresence mode="wait">
+            {step === "join" ? (
+              <motion.div key="join" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.22 }}>
+                <h2 className="text-white text-xl font-bold text-center mb-1">Vibracnt Academy</h2>
+                <p className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
+                  Access के लिए{" "}
+                  <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">
+                    @studysquadpro
+                  </a>{" "}
+                  channel join करना ज़रूरी है।
+                </p>
 
-          {/* Steps */}
-          <div className="space-y-2 mb-6">
-            <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5"
-                style={{ background: "#7c3aed" }}>1</span>
-              <div>
-                <p className="text-white text-sm font-medium">Channel Join करें</p>
-                <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer"
-                  className="text-violet-400 text-xs hover:underline"
-                  onClick={() => setJoined(true)}>
-                  t.me/studysquadpro →
-                </a>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5"
-                style={{ background: "#7c3aed" }}>2</span>
-              <div>
-                <p className="text-white text-sm font-medium">Continue दबाएं</p>
-                <p className="text-zinc-500 text-xs">Join के बाद Vibracnt Academy open होगी</p>
-              </div>
-            </div>
-          </div>
+                <div className="space-y-2 mb-6">
+                  <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5" style={{ background: "#7c3aed" }}>1</span>
+                    <div>
+                      <p className="text-white text-sm font-medium">Channel Join करें</p>
+                      <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 text-xs hover:underline">t.me/studysquadpro →</a>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5" style={{ background: "#7c3aed" }}>2</span>
+                    <div>
+                      <p className="text-white text-sm font-medium">Access Code लें</p>
+                      <p className="text-zinc-500 text-xs">नीचे button दबाओ → Telegram bot खुलेगा → code मिलेगा</p>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Buttons */}
-          <div className="flex flex-col gap-2">
-            <a
-              href="https://t.me/studysquadpro"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setJoined(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}
-            >
-              <TgIcon className="w-4 h-4" />
-              Join @studysquadpro
-            </a>
-            <button
-              onClick={() => { setSSAuth(); onSuccess(); }}
-              disabled={!joined}
-              className="w-full py-3 rounded-xl font-semibold text-sm transition-all"
-              style={{
-                background: joined ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.04)",
-                color: joined ? "#a78bfa" : "#4b5563",
-                border: `1px solid ${joined ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.06)"}`,
-                cursor: joined ? "pointer" : "not-allowed",
-              }}
-            >
-              ✓ Join हो गया, Continue करें
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full py-2 text-zinc-600 hover:text-zinc-400 text-sm transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+                <button
+                  onClick={handleGetCode}
+                  disabled={!botLink}
+                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}
+                >
+                  <TgIcon className="w-4 h-4" />
+                  {sessionLoading ? "Loading..." : botLink ? "Telegram से Code लें" : "Loading..."}
+                </button>
+
+                <button onClick={() => setStep("code")} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
+                  Already code मिल गया? Enter करें →
+                </button>
+                <button onClick={onClose} className="w-full py-2 text-zinc-700 hover:text-zinc-500 text-sm transition-colors">
+                  Cancel
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div key="code" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.22 }}>
+                <h2 className="text-white text-xl font-bold text-center mb-1">Code Enter करें</h2>
+                <p className="text-zinc-400 text-sm text-center mb-6">Telegram bot से मिला 6-digit code यहाँ enter करें।</p>
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+                  className="w-full text-center text-3xl font-mono tracking-widest py-4 px-4 rounded-xl border text-white placeholder:text-zinc-700 focus:outline-none transition-colors mb-3"
+                  style={{ background: "rgba(255,255,255,0.06)", borderColor: status === "invalid_code" ? "#ef4444" : "rgba(255,255,255,0.10)" }}
+                  autoFocus
+                />
+
+                <AnimatePresence>
+                  {status === "invalid_code" && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs text-center mb-3">
+                      ❌ Code गलत है या expire हो गया।
+                    </motion.p>
+                  )}
+                  {status === "session_error" && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-yellow-400 text-xs text-center mb-3">
+                      ⚠️ Session expire हो गई। नया code लें।
+                    </motion.p>
+                  )}
+                  {status === "error" && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs text-center mb-3">
+                      ⚠️ Network error। दोबारा try करें।
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                <button
+                  onClick={handleVerify}
+                  disabled={code.length < 6 || status === "loading" || status === "session_error"}
+                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}
+                >
+                  {status === "loading" ? (
+                    <><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Verifying...</>
+                  ) : "Access करें ✓"}
+                </button>
+
+                <button onClick={handleNewSession} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
+                  ← वापस जाएं / नया code लें
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {step === "join" && (
+            <p className="text-center text-zinc-700 text-xs mt-4">
+              Only channel membership is verified • No personal data stored
+            </p>
+          )}
         </div>
       </motion.div>
     </div>
@@ -235,7 +341,7 @@ export default function AppLauncher() {
   const [, navigate] = useLocation();
   const { isDark } = useTheme();
   const [ssGate, setSSGate] = useState(false);
-  const [ssAuthed, setSSAuthed] = useState(false);
+  const [ssAuthed, setSSAuthed] = useState<SSStoredAuth | null>(null);
 
   useEffect(() => {
     setSSAuthed(getSSAuth());
@@ -249,9 +355,9 @@ export default function AppLauncher() {
     }
   };
 
-  const handleSSSuccess = () => {
+  const handleSSSuccess = (user: { id: string; name: string }) => {
     setSSGate(false);
-    setSSAuthed(true);
+    setSSAuthed({ user, expires: Date.now() + EXPIRY_MS });
     window.open("https://vb-studysquad.pages.dev/", "_blank");
   };
 
