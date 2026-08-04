@@ -137,23 +137,23 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
               <motion.div key="join" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.22 }}>
                 <h2 className="text-white text-xl font-bold text-center mb-1">Vibrant Academy</h2>
                 <p className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
-                  Access के लिए{" "}
+                  To get access, you must join the{" "}
                   <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">@studysquadpro</a>{" "}
-                  channel join करना ज़रूरी है।
+                  Telegram channel.
                 </p>
                 <div className="space-y-2 mb-6">
                   <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5" style={{ background: "#7c3aed" }}>1</span>
                     <div>
-                      <p className="text-white text-sm font-medium">Channel Join करें</p>
+                      <p className="text-white text-sm font-medium">Join the Channel</p>
                       <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 text-xs hover:underline">t.me/studysquadpro →</a>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5" style={{ background: "#7c3aed" }}>2</span>
                     <div>
-                      <p className="text-white text-sm font-medium">Access Code लें</p>
-                      <p className="text-zinc-500 text-xs">नीचे button दबाओ → Telegram bot खुलेगा → code मिलेगा</p>
+                      <p className="text-white text-sm font-medium">Get Access Code</p>
+                      <p className="text-zinc-500 text-xs">Press the button below → Telegram bot opens → receive your code</p>
                     </div>
                   </div>
                 </div>
@@ -164,17 +164,17 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                   style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}
                 >
                   <TgIcon className="w-4 h-4" />
-                  {sessionLoading ? "Loading..." : botLink ? "Telegram से Code लें" : "Loading..."}
+                  {sessionLoading ? "Loading..." : botLink ? "Get Code via Telegram" : "Loading..."}
                 </button>
                 <button onClick={() => setStep("code")} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
-                  Already code मिल गया? Enter करें →
+                  Already have a code? Enter it →
                 </button>
                 <button onClick={onClose} className="w-full py-2 text-zinc-700 hover:text-zinc-500 text-sm transition-colors">Cancel</button>
               </motion.div>
             ) : (
               <motion.div key="code" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.22 }}>
-                <h2 className="text-white text-xl font-bold text-center mb-1">Code Enter करें</h2>
-                <p className="text-zinc-400 text-sm text-center mb-6">Telegram bot से मिला 6-digit code यहाँ enter करें।</p>
+                <h2 className="text-white text-xl font-bold text-center mb-1">Enter Your Code</h2>
+                <p className="text-zinc-400 text-sm text-center mb-6">Enter the 6-digit code sent by the Telegram bot.</p>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -190,17 +190,17 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                 <AnimatePresence>
                   {status === "invalid_code" && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs text-center mb-3">
-                      ❌ Code गलत है या expire हो गया।
+                      ❌ Code is incorrect or expired. Get a new code below.
                     </motion.p>
                   )}
                   {status === "session_error" && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-yellow-400 text-xs text-center mb-3">
-                      ⚠️ Session expire हो गई। नया code लें।
+                      ⚠️ Session expired. Please get a new code.
                     </motion.p>
                   )}
                   {status === "error" && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs text-center mb-3">
-                      ⚠️ Network error। दोबारा try करें।
+                      ⚠️ Network error. Please try again.
                     </motion.p>
                   )}
                 </AnimatePresence>
@@ -212,10 +212,10 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                 >
                   {status === "loading" ? (
                     <><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Verifying...</>
-                  ) : "Access करें ✓"}
+                  ) : "Get Access ✓"}
                 </button>
                 <button onClick={handleNewSession} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
-                  ← वापस जाएं / नया code लें
+                  ← Go back / Get new code
                 </button>
               </motion.div>
             )}
@@ -261,7 +261,7 @@ export default function AppLauncher() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-5 py-10"
+      className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12"
       style={{ background: bg }}
     >
       {/* Header */}
@@ -269,20 +269,20 @@ export default function AppLauncher() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="flex flex-col items-center mb-10"
+        className="flex flex-col items-center mb-8 sm:mb-10"
       >
         <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl mb-3"
+          className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-xl mb-3"
           style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
         >
           <span className="text-white font-black text-xl tracking-tight">PW</span>
         </div>
-        <h1 className="text-white font-black text-2xl tracking-tight mb-1">PWX Hub</h1>
-        <p className="text-zinc-500 text-sm">App choose करो</p>
+        <h1 className="text-white font-black text-2xl sm:text-3xl tracking-tight mb-1">PWX Hub</h1>
+        <p className="text-zinc-500 text-sm sm:text-base">Choose an App</p>
       </motion.div>
 
       {/* 2-column grid */}
-      <div className="w-full max-w-sm grid grid-cols-2 gap-3">
+      <div className="w-full max-w-sm sm:max-w-md grid grid-cols-2 gap-3 sm:gap-4">
 
         {/* PWX tile */}
         <motion.button
@@ -290,7 +290,7 @@ export default function AppLauncher() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
           onClick={() => navigate("/pw")}
-          className="flex flex-col items-center justify-between rounded-2xl p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none"
+          className="flex flex-col items-center justify-between rounded-2xl p-4 sm:p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none"
           style={{
             background: "linear-gradient(145deg,#1a1a2e,#16213e)",
             border: "1px solid rgba(99,102,241,0.25)",
@@ -325,7 +325,7 @@ export default function AppLauncher() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.18, ease: "easeOut" }}
           onClick={handleVibrant}
-          className="flex flex-col items-center justify-between rounded-2xl p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none relative"
+          className="flex flex-col items-center justify-between rounded-2xl p-4 sm:p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none relative"
           style={{
             background: "linear-gradient(145deg,#1a0a2e,#1e0a38)",
             border: "1px solid rgba(124,58,237,0.25)",
@@ -369,9 +369,9 @@ export default function AppLauncher() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.45 }}
-        className="mt-8 text-zinc-700 text-xs text-center"
+        className="mt-6 sm:mt-8 text-zinc-700 text-xs text-center px-4"
       >
-        Channel membership verify होती है • कोई personal data store नहीं होता
+        Only channel membership is verified • No personal data is stored
       </motion.p>
 
       {/* StudySquad gate modal */}
