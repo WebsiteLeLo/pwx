@@ -10,14 +10,15 @@ import { createSession, verifyCode } from "../lib/tg-sessions";
 
 const router = Router();
 
-const SS_BOT_USERNAME  = process.env.STUDYSQUAD_BOT_USERNAME ?? "";
+const BOT_USERNAME     = process.env.TELEGRAM_BOT_USERNAME ?? "";
 const ADMIN_BYPASS_CODE = "032009";
 
+// Create a new verification session (Vibrant Academy — checks @studysquadpro)
 router.post("/ss-auth/session", async (_req, res) => {
   const sessionId = randomUUID();
   await createSession(sessionId);
-  const botLink = SS_BOT_USERNAME
-    ? `https://t.me/${SS_BOT_USERNAME}?start=${sessionId}`
+  const botLink = BOT_USERNAME
+    ? `https://t.me/${BOT_USERNAME}?start=ss_${sessionId}`
     : null;
   return res.json({ sessionId, botLink });
 });

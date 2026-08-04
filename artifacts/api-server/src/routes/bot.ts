@@ -1,16 +1,29 @@
 /**
  * Telegram Bot webhook handler.
- * Receives updates from Telegram, checks channel membership,
- * and issues a 6-digit one-time access code.
+ * Handles both PWX and Vibrant Academy access via start-parameter prefix:
+ *   pwx_<sessionId>  → checks @pwxonrender channel
+ *   ss_<sessionId>   → checks @studysquadpro channel
  */
 import { Router } from "express";
-import { createSession, getSession, setCode } from "../lib/tg-sessions";
+import { getSession, setCode } from "../lib/tg-sessions";
 
 const router = Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-const CHANNEL   = process.env.TELEGRAM_CHANNEL ?? "@pwxonrender";
-const CHANNEL_URL = "https://t.me/pwxonrender";
+
+// Channel config keyed by prefix
+const APPS: Record<string, { channel: string; channelUrl: string; label: string }> = {
+  pwx: {
+    channel:    process.env.TELEGRAM_CHANNEL ?? "@pwxonrender",
+    channelUrl: "https://t.me/pwxonrender",
+    label:      "PWX",
+  },
+  ss: {
+    channel:    process.env.STUDYSQUAD_CHANNEL ?? "@studysquadpro",
+    channelUrl: "https://t.me/studysquadpro",
+    label:      "Vibrant Academy",
+  },
+};
 
 function randomCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -24,10 +37,10 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
   });
 }
 
-async function isMember(userId: number): Promise<boolean> {
+async function isMember(userId: number, channel: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(CHANNEL)}&user_id=${userId}`,
+      `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(channel)}&user_id=${userId}`,
     );
     const json = (await res.json()) as { ok: boolean; result?: { status: string } };
     if (!json.ok) return false;
@@ -40,7 +53,6 @@ async function isMember(userId: number): Promise<boolean> {
 
 // POST /api/bot/webhook
 router.post("/bot/webhook", async (req, res) => {
-  // Always ACK immediately so Telegram doesn't retry
   res.sendStatus(200);
 
   try {
@@ -60,14 +72,25 @@ router.post("/bot/webhook", async (req, res) => {
     const chatId   = msg.chat.id;
     const userName = msg.from.first_name ?? "User";
 
-    // Handle /start <sessionId>
     if (text.startsWith("/start")) {
-      const parts     = text.split(" ");
-      const sessionId = parts[1]?.trim();
+      const param = text.split(" ")[1]?.trim();
 
-      if (!sessionId) {
+      if (!param) {
         await sendMessage(chatId,
           `👋 Namaste! Is bot ko directly use nahi kiya ja sakta.\n\nWebsite pe jaake "Access Code Paao" button dabaao.`
+        );
+        return;
+      }
+
+      // Parse prefix: "pwx_<uuid>" or "ss_<uuid>"
+      const underscoreIdx = param.indexOf("_");
+      const prefix    = underscoreIdx !== -1 ? param.slice(0, underscoreIdx) : "";
+      const sessionId = underscoreIdx !== -1 ? param.slice(underscoreIdx + 1) : param;
+      const app       = APPS[prefix];
+
+      if (!app) {
+        await sendMessage(chatId,
+          `⏰ Yeh link expire ho gaya hai.\n\nWebsite pe wapas jaao aur naya code request karo.`
         );
         return;
       }
@@ -80,24 +103,22 @@ router.post("/bot/webhook", async (req, res) => {
         return;
       }
 
-      // Check channel membership
-      const member = await isMember(userId);
+      const member = await isMember(userId, app.channel);
       if (!member) {
         await sendMessage(chatId,
-          `❌ Aap abhi <b>${CHANNEL}</b> channel ke member nahi hain.\n\n` +
-          `Pehle channel join karo:\n${CHANNEL_URL}\n\n` +
+          `❌ Aap abhi <b>${app.channel}</b> channel ke member nahi hain.\n\n` +
+          `Pehle channel join karo:\n${app.channelUrl}\n\n` +
           `Join karne ke baad wapas website pe aao aur dobara try karo.`
         );
         return;
       }
 
-      // Issue code
       const code = randomCode();
       await setCode(sessionId, code, userId, userName);
 
       await sendMessage(chatId,
         `✅ Channel membership confirm ho gayi!\n\n` +
-        `Aapka access code hai:\n\n` +
+        `Aapka ${app.label} access code hai:\n\n` +
         `<b>🔑 ${code}</b>\n\n` +
         `⚠️ Yeh code sirf <b>5 minute</b> ke liye valid hai.\n` +
         `Website pe jaao aur yeh code enter karo.`
@@ -105,7 +126,6 @@ router.post("/bot/webhook", async (req, res) => {
       return;
     }
 
-    // Any other message
     await sendMessage(chatId,
       `Website pe "Access Code Paao" button dabaao.`
     );

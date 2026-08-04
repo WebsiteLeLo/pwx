@@ -13,11 +13,11 @@ const router = Router();
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "pwxsubscribebot";
 const ADMIN_BYPASS_CODE = "032009";
 
-// Create a new verification session
+// Create a new verification session (PWX — checks @pwxonrender)
 router.post("/auth/session", async (_req, res) => {
   const sessionId = randomUUID();
   await createSession(sessionId);
-  const botLink = `https://t.me/${BOT_USERNAME}?start=${sessionId}`;
+  const botLink = `https://t.me/${BOT_USERNAME}?start=pwx_${sessionId}`;
   return res.json({ sessionId, botLink });
 });
 
