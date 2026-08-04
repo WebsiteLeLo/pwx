@@ -1,0 +1,59 @@
+version: '3.9'
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pwx
+      POSTGRES_USER: pwx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pwx -d pwx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API Server (Node.js / Express) ──────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://pwx:${POSTGRES_PASSWORD:-changeme}@db:5432/pwx
+      SESSION_SECRET: ${SESSION_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_CHANNEL: ${TELEGRAM_CHANNEL}
+      STUDYSQUAD_BOT_TOKEN: ${STUDYSQUAD_BOT_TOKEN}
+      STUDYSQUAD_CHANNEL: ${STUDYSQUAD_CHANNEL}
+      DRIVE_API_KEY: ${DRIVE_API_KEY}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ADMIN_KEY: ${ADMIN_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Frontend (React/Vite → Nginx) ───────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

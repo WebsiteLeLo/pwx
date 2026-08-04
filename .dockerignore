@@ -1,0 +1,38 @@
+# Dependencies (rebuilt inside Docker)
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt inside Docker)
+**/dist
+**/.vite
+
+# Git
+.git
+.gitignore
+
+# Env files (use docker-compose environment instead)
+.env
+.env.*
+!.env.example
+
+# Replit specific
+.replit
+replit.nix
+.cache
+.config
+.upm
+
+# Dev/test files
+attached_assets
+.migration-backup
+**/*.test.ts
+**/*.spec.ts
+**/coverage
+
+# Logs
+*.log
+**/logs
+
+# OS
+.DS_Store
+Thumbs.db
