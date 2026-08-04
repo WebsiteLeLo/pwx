@@ -8,7 +8,7 @@ type PlayerMode = "akp" | "vidcloud";
 
 export default function Watch() {
   const [srcs, setSrcs] = useState({ akp: "", vidcloud: "" });
-  const [player, setPlayer] = useState<PlayerMode>("akp");
+  const [player] = useState<PlayerMode>("akp");
   const [isLive, setIsLive] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const backUrlRef = useRef("/");
@@ -121,30 +121,6 @@ export default function Watch() {
         <ArrowLeft size={16} />
       </button>
 
-      {/* Player switcher */}
-      <div style={{
-        position: "absolute", top: 10, right: 10, zIndex: 20,
-        display: "flex", gap: 4,
-        background: "rgba(0,0,0,0.6)", borderRadius: 20,
-        padding: "3px 4px", border: "1px solid rgba(255,255,255,0.15)",
-        backdropFilter: "blur(6px)",
-      }}>
-        {(["akp", "vidcloud"] as PlayerMode[]).map((p, i) => (
-          <button
-            key={p}
-            onClick={() => { setPlayer(p); setLoaded(false); }}
-            style={{
-              padding: "4px 10px", borderRadius: 16, border: "none",
-              fontSize: 11, fontWeight: 600, cursor: "pointer",
-              background: player === p ? "#5a4bda" : "transparent",
-              color: player === p ? "#fff" : "rgba(255,255,255,0.55)",
-              transition: "all 0.2s",
-            }}
-          >
-            P{i + 1}
-          </button>
-        ))}
-      </div>
 
       {/* Loading overlay — theme-aware */}
       <AnimatePresence>
