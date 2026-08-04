@@ -1,18 +1,20 @@
 User-agent: *
 Allow: /
 
-# Block non-public routes
+# Block private/admin routes
 Disallow: /admin
 Disallow: /admin/
 Disallow: /api/
+
+# Block video player routes (dynamic, no SEO value)
 Disallow: /watch
 Disallow: /schedule-watch
 
-# Block query strings that create duplicate content
+# Block duplicate content from query strings
 Disallow: /*?*fromMix=
 Disallow: /*?*_k=
 
-# Crawl-delay for bots that respect it
+# Crawl-delay for polite bots
 Crawl-delay: 2
 
 # Sitemap
