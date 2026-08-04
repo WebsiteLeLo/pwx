@@ -48,7 +48,6 @@ export default function Watch() {
     const live       = videoType === "live";
 
     setIsLive(live);
-    if (live) setPlayer("vidcloud");
 
     const akpParams = new URLSearchParams({
       batch_id: batchId, subject_id: subjectId,
