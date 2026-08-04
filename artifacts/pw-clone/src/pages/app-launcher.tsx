@@ -271,11 +271,8 @@ export default function AppLauncher() {
         transition={{ duration: 0.35, ease: "easeOut" }}
         className="flex flex-col items-center mb-8 sm:mb-10"
       >
-        <div
-          className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-xl mb-3"
-          style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
-        >
-          <span className="text-white font-black text-xl tracking-tight">PW</span>
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shadow-xl mb-3">
+          <img src="/pwx-logo.png" alt="PWX Logo" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-white font-black text-2xl sm:text-3xl tracking-tight mb-1">PWX Hub</h1>
         <p className="text-zinc-500 text-sm sm:text-base">Choose an App</p>
