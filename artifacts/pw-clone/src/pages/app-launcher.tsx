@@ -6,7 +6,7 @@ import { useTheme } from "@/hooks/useTheme";
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const SS_AUTH_KEY     = "ss_tg_auth";
 const SS_SESSION_KEY  = "ss_tg_session";
-const EXPIRY_MS       = 7 * 24 * 60 * 60 * 1000; // 7 days
+const EXPIRY_MS       = 7 * 24 * 60 * 60 * 1000;
 
 interface SSStoredAuth { user: { id: string; name: string }; expires: number; }
 
@@ -41,12 +41,12 @@ type SSStep   = "join" | "code";
 type SSStatus = "idle" | "loading" | "invalid_code" | "session_error" | "error";
 
 function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess: (user: { id: string; name: string }) => void }) {
-  const [step,          setStep]          = useState<SSStep>("join");
-  const [sessionId,     setSessionId]     = useState<string | null>(() => getSSSavedSession()?.sessionId ?? null);
-  const [botLink,       setBotLink]       = useState<string | null>(() => getSSSavedSession()?.botLink ?? null);
-  const [sessionLoading,setSessionLoading]= useState(false);
-  const [code,          setCode]          = useState("");
-  const [status,        setStatus]        = useState<SSStatus>("idle");
+  const [step,           setStep]           = useState<SSStep>("join");
+  const [sessionId,      setSessionId]      = useState<string | null>(() => getSSSavedSession()?.sessionId ?? null);
+  const [botLink,        setBotLink]        = useState<string | null>(() => getSSSavedSession()?.botLink ?? null);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [code,           setCode]           = useState("");
+  const [status,         setStatus]         = useState<SSStatus>("idle");
 
   const createSession = useCallback(async () => {
     setSessionLoading(true);
@@ -120,11 +120,8 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
         style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.08)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Accent bar */}
         <div className="h-1 w-full" style={{ background: "linear-gradient(90deg,#7c3aed,#a855f7,#7c3aed)" }} />
-
         <div className="p-7">
-          {/* Icon */}
           <div className="flex justify-center mb-5">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
               style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}>
@@ -138,15 +135,12 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
           <AnimatePresence mode="wait">
             {step === "join" ? (
               <motion.div key="join" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.22 }}>
-                <h2 className="text-white text-xl font-bold text-center mb-1">Vibracnt Academy</h2>
+                <h2 className="text-white text-xl font-bold text-center mb-1">Vibrant Academy</h2>
                 <p className="text-zinc-400 text-sm text-center mb-6 leading-relaxed">
                   Access के लिए{" "}
-                  <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">
-                    @studysquadpro
-                  </a>{" "}
+                  <a href="https://t.me/studysquadpro" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">@studysquadpro</a>{" "}
                   channel join करना ज़रूरी है।
                 </p>
-
                 <div className="space-y-2 mb-6">
                   <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white mt-0.5" style={{ background: "#7c3aed" }}>1</span>
@@ -163,7 +157,6 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                     </div>
                   </div>
                 </div>
-
                 <button
                   onClick={handleGetCode}
                   disabled={!botLink}
@@ -173,19 +166,15 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                   <TgIcon className="w-4 h-4" />
                   {sessionLoading ? "Loading..." : botLink ? "Telegram से Code लें" : "Loading..."}
                 </button>
-
                 <button onClick={() => setStep("code")} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
                   Already code मिल गया? Enter करें →
                 </button>
-                <button onClick={onClose} className="w-full py-2 text-zinc-700 hover:text-zinc-500 text-sm transition-colors">
-                  Cancel
-                </button>
+                <button onClick={onClose} className="w-full py-2 text-zinc-700 hover:text-zinc-500 text-sm transition-colors">Cancel</button>
               </motion.div>
             ) : (
               <motion.div key="code" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.22 }}>
                 <h2 className="text-white text-xl font-bold text-center mb-1">Code Enter करें</h2>
                 <p className="text-zinc-400 text-sm text-center mb-6">Telegram bot से मिला 6-digit code यहाँ enter करें।</p>
-
                 <input
                   type="text"
                   inputMode="numeric"
@@ -198,7 +187,6 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                   style={{ background: "rgba(255,255,255,0.06)", borderColor: status === "invalid_code" ? "#ef4444" : "rgba(255,255,255,0.10)" }}
                   autoFocus
                 />
-
                 <AnimatePresence>
                   {status === "invalid_code" && (
                     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-400 text-xs text-center mb-3">
@@ -216,7 +204,6 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                     </motion.p>
                   )}
                 </AnimatePresence>
-
                 <button
                   onClick={handleVerify}
                   disabled={code.length < 6 || status === "loading" || status === "session_error"}
@@ -227,7 +214,6 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
                     <><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Verifying...</>
                   ) : "Access करें ✓"}
                 </button>
-
                 <button onClick={handleNewSession} className="w-full mt-2 py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors">
                   ← वापस जाएं / नया code लें
                 </button>
@@ -246,96 +232,6 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
   );
 }
 
-// ── App Card ─────────────────────────────────────────────────────────────────
-interface AppCardProps {
-  name: string;
-  tagline: string;
-  description: string;
-  channel: string;
-  channelUrl: string;
-  accentFrom: string;
-  accentTo: string;
-  badgeColor: string;
-  icon: React.ReactNode;
-  alreadyAuthed: boolean;
-  onClick: () => void;
-  index: number;
-}
-
-function AppCard({
-  name, tagline, description, channel, channelUrl,
-  accentFrom, accentTo, badgeColor, icon, alreadyAuthed, onClick, index,
-}: AppCardProps) {
-  return (
-    <motion.button
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: 0.1 + index * 0.1, ease: "easeOut" }}
-      onClick={onClick}
-      className="w-full text-left rounded-2xl overflow-hidden transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-      style={{
-        background: "#13131a",
-        border: "1px solid rgba(255,255,255,0.07)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-      }}
-    >
-      {/* Gradient top bar */}
-      <div className="h-1" style={{ background: `linear-gradient(90deg, ${accentFrom}, ${accentTo})` }} />
-
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
-            style={{ background: `linear-gradient(135deg, ${accentFrom}, ${accentTo})` }}
-          >
-            {icon}
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-white font-bold text-lg leading-tight">{name}</h2>
-              {alreadyAuthed && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80" }}>
-                  ✓ Access
-                </span>
-              )}
-            </div>
-            <p className="text-xs font-semibold mt-0.5 mb-1.5" style={{ color: badgeColor }}>
-              {tagline}
-            </p>
-            <p className="text-zinc-400 text-xs leading-relaxed line-clamp-2">{description}</p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <TgIcon className="w-3.5 h-3.5" style={{ color: "#0088cc" } as any} />
-            <a
-              href={channelUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#0088cc] text-xs hover:text-[#29b6f6] transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {channel}
-            </a>
-          </div>
-          <span
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: `linear-gradient(135deg, ${accentFrom}22, ${accentTo}22)`, color: badgeColor }}
-          >
-            Open →
-          </span>
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AppLauncher() {
   const [, navigate] = useLocation();
@@ -347,7 +243,7 @@ export default function AppLauncher() {
     setSSAuthed(getSSAuth());
   }, []);
 
-  const handleVibracnt = () => {
+  const handleVibrant = () => {
     if (ssAuthed) {
       window.open("https://vb-studysquad.pages.dev/", "_blank");
     } else {
@@ -361,84 +257,119 @@ export default function AppLauncher() {
     window.open("https://vb-studysquad.pages.dev/", "_blank");
   };
 
+  const bg = isDark ? "#0a0a0f" : "#f1f0f7";
+
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-start px-4 py-10"
-      style={{ background: isDark ? "#0a0a0f" : "#f1f0f7" }}
+      className="min-h-screen flex flex-col items-center justify-center px-5 py-10"
+      style={{ background: bg }}
     >
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -16 }}
+        initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="text-center mb-10 max-w-xs"
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="flex flex-col items-center mb-10"
       >
-        {/* Logo mark */}
-        <div className="flex justify-center mb-4">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
-          >
-            <span className="text-white font-black text-2xl tracking-tight">PW</span>
-          </div>
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl mb-3"
+          style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}
+        >
+          <span className="text-white font-black text-xl tracking-tight">PW</span>
         </div>
-        <h1 className="text-white font-black text-2xl mb-1.5 tracking-tight">PWX Hub</h1>
-        <p className="text-zinc-500 text-sm leading-relaxed">
-          Apni favourite educational app choose karo
-        </p>
+        <h1 className="text-white font-black text-2xl tracking-tight mb-1">PWX Hub</h1>
+        <p className="text-zinc-500 text-sm">App choose करो</p>
       </motion.div>
 
-      {/* App cards */}
-      <div className="w-full max-w-sm flex flex-col gap-4">
-        {/* PWX — Physics Wallah */}
-        <AppCard
-          index={0}
-          name="PWX"
-          tagline="Physics Wallah Free Batches"
-          description="IIT JEE, NEET, Foundation — 12,000+ free batches, DPP quizzes, video lectures & study materials."
-          channel="@pwxonrender"
-          channelUrl="https://t.me/pwxonrender"
-          accentFrom="#3b82f6"
-          accentTo="#6366f1"
-          badgeColor="#818cf8"
-          alreadyAuthed={false}
-          icon={
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      {/* 2-column grid */}
+      <div className="w-full max-w-sm grid grid-cols-2 gap-3">
+
+        {/* PWX tile */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
+          onClick={() => navigate("/pw")}
+          className="flex flex-col items-center justify-between rounded-2xl p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none"
+          style={{
+            background: "linear-gradient(145deg,#1a1a2e,#16213e)",
+            border: "1px solid rgba(99,102,241,0.25)",
+            boxShadow: "0 4px 24px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+            minHeight: 160,
+          }}
+        >
+          {/* Icon */}
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mb-3 self-center"
+            style={{ background: "linear-gradient(135deg,#3b82f6,#6366f1)" }}
+          >
+            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
             </svg>
-          }
-          onClick={() => navigate("/pw")}
-        />
+          </div>
+          {/* Name */}
+          <div className="w-full">
+            <p className="text-white font-bold text-base leading-tight">PWX</p>
+            <p className="text-indigo-400 text-xs mt-0.5 font-medium">Free Batches</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TgIcon className="w-3 h-3 text-[#0088cc]" />
+              <span className="text-zinc-500 text-[11px]">@pwxonrender</span>
+            </div>
+          </div>
+        </motion.button>
 
-        {/* Vibracnt Academy */}
-        <AppCard
-          index={1}
-          name="Vibracnt Academy"
-          tagline="Study Squad Pro"
-          description="Vibracnt Academy ka complete learning platform — video lectures, notes, live classes & more."
-          channel="@studysquadpro"
-          channelUrl="https://t.me/studysquadpro"
-          accentFrom="#7c3aed"
-          accentTo="#a855f7"
-          badgeColor="#c084fc"
-          alreadyAuthed={ssAuthed}
-          icon={
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        {/* Vibrant Academy tile */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.18, ease: "easeOut" }}
+          onClick={handleVibrant}
+          className="flex flex-col items-center justify-between rounded-2xl p-5 text-left transition-transform duration-200 active:scale-95 hover:scale-[1.03] focus:outline-none relative"
+          style={{
+            background: "linear-gradient(145deg,#1a0a2e,#1e0a38)",
+            border: "1px solid rgba(124,58,237,0.25)",
+            boxShadow: "0 4px 24px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+            minHeight: 160,
+          }}
+        >
+          {ssAuthed && (
+            <span
+              className="absolute top-3 right-3 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80" }}
+            >
+              ✓
+            </span>
+          )}
+          {/* Icon */}
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg mb-3 self-center"
+            style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}
+          >
+            <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="23 7 16 12 23 17 23 7"/>
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
             </svg>
-          }
-          onClick={handleVibracnt}
-        />
+          </div>
+          {/* Name */}
+          <div className="w-full">
+            <p className="text-white font-bold text-base leading-tight">Vibrant</p>
+            <p className="text-violet-400 text-xs mt-0.5 font-medium">Academy</p>
+            <div className="flex items-center gap-1 mt-2">
+              <TgIcon className="w-3 h-3 text-[#0088cc]" />
+              <span className="text-zinc-500 text-[11px]">@studysquadpro</span>
+            </div>
+          </div>
+        </motion.button>
+
       </div>
 
       {/* Footer */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="mt-10 text-zinc-700 text-xs text-center"
+        transition={{ delay: 0.45 }}
+        className="mt-8 text-zinc-700 text-xs text-center"
       >
         Channel membership verify होती है • कोई personal data store नहीं होता
       </motion.p>

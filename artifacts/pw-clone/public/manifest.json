@@ -2,7 +2,7 @@
   "name": "PWX — Physics Wallah Player",
   "short_name": "PWX",
   "description": "Access JEE/NEET preparation batches, video lectures, and study materials from Physics Wallah.",
-  "start_url": "/",
+  "start_url": "/pw",
   "display": "standalone",
   "background_color": "#09090f",
   "theme_color": "#00ccff",
@@ -32,7 +32,7 @@
   "shortcuts": [
     {
       "name": "Browse Batches",
-      "url": "/",
+      "url": "/pw",
       "description": "Explore all available batches"
     }
   ]
