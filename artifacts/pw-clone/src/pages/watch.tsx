@@ -17,10 +17,10 @@ export default function Watch() {
 
   const src = srcs[player];
 
-  // Auto-dismiss loader after 4 s — cross-origin iframes on mobile often skip onLoad
+  // Auto-dismiss loader after 10 s — cross-origin iframes on mobile often skip onLoad
   useEffect(() => {
     if (loaded) return;
-    const t = setTimeout(() => setLoaded(true), 4000);
+    const t = setTimeout(() => setLoaded(true), 10000);
     return () => clearTimeout(t);
   }, [loaded, player]);
 
@@ -274,8 +274,8 @@ export default function Watch() {
           style={{ width: "100%", height: "100%", border: "none", display: "block" }}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
-          referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation"
+          referrerPolicy="origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups allow-popups-to-escape-sandbox"
           title="Video Player"
         />
       )}
