@@ -65,14 +65,14 @@ function Router() {
         <TelegramGate>
         <MaintenanceGate>
           <NotificationBanner />
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence initial={false}>
             <motion.div
               key={location}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="contents"
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
             >
               <Switch>
                 <Route path="/" component={Home} />
