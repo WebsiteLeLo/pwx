@@ -86,7 +86,7 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/98 will-change-transform" style={{ transform: "translateZ(0)" }}>
         <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80 active:opacity-60">
+          <Link href="/pw" className="flex items-center gap-2 transition-opacity hover:opacity-80 active:opacity-60">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
               <PlaySquare className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </div>

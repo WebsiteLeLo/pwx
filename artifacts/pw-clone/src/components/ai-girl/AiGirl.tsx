@@ -503,7 +503,7 @@ export default function AiGirl() {
           switch (name) {
             case "search_batches":
               emitAriaAction({ type: "search_batches", query: String(args.query ?? "") });
-              navigate("/");
+              navigate("/pw");
               break;
             case "navigate_to_batch":
               navigate(`/batch/${args.batchId}`);
@@ -512,7 +512,7 @@ export default function AiGirl() {
               navigate(`/batch/${args.batchId}/subject/${args.subjectId}`);
               break;
             case "navigate_home":
-              navigate("/");
+              navigate("/pw");
               break;
             case "find_dpps": {
               const subject = String(args.subject ?? "");
