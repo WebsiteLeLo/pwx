@@ -201,20 +201,8 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
           player.configure({ drm: { clearKeys: shakaKeys } });
         }
 
-        // Network filter: route all MPD + segment requests through our proxy
-        player.getNetworkingEngine().registerRequestFilter(
-          (_type: number, request: any) => {
-            const uri: string = request.uris[0] ?? "";
-            // Only proxy non-local, non-already-proxied URLs
-            if (
-              uri &&
-              !uri.startsWith(window.location.origin) &&
-              !uri.startsWith(PROXY_BASE)
-            ) {
-              request.uris[0] = `${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
-            }
-          }
-        );
+        // proxy.primestudy.site already includes CORS headers — Shaka can reach
+        // it directly without our /api/proxy wrapper. No network filter needed.
 
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;
