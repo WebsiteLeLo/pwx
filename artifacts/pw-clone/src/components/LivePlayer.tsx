@@ -224,65 +224,83 @@ export function LivePlayer({
           if (cancelled) return;
 
           // ── Signature re-attachment ────────────────────────────────────
-          // HLS.js resolves variant playlist / segment URLs relative to the
-          // master manifest, stripping the CloudFront signature → 403.
-          //
-          // Key HLS.js 1.x internal detail:
-          //   • pLoader  → only used for the FIRST master-manifest fetch
-          //   • loader   → used for ALL subsequent fetches (variant playlists,
-          //                audio playlists, segments, keys, …)
-          // So we must override `loader` (the global one) to cover everything.
-          //
-          // Strategy: wrap the default loader; before every network request,
-          // if the URL targets the same CDN host and has no Signature param,
-          // append the signature query-string from the original signed URL.
+          // HLS.js resolves variant playlists / segments relative to the master
+          // manifest URL and strips query params (CloudFront signature) → 403.
+          // We extract the signature from the original streamUrl and build a
+          // fully self-contained fetch-based loader (no Hls.DefaultConfig.loader
+          // dependency) that re-attaches the signature to every request.
           let sigParams = "";
           let sigHost   = "";
           try {
             const u = new URL(streamUrl);
-            sigHost   = u.hostname;                                         // e.g. "proxy.primestudy.site"
-            sigParams = u.search.startsWith("?") ? u.search.slice(1) : u.search; // "Signature=…&Policy=…&Key-Pair-Id=…"
+            sigHost   = u.hostname;
+            sigParams = u.search.startsWith("?") ? u.search.slice(1) : u.search;
           } catch {}
 
-          function buildSignedLoader(DefaultLoader: any) {
-            return class SignedLoader {
-              private _l: any;
-              constructor(cfg: any) { this._l = new DefaultLoader(cfg); }
-              get stats() { return this._l.stats; }
-              destroy() { try { this._l.destroy(); } catch {} }
-              abort()   { try { this._l.abort();   } catch {} }
-              load(context: any, cfg: any, callbacks: any) {
-                try {
-                  const url: string = context.url ?? "";
-                  if (
-                    sigParams &&
-                    sigHost &&
-                    url.includes(sigHost) &&
-                    !url.includes("Signature=") &&
-                    !url.includes("signature=")
-                  ) {
-                    context.url = url.includes("?")
-                      ? `${url}&${sigParams}`
-                      : `${url}?${sigParams}`;
-                  }
-                } catch {}
-                this._l.load(context, cfg, callbacks);
-              }
-            };
+          function addSig(url: string): string {
+            if (!sigParams || !sigHost) return url;
+            if (!url.includes(sigHost)) return url;
+            if (url.includes("Signature=") || url.includes("signature=")) return url;
+            return url.includes("?") ? `${url}&${sigParams}` : `${url}?${sigParams}`;
           }
 
-          const SignedLoader = sigParams
-            ? buildSignedLoader(Hls.DefaultConfig.loader)
-            : undefined;
+          // Standalone fetch-based loader — intercepts every HLS.js network
+          // request (playlists + fragments) and adds the signature before fetching.
+          class SignedFetchLoader {
+            stats = {
+              aborted: false, loaded: 0, retry: 0, total: 0, chunkCount: 0, bwEstimate: 0,
+              loading: { start: 0, first: 0, end: 0 },
+              parsing:  { start: 0, end: 0 },
+              buffering: { start: 0, first: 0, end: 0 },
+            };
+            private _ctrl: AbortController | null = null;
+            constructor(_cfg: any) {}
+            destroy() { this.abort(); }
+            abort()   { this._ctrl?.abort(); this._ctrl = null; }
+            load(context: any, _cfg: any, callbacks: any) {
+              const url = addSig(context.url ?? "");
+              context.url = url; // keep context in sync
+              this._ctrl = new AbortController();
+              const t0 = performance.now();
+              this.stats.loading.start = t0;
+              fetch(url, { signal: this._ctrl.signal })
+                .then(async (res) => {
+                  if (!res.ok) {
+                    callbacks.onError(
+                      { code: res.status, text: res.statusText },
+                      context, res, this.stats,
+                    );
+                    return;
+                  }
+                  this.stats.loading.first = performance.now();
+                  const isText = (context.responseType ?? "text") !== "arraybuffer";
+                  const data: string | ArrayBuffer = isText
+                    ? await res.text()
+                    : await res.arrayBuffer();
+                  const t2 = performance.now();
+                  this.stats.loading.end   = t2;
+                  this.stats.loaded = typeof data === "string" ? data.length : data.byteLength;
+                  this.stats.total  = this.stats.loaded;
+                  callbacks.onSuccess(
+                    { url: res.url, data, redirected: res.redirected },
+                    this.stats, context, res,
+                  );
+                })
+                .catch((err: any) => {
+                  if (err?.name === "AbortError") { this.stats.aborted = true; return; }
+                  callbacks.onError({ code: 0, text: err?.message ?? "fetch error" }, context, null, this.stats);
+                });
+            }
+          }
 
           const hls = new Hls({
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 10,
             maxBufferLength: 60,
             maxMaxBufferLength: 120,
-            enableWorker: true,
+            enableWorker: false,           // keep requests on main thread so our loader runs
             lowLatencyMode: false,
-            ...(SignedLoader ? { loader: SignedLoader } : {}),
+            loader: SignedFetchLoader,     // intercepts ALL requests (playlists + segments)
           });
           hlsRef.current = hls;
 
