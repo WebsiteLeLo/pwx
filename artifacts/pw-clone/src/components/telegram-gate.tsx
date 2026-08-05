@@ -8,7 +8,20 @@ type Lang = "hi" | "en";
 const t = {
   hi: {
     title: "Access Verify करें",
-    subtitle: (ch: string) => <>Website use करने के लिए{" "}<a href={`https://t.me/${ch}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">@{ch}</a>{" "}channel join करना ज़रूरी है।</>,
+    subtitle: (ch: string) => (
+      <>
+        Website use करने के लिए{" "}
+        <a
+          href={`https://t.me/${ch}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300"
+        >
+          @{ch}
+        </a>{" "}
+        channel join करना ज़रूरी है।
+      </>
+    ),
     step1Title: "Channel Join करें",
     step2Title: "Access Code लें",
     step2Sub: "नीचे button दबाओ → Telegram bot खुलेगा → code मिलेगा",
@@ -20,14 +33,28 @@ const t = {
     verify: "Access करें ✓",
     verifying: "Verifying...",
     back: "← वापस जाएं / नया code लें",
-    errInvalid: "❌ Code गलत है या expire हो गया। नीचे \"नया code लें\" दबाओ।",
-    errSession: "⚠️ Session expire हो गई। नीचे \"नया code लें\" दबाओ।",
+    errInvalid: '❌ Code गलत है या expire हो गया। नीचे "नया code लें" दबाओ।',
+    errSession: '⚠️ Session expire हो गई। नीचे "नया code लें" दबाओ।',
     errNetwork: "⚠️ Network error। दोबारा try करें।",
-    footer: "सिर्फ channel membership verify होती है • कोई personal data store नहीं होता",
+    footer:
+      "सिर्फ channel membership verify होती है • कोई personal data store नहीं होता",
   },
   en: {
     title: "Verify Access",
-    subtitle: (ch: string) => <>To use this website, you must join the{" "}<a href={`https://t.me/${ch}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">@{ch}</a>{" "}Telegram channel.</>,
+    subtitle: (ch: string) => (
+      <>
+        To use this website, you must join the{" "}
+        <a
+          href={`https://t.me/${ch}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300"
+        >
+          @{ch}
+        </a>{" "}
+        Telegram channel.
+      </>
+    ),
     step1Title: "Join the Channel",
     step2Title: "Get Access Code",
     step2Sub: "Press the button below → Telegram bot opens → receive your code",
@@ -39,8 +66,8 @@ const t = {
     verify: "Get Access ✓",
     verifying: "Verifying...",
     back: "← Go back / Get new code",
-    errInvalid: "❌ Code is incorrect or expired. Press \"Get new code\" below.",
-    errSession: "⚠️ Session expired. Press \"Get new code\" below.",
+    errInvalid: '❌ Code is incorrect or expired. Press "Get new code" below.',
+    errSession: '⚠️ Session expired. Press "Get new code" below.',
     errNetwork: "⚠️ Network error. Please try again.",
     footer: "Only channel membership is verified • No personal data is stored",
   },
@@ -84,7 +111,8 @@ function getSavedSession(): { sessionId: string; botLink: string } | null {
 }
 
 export function TelegramGate({ children }: { children: React.ReactNode }) {
-  const { data: gateSetting, isLoading: gateLoading } = useTelegramGateSetting();
+  const { data: gateSetting, isLoading: gateLoading } =
+    useTelegramGateSetting();
   const [lang, setLang] = useState<Lang>("en");
   const [auth, setAuth] = useState<StoredAuth | null>(getStoredAuth);
   const [step, setStep] = useState<Step>("join");
@@ -134,7 +162,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
     }
     setStatus("loading");
     try {
-      const res = await fetch(apiUrl("/api/auth/verify"), {
+      const res = await fetch(apiUrl("/auth/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, code: code.trim() }),
@@ -223,13 +251,14 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
       >
         {/* Card */}
         <div className="bg-[#111118] border border-white/8 rounded-2xl p-8 shadow-2xl relative">
-
           {/* Language toggle — top right */}
           <button
-            onClick={() => setLang(l => l === "en" ? "hi" : "en")}
+            onClick={() => setLang((l) => (l === "en" ? "hi" : "en"))}
             className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/6 hover:bg-white/10 border border-white/8 text-zinc-400 hover:text-white text-xs font-medium transition-all"
           >
-            <span className="text-base leading-none">{lang === "en" ? "🇮🇳" : "🇬🇧"}</span>
+            <span className="text-base leading-none">
+              {lang === "en" ? "🇮🇳" : "🇬🇧"}
+            </span>
             {lang === "en" ? "हिन्दी" : "English"}
           </button>
 
@@ -264,7 +293,9 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                     1
                   </span>
                   <div>
-                    <p className="text-white text-sm font-medium">{tx.step1Title}</p>
+                    <p className="text-white text-sm font-medium">
+                      {tx.step1Title}
+                    </p>
                     <a
                       href={CHANNEL_URL}
                       target="_blank"
@@ -282,7 +313,9 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                     2
                   </span>
                   <div>
-                    <p className="text-white text-sm font-medium">{tx.step2Title}</p>
+                    <p className="text-white text-sm font-medium">
+                      {tx.step2Title}
+                    </p>
                     <p className="text-zinc-500 text-xs">{tx.step2Sub}</p>
                   </div>
                 </div>
@@ -292,7 +325,10 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
                   disabled={!botLink}
                   className="w-full py-3 rounded-xl bg-[#0088cc] hover:bg-[#0099dd] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-4 h-4 fill-white flex-shrink-0"
+                  >
                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                   </svg>
                   {botLink ? tx.getCode : tx.loading}
@@ -371,14 +407,22 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
 
                 <button
                   onClick={handleVerify}
-                  disabled={code.length < 6 || status === "loading" || status === "session_error"}
+                  disabled={
+                    code.length < 6 ||
+                    status === "loading" ||
+                    status === "session_error"
+                  }
                   className="w-full py-3 rounded-xl bg-[#0088cc] hover:bg-[#0099dd] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center justify-center gap-2"
                 >
                   {status === "loading" ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 0.8,
+                          ease: "linear",
+                        }}
                         className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
                       />
                       {tx.verifying}
@@ -399,9 +443,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
           </AnimatePresence>
         </div>
 
-        <p className="text-center text-zinc-700 text-xs mt-4">
-          {tx.footer}
-        </p>
+        <p className="text-center text-zinc-700 text-xs mt-4">{tx.footer}</p>
       </motion.div>
     </div>
   );
