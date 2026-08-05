@@ -15,6 +15,7 @@ import Batch from "@/pages/batch";
 import Subject from "@/pages/subject";
 import Topic from "@/pages/topic";
 import Watch from "@/pages/watch";
+import LiveWatch from "@/pages/live-watch";
 import ScheduleWatch from "@/pages/schedule-watch";
 import Materials from "@/pages/materials";
 import Schedule from "@/pages/schedule";
@@ -78,6 +79,7 @@ function Router() {
                 <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
                 <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
                 <Route path="/watch" component={Watch} />
+                <Route path="/live-watch" component={LiveWatch} />
                 <Route path="/schedule-watch" component={ScheduleWatch} />
                 <Route path="/materials" component={Materials} />
                 <Route path="/schedule" component={Schedule} />
@@ -90,7 +92,7 @@ function Router() {
               </Switch>
             </motion.div>
           </AnimatePresence>
-          {location !== "/watch" && location !== "/schedule-watch" && <AiGirl />}
+          {location !== "/watch" && location !== "/schedule-watch" && location !== "/live-watch" && <AiGirl />}
         </MaintenanceGate>
       )}
     </>
