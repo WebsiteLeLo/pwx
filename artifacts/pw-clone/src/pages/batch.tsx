@@ -98,11 +98,20 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
+    if (status === "live") {
+      // Open the dedicated live player
+      const params = new URLSearchParams({
+        batchId, videoId: scheduleId,
+        title: item.data.topic.trim(),
+        backUrl: `/batch/${batchId}`,
+      });
+      window.location.href = `/live-watch?${params.toString()}`;
+      return;
+    }
     const params = new URLSearchParams({
       batchId, subjectId, videoId: scheduleId,
       title: item.data.topic.trim(),
       backUrl: `/batch/${batchId}`,
-      ...(status === "live" ? { video_type: "live", topicId } : {}),
     });
     window.location.href = `/watch?${params.toString()}`;
   };
