@@ -50,8 +50,7 @@ export function InstallBanner() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 80 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="fixed bottom-20 sm:bottom-6 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm"
-          style={{ transform: "translateZ(0) translateX(-50%)" }}
+          className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm"
         >
           <div className="flex items-center gap-3 bg-card border border-primary/30 rounded-2xl shadow-2xl px-4 py-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
@@ -93,8 +92,7 @@ export function InstallBanner() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 80 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="fixed bottom-4 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm"
-          style={{ transform: "translateZ(0) translateX(-50%)" }}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm"
         >
           {/* Arrow pointing down to Safari share button */}
           <div className="flex justify-center mb-1">
