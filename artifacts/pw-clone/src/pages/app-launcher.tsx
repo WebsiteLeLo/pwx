@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
+import { InstallBanner } from "@/components/install-banner";
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const SS_AUTH_KEY     = "ss_tg_auth";
@@ -368,6 +369,9 @@ export default function AppLauncher() {
           />
         )}
       </AnimatePresence>
+
+      {/* PWA install prompt (Android) + iOS "Add to Home Screen" tip */}
+      <InstallBanner />
     </div>
   );
 }
