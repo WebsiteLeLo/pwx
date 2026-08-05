@@ -282,18 +282,24 @@ proxyRouter.get("/proxy", async (req, res) => {
 
     if (isMpd && status < 300) {
       const mpdText = new TextDecoder().decode(buffer);
-
-      const pathParts = parsed.pathname.split("/").filter(Boolean);
-      const uuid = pathParts[0] ?? "";
-      const sigQs = parsed.search.slice(1);
-      const sigB64 = Buffer.from(sigQs).toString("base64url");
-      const proto = req.get("x-forwarded-proto") || req.protocol;
-      const host = req.get("x-forwarded-host") || req.get("host") || "";
-      const baseUrl = `${proto}://${host}/api/dash-seg/${sigB64}/${uuid}/`;
-
-      const rewritten = injectBaseUrl(mpdText, baseUrl);
       res.setHeader("Content-Type", "application/dash+xml");
-      res.end(rewritten);
+
+      // proxy.primestudy.site segments already carry signed absolute URLs —
+      // injecting a BaseURL would break segment resolution, so pass through as-is.
+      if (parsed.hostname === "proxy.primestudy.site") {
+        res.end(mpdText);
+      } else {
+        const pathParts = parsed.pathname.split("/").filter(Boolean);
+        const uuid = pathParts[0] ?? "";
+        const sigQs = parsed.search.slice(1);
+        const sigB64 = Buffer.from(sigQs).toString("base64url");
+        const proto = req.get("x-forwarded-proto") || req.protocol;
+        const host = req.get("x-forwarded-host") || req.get("host") || "";
+        const baseUrl = `${proto}://${host}/api/dash-seg/${sigB64}/${uuid}/`;
+
+        const rewritten = injectBaseUrl(mpdText, baseUrl);
+        res.end(rewritten);
+      }
     } else {
       res.setHeader("Content-Type", contentType);
       res.end(Buffer.from(buffer));
