@@ -155,10 +155,13 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
 
         // Normalise — API may return data at root or inside .data
         const d: VideoUrlData = (infoJson.data ?? infoJson) as VideoUrlData;
-        // Prefer signedUrl — it carries the CloudFront Signature/Policy/Key-Pair-Id
-        // that is required to load both the manifest AND all segments.
-        const mpdUrl = d.signedUrl ?? d.streamUrl ?? d.url ?? d.directUrl;
-        if (!mpdUrl) throw new Error("No stream URL returned by API");
+
+        // signedUrl is only the query string (?Signature=...&Policy=...&Key-Pair-Id=...)
+        // Combine with the base streamUrl to get the full signed manifest URL.
+        const baseUrl = (d.streamUrl ?? d.url ?? d.directUrl ?? "").split("?")[0];
+        if (!baseUrl) throw new Error("No stream URL returned by API");
+        const signedQs = d.signedUrl ?? ""; // starts with "?" or is empty
+        const mpdUrl = signedQs ? `${baseUrl}${signedQs}` : baseUrl;
 
         const clearKeys = d.clearKeys ?? {};
         if (!d.topic && d.topic !== "") {
