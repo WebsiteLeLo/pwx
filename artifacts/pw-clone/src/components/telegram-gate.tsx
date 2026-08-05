@@ -130,7 +130,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
   const createSession = useCallback(async () => {
     setSessionLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/auth/session"), { method: "POST" });
+      const res = await fetch(apiUrl("/auth/session"), { method: "POST" });
       const json = (await res.json()) as { sessionId: string; botLink: string };
       setSessionId(json.sessionId);
       setBotLink(json.botLink);
