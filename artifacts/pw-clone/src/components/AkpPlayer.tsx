@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { apiUrl } from "@/lib/apiUrl";
 
-const PROXY_BASE = apiUrl("/api");
+const PROXY_BASE = apiUrl("");
 const ACCENT = "#5a4bda";
 
 interface VideoUrlData {
