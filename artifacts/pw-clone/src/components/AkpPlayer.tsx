@@ -203,12 +203,10 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         player.configure({
           streaming: {
             bufferingGoal: 60,
-            rebufferingGoal: 1.5,
+            rebufferingGoal: 2,
             bufferBehind: 30,
             safeSeekOffset: 3,
-            stallEnabled: true,
-            stallThreshold: 1,
-            stallSkip: 0.1,
+            stallEnabled: false,
             retryParameters: {
               maxAttempts: 4,
               baseDelay: 100,
