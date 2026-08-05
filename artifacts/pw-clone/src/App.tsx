@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,10 +8,8 @@ import { LoadingBar } from "@/components/loading-bar";
 import DevToolsBlocked from "@/pages/devtools-blocked";
 import { NotificationBanner } from "@/components/notification-banner";
 import { MaintenanceGate } from "@/components/maintenance-gate";
-import { TelegramGate } from "@/components/telegram-gate";
 
 // Pages
-import AppLauncher from "@/pages/app-launcher";
 import Home from "@/pages/home";
 import Batch from "@/pages/batch";
 import Subject from "@/pages/subject";
@@ -53,64 +51,47 @@ function ScrollToTop() {
 function Router() {
   const [location] = useLocation();
 
-  const isAdmin   = location.startsWith("/admin");
-  const isLauncher = location === "/" || location === "";
+  const isAdmin = location.startsWith("/admin");
 
   return (
     <>
       <ScrollToTop />
       {isAdmin ? (
         <AdminPanel />
-      ) : isLauncher ? (
-        /* App launcher — no auth gate */
-        <AnimatePresence initial={false}>
-          <motion.div
-            key="launcher"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
-          >
-            <AppLauncher />
-          </motion.div>
-        </AnimatePresence>
       ) : (
-        /* All PW content routes — behind pwxonrender TelegramGate */
-        <TelegramGate>
-          <MaintenanceGate>
-            <NotificationBanner />
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={location}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12, ease: "easeOut" }}
-                style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
-              >
-                <Switch>
-                  <Route path="/pw" component={Home} />
-                  <Route path="/batch/:batchId" component={Batch} />
-                  <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
-                  <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
-                  <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
-                  <Route path="/watch" component={Watch} />
-                  <Route path="/schedule-watch" component={ScheduleWatch} />
-                  <Route path="/materials" component={Materials} />
-                  <Route path="/schedule" component={Schedule} />
-                  <Route path="/my-mix" component={MyMixList} />
-                  <Route path="/my-mix/:mixId" component={MyMixDetail} />
-                  <Route path="/dpp-quiz" component={DppQuiz} />
-                  <Route path="/revision" component={RevisionPage} />
-                  <Route path="/dashboard" component={Dashboard} />
-                  <Route component={NotFound} />
-                </Switch>
-              </motion.div>
-            </AnimatePresence>
-            {location !== "/watch" && location !== "/schedule-watch" && <AiGirl />}
-          </MaintenanceGate>
-        </TelegramGate>
+        <MaintenanceGate>
+          <NotificationBanner />
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={location}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
+            >
+              <Switch>
+                <Route path="/"><Redirect to="/pw" /></Route>
+                <Route path="/pw" component={Home} />
+                <Route path="/batch/:batchId" component={Batch} />
+                <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
+                <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
+                <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
+                <Route path="/watch" component={Watch} />
+                <Route path="/schedule-watch" component={ScheduleWatch} />
+                <Route path="/materials" component={Materials} />
+                <Route path="/schedule" component={Schedule} />
+                <Route path="/my-mix" component={MyMixList} />
+                <Route path="/my-mix/:mixId" component={MyMixDetail} />
+                <Route path="/dpp-quiz" component={DppQuiz} />
+                <Route path="/revision" component={RevisionPage} />
+                <Route path="/dashboard" component={Dashboard} />
+                <Route component={NotFound} />
+              </Switch>
+            </motion.div>
+          </AnimatePresence>
+          {location !== "/watch" && location !== "/schedule-watch" && <AiGirl />}
+        </MaintenanceGate>
       )}
     </>
   );
