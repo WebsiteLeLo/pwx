@@ -223,6 +223,46 @@ export function LivePlayer({
           if (!Hls.isSupported()) throw new Error("HLS is not supported in this browser");
           if (cancelled) return;
 
+          // ── Signature re-attachment ────────────────────────────────────
+          // CloudFront/CDN signed URLs carry ?Signature=…&Policy=…&Key-Pair-Id=…
+          // HLS.js resolves segment/sub-playlist URLs relatively and strips the
+          // query string, causing 403s. We extract the sig params from the master
+          // manifest URL and re-attach them via a custom loader.
+          let sigParams = "";
+          let sigHost   = "";
+          try {
+            const u = new URL(streamUrl);
+            sigHost   = u.hostname; // e.g. "proxy.primestudy.site"
+            sigParams = u.search.startsWith("?") ? u.search.slice(1) : u.search;
+          } catch {}
+
+          // Factory: extends the default loader, patches any unsigned URL on the same host
+          function makeSignedLoader(DefaultLoader: any) {
+            return class SignedLoader extends DefaultLoader {
+              load(context: any, cfg: any, cbs: any) {
+                try {
+                  const url: string = context.url ?? "";
+                  if (
+                    sigParams &&
+                    sigHost &&
+                    url.includes(sigHost) &&
+                    !url.includes("Signature=") &&
+                    !url.includes("signature=")
+                  ) {
+                    context.url = url.includes("?")
+                      ? `${url}&${sigParams}`
+                      : `${url}?${sigParams}`;
+                  }
+                } catch {}
+                super.load(context, cfg, cbs);
+              }
+            };
+          }
+
+          const SignedLoader = sigParams
+            ? makeSignedLoader(Hls.DefaultConfig.loader)
+            : undefined;
+
           const hls = new Hls({
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 10,
@@ -230,6 +270,7 @@ export function LivePlayer({
             maxMaxBufferLength: 120,
             enableWorker: true,
             lowLatencyMode: false,
+            ...(SignedLoader ? { pLoader: SignedLoader, fLoader: SignedLoader } : {}),
           });
           hlsRef.current = hls;
 
