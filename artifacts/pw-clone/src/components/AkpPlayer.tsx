@@ -354,9 +354,26 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
 
   // ── Fullscreen listener ──────────────────────────────────────────────────
   useEffect(() => {
-    const onFS = () => setFullscreen(!!document.fullscreenElement);
+    const onFS = () => setFullscreen(!!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement
+    ));
     document.addEventListener("fullscreenchange", onFS);
-    return () => document.removeEventListener("fullscreenchange", onFS);
+    document.addEventListener("webkitfullscreenchange", onFS);
+    document.addEventListener("mozfullscreenchange", onFS);
+    const video = videoRef.current;
+    const onVideoFS = () => setFullscreen(true);
+    const onVideoExitFS = () => setFullscreen(false);
+    video?.addEventListener("webkitbeginfullscreen", onVideoFS);
+    video?.addEventListener("webkitendfullscreen", onVideoExitFS);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFS);
+      document.removeEventListener("webkitfullscreenchange", onFS);
+      document.removeEventListener("mozfullscreenchange", onFS);
+      video?.removeEventListener("webkitbeginfullscreen", onVideoFS);
+      video?.removeEventListener("webkitendfullscreen", onVideoExitFS);
+    };
   }, []);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -436,9 +453,33 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
 
   function toggleFullscreen() {
     const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) el.requestFullscreen().catch(() => {});
-    else document.exitFullscreen().catch(() => {});
+    const video = videoRef.current;
+    if (!el || !video) return;
+    const isFS = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement
+    );
+    if (!isFS) {
+      // iOS Safari requires fullscreen on the video element itself
+      if ((video as any).webkitEnterFullscreen) {
+        (video as any).webkitEnterFullscreen();
+      } else if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if ((el as any).webkitRequestFullscreen) {
+        (el as any).webkitRequestFullscreen();
+      } else if ((el as any).mozRequestFullScreen) {
+        (el as any).mozRequestFullScreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen();
+      }
+    }
   }
 
   function skip(secs: number) {
@@ -617,6 +658,7 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
           className="absolute inset-0 z-20 flex flex-col transition-opacity duration-200"
           style={{ opacity: showControls || !playing ? 1 : 0, pointerEvents: showControls || !playing ? "auto" : "none" }}
           onClick={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* ── Header ── */}
           <div
