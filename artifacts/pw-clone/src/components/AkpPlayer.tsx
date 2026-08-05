@@ -235,14 +235,21 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         }
 
         // Shaka resolves segment URLs relative to the MPD base, dropping the
-        // CloudFront signature. Re-attach signature params to every primestudy
-        // segment request that arrives without them.
+        // CloudFront / CDN signature. Re-attach signature params to every segment
+        // request from the same CDN host that arrives without them.
         const sigParams = signedQs.startsWith("?") ? signedQs.slice(1) : signedQs;
-        if (sigParams) {
+        let cdnHostname = "";
+        try { cdnHostname = new URL(baseUrl).hostname; } catch {}
+        if (sigParams && cdnHostname) {
           player.getNetworkingEngine().registerRequestFilter(
             (_type: number, request: any) => {
               const uri: string = request.uris[0] ?? "";
-              if (uri.includes("proxy.primestudy.site") && !uri.includes("Signature=")) {
+              // Apply to any request hitting the same CDN host without a signature
+              if (
+                uri.includes(cdnHostname) &&
+                !uri.includes("Signature=") &&
+                !uri.includes("signature=")
+              ) {
                 const sep = uri.includes("?") ? "&" : "?";
                 request.uris[0] = `${uri}${sep}${sigParams}`;
               }
