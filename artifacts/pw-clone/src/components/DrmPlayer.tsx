@@ -577,60 +577,50 @@ export function DrmPlayer({
 
       {status === "ready" && (
         <div
-          className="absolute inset-0 z-20 flex flex-col transition-opacity duration-300"
+          className="absolute inset-0 z-20 flex flex-col transition-opacity duration-200"
           style={{ opacity: showControls || !playing ? 1 : 0, pointerEvents: showControls || !playing ? "auto" : "none" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ background: "linear-gradient(rgba(0,0,0,.72) 0%, transparent 100%)" }}>
-            <button
-              className="text-white p-1.5 rounded-lg bg-transparent border-none cursor-pointer flex items-center"
-              style={{ flexShrink: 0 }}
-              onClick={() => window.history.back()}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* ── Header ── */}
+          <div
+            className="flex items-center gap-1 px-1 pt-1 pb-10 flex-shrink-0"
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.88) 0%, transparent 100%)" }}
+          >
+            <CBtn onClick={() => window.history.back()} title="Back">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
               </svg>
-            </button>
-
-            <div className="flex-1 min-w-0 text-sm font-medium text-white truncate">{title}</div>
-
+            </CBtn>
+            <div className="flex-1 min-w-0 text-[13px] font-semibold text-white/90 truncate leading-snug ml-1">{title}</div>
             {hasPanel && (
               <div className="relative flex-shrink-0" ref={menuRef}>
-                <button
-                  className="text-white p-1.5 rounded-lg bg-transparent border-none cursor-pointer flex items-center"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                <CBtn onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }} title="More options">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                     <path fillRule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd"/>
                   </svg>
-                </button>
+                </CBtn>
                 {menuOpen && (
                   <div
-                    className="absolute top-full right-0 mt-1 rounded-xl overflow-hidden min-w-[180px] z-50"
-                    style={{ background: "rgba(12,12,20,.98)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 8px 32px rgba(0,0,0,.9)" }}
+                    className="absolute top-full right-0 mt-1 rounded-2xl overflow-hidden min-w-[190px] z-50"
+                    style={{ background: "rgba(12,12,20,.98)", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 8px 40px rgba(0,0,0,.95)" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {onOpenTimeline && (
                       <button
-                        className="w-full flex items-center gap-2.5 px-4 py-3.5 text-white text-sm cursor-pointer bg-transparent border-none text-left"
+                        className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                         style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
                         onClick={() => { setMenuOpen(false); onOpenTimeline(); }}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M3.167 5.583a.083.083 0 01.166 0v12.834a.083.083 0 01-.167 0V5.583zM5.667 17.333a1 1 0 001 1h10.666a1 1 0 001-1V6.667a1 1 0 00-1-1H6.667a1 1 0 00-1 1v10.666zm4.888-3.3V9.966L13.945 12l-3.39 2.034zM20.666 5.583a.083.083 0 11.167 0v12.834a.083.083 0 01-.166 0V5.583z"/>
-                        </svg>
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3.167 5.583a.083.083 0 01.166 0v12.834a.083.083 0 01-.167 0V5.583zM5.667 17.333a1 1 0 001 1h10.666a1 1 0 001-1V6.667a1 1 0 00-1-1H6.667a1 1 0 00-1 1v10.666zm4.888-3.3V9.966L13.945 12l-3.39 2.034zM20.666 5.583a.083.083 0 11.167 0v12.834a.083.083 0 01-.166 0V5.583z"/></svg>
                         Timeline
                       </button>
                     )}
                     {onOpenAttachments && (
                       <button
-                        className="w-full flex items-center gap-2.5 px-4 py-3.5 text-white text-sm cursor-pointer bg-transparent border-none text-left"
+                        className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                         onClick={() => { setMenuOpen(false); onOpenAttachments(); }}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-                        </svg>
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                         Attachments
                       </button>
                     )}
@@ -640,45 +630,42 @@ export function DrmPlayer({
             )}
           </div>
 
-          {/* Mid (click area) */}
+          {/* ── Mid (click to play/pause — desktop, no visible element) ── */}
           <div className="flex-1" />
 
-          {/* Footer */}
-          <div className="flex-shrink-0 pb-2" style={{ background: "linear-gradient(transparent 0%, rgba(0,0,0,.82) 100%)" }}>
-            {/* Progress bar */}
-            <div className="px-3.5 pb-1.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-white font-mono text-[13px] font-medium">{formatTime(currentTime)}</span>
-                  {speed !== 1 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,.92)", color: "#000" }}>{speed}x</span>
-                  )}
+          {/* ── Footer ── */}
+          <div
+            className="flex-shrink-0"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.65) 55%, transparent 100%)" }}
+          >
+            {/* Seekbar */}
+            <div className="group px-3 pt-3 pb-0 cursor-pointer relative" onClick={(e) => e.stopPropagation()}>
+              {seekTooltip && (
+                <div
+                  className="absolute -translate-x-1/2 bg-black/90 text-white text-[11px] font-mono px-2 py-0.5 rounded-md pointer-events-none whitespace-nowrap z-10"
+                  style={{ left: `calc(${seekTooltip.pct * 100}% + 12px)`, bottom: "calc(100% - 8px)" }}
+                >
+                  {formatTime(seekTooltip.time)}
                 </div>
-                <span className="text-white font-mono text-[13px] font-medium">{formatTime(duration)}</span>
-              </div>
+              )}
               <div
-                className="relative h-[22px] flex items-center cursor-pointer touch-none"
+                className="relative h-8 flex items-center"
+                ref={seekBarRef}
                 onMouseLeave={() => setSeekTooltip(null)}
               >
-                {seekTooltip && (
-                  <div
-                    className="absolute bottom-full mb-2 -translate-x-1/2 bg-black/90 text-white text-xs font-mono px-2 py-1 rounded-lg pointer-events-none whitespace-nowrap z-10"
-                    style={{ left: `${seekTooltip.pct * 100}%` }}
-                  >
-                    {formatTime(seekTooltip.time)}
-                  </div>
-                )}
+                {/* Visual track */}
                 <div
-                  ref={seekBarRef}
-                  className="absolute inset-x-0 h-1 rounded-sm overflow-hidden"
-                  style={{ background: "rgba(255,255,255,.2)" }}
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-full overflow-hidden transition-all duration-150"
+                  style={{ height: seeking ? "5px" : "3px" }}
                 >
-                  <div className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${buf * 100}%`, background: "rgba(255,255,255,.3)" }} />
-                  <div className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${played * 100}%`, background: ACCENT }} />
+                  <div className="absolute inset-0 rounded-full" style={{ background: "rgba(255,255,255,.2)" }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${buf * 100}%`, background: "rgba(255,255,255,.38)" }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${played * 100}%`, background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }} />
                 </div>
+                {/* Thumb */}
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-lg -translate-x-1/2 pointer-events-none"
-                  style={{ left: `${played * 100}%`, boxShadow: "0 0 5px rgba(0,0,0,.6)" }}
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[15px] h-[15px] rounded-full bg-white pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `${played * 100}%`, boxShadow: "0 0 8px rgba(90,75,218,.7), 0 1px 4px rgba(0,0,0,.5)" }}
                 />
                 <input
                   type="range" min={0} max={1000} step={1}
@@ -700,185 +687,162 @@ export function DrmPlayer({
             </div>
 
             {/* Controls row */}
-            <div className="flex items-center justify-between px-1.5">
-              {/* Left */}
-              <div className="flex items-center">
-                <CBtn onClick={(e) => { e.stopPropagation(); skip(-10); resetHideTimer(); }} title="Rewind 10s">
-                  <RwSvg />
-                </CBtn>
-                <CBtn onClick={(e) => { e.stopPropagation(); togglePlay(); }} title={playing ? "Pause" : "Play"}>
-                  {playing ? (
-                    <svg width="34" height="34" viewBox="0 0 24 24" fill="white">
-                      <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd"/>
-                    </svg>
-                  ) : (
-                    <svg width="34" height="34" viewBox="0 0 24 24" fill="white">
-                      <path d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"/>
-                    </svg>
-                  )}
-                </CBtn>
-                <CBtn onClick={(e) => { e.stopPropagation(); skip(10); resetHideTimer(); }} title="Forward 10s">
-                  <FwSvg />
-                </CBtn>
+            <div className="flex items-center px-1.5 pb-2 gap-0">
+              {/* Left group */}
+              <CBtn onClick={(e) => { e.stopPropagation(); skip(-10); resetHideTimer(); }} title="Rewind 10s">
+                <RwSvg />
+              </CBtn>
+              <CBtn onClick={(e) => { e.stopPropagation(); togglePlay(); }} title={playing ? "Pause" : "Play"}>
+                {playing ? (
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                ) : (
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                )}
+              </CBtn>
+              <CBtn onClick={(e) => { e.stopPropagation(); skip(10); resetHideTimer(); }} title="Forward 10s">
+                <FwSvg />
+              </CBtn>
 
-                <div
-                  className="hidden sm:flex items-center"
-                  onMouseEnter={() => {}}
-                  onMouseLeave={() => {}}
-                  style={{ gap: "0" }}
-                >
-                  <CBtn onClick={(e) => { e.stopPropagation(); toggleMute(); }} title="Mute (m)">
-                    <VolumeIcon level={volumeLevel} />
-                  </CBtn>
-                  <input
-                    type="range" min={0} max={1} step={0.05}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => setVideoVolume(parseFloat(e.target.value))}
-                    className="w-0 h-1 opacity-0 cursor-pointer transition-all duration-300 hover:w-14 hover:opacity-100 focus:w-14 focus:opacity-100"
-                    style={{ accentColor: ACCENT, marginLeft: 0 }}
-                    onFocus={() => {}}
-                  />
-                </div>
+              {/* Volume (desktop) */}
+              <div className="hidden sm:flex items-center">
+                <CBtn onClick={(e) => { e.stopPropagation(); toggleMute(); }} title="Mute (m)">
+                  <VolumeIcon level={volumeLevel} />
+                </CBtn>
+                <input
+                  type="range" min={0} max={1} step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={(e) => setVideoVolume(parseFloat(e.target.value))}
+                  className="w-[68px] cursor-pointer h-[3px] rounded-full"
+                  style={{ accentColor: ACCENT }}
+                />
               </div>
 
-              {/* Right */}
-              <div className="flex items-center">
-                {/* Timeline button (desktop only) */}
-                {onOpenTimeline && (
-                  <CBtn className="hidden lg:flex" onClick={(e) => { e.stopPropagation(); onOpenTimeline(); }} title="Timeline">
-                    <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
-                      <path d="M5.1 10a.5.5 0 0 1 .5-.5h.2a.5.5 0 0 1 .5.5v20a.5.5 0 0 1-.5.5h-.2a.5.5 0 0 1-.5-.5V10Z" fill="white"/>
-                      <rect x="10.3" y="10.3" width="19.4" height="19.4" rx="1.2" stroke="white" strokeWidth="1.8" fill="none"/>
-                      <path d="M17.2 17l5.2 3-5.2 3V17Z" fill="white"/>
-                      <path d="M33.7 10a.5.5 0 0 1 .5-.5h.2a.5.5 0 0 1 .5.5v20a.5.5 0 0 1-.5.5h-.2a.5.5 0 0 1-.5-.5V10Z" fill="white"/>
-                    </svg>
-                  </CBtn>
+              {/* Time */}
+              <div className="flex items-center ml-2 gap-0.5">
+                <span className="text-white font-mono text-[12px] tabular-nums">{formatTime(currentTime)}</span>
+                <span className="text-white/35 font-mono text-[12px] mx-0.5">/</span>
+                <span className="text-white/55 font-mono text-[12px] tabular-nums">{formatTime(duration)}</span>
+                {speed !== 1 && (
+                  <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(90,75,218,.85)", color: "#fff" }}>{speed}×</span>
                 )}
+              </div>
 
-                {/* Settings */}
-                <div className="relative">
-                  <CBtn
-                    onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setSettingsPanel("main"); }}
-                    title="Settings"
+              <div className="flex-1" />
+
+              {/* Timeline (desktop) */}
+              {onOpenTimeline && (
+                <CBtn className="hidden lg:flex" onClick={(e) => { e.stopPropagation(); onOpenTimeline(); }} title="Timeline">
+                  <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
+                    <path d="M5.1 10a.5.5 0 0 1 .5-.5h.2a.5.5 0 0 1 .5.5v20a.5.5 0 0 1-.5.5h-.2a.5.5 0 0 1-.5-.5V10Z" fill="white"/>
+                    <rect x="10.3" y="10.3" width="19.4" height="19.4" rx="1.2" stroke="white" strokeWidth="1.8" fill="none"/>
+                    <path d="M17.2 17l5.2 3-5.2 3V17Z" fill="white"/>
+                    <path d="M33.7 10a.5.5 0 0 1 .5-.5h.2a.5.5 0 0 1 .5.5v20a.5.5 0 0 1-.5.5h-.2a.5.5 0 0 1-.5-.5V10Z" fill="white"/>
+                  </svg>
+                </CBtn>
+              )}
+
+              {/* Settings */}
+              <div className="relative">
+                <CBtn
+                  onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setSettingsPanel("main"); }}
+                  title="Settings"
+                  className={showSettings ? "bg-white/15 hover:bg-white/15" : ""}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                </CBtn>
+
+                {showSettings && (
+                  <div
+                    className="absolute bottom-[calc(100%+8px)] right-0 w-[200px] rounded-2xl overflow-hidden z-50"
+                    style={{ background: "rgba(12,12,20,.98)", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 8px 40px rgba(0,0,0,.95)" }}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                      <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </CBtn>
-
-                  {showSettings && (
-                    <div
-                      className="absolute bottom-full right-0 mb-2 w-[min(260px,calc(100vw-32px))] rounded-[14px] overflow-hidden z-30"
-                      style={{ background: "rgba(10,10,18,.98)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 4px 32px rgba(0,0,0,.9)" }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {settingsPanel === "main" && (
-                        <div>
+                    {settingsPanel === "main" && (
+                      <div>
+                        <button
+                          className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={() => setSettingsPanel("speed")}
+                        >
+                          <span className="text-white/75">Speed</span>
+                          <div className="flex items-center gap-1 text-white/50 text-[13px]">
+                            <span>{speedLabel}</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                          </div>
+                        </button>
+                        {qualities.length > 0 && (
                           <button
-                            className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[15px] font-medium bg-transparent border-none cursor-pointer"
-                            style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                            onClick={() => setSettingsPanel("speed")}
+                            className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                            onClick={() => setSettingsPanel("quality")}
                           >
-                            <span>Speed</span>
-                            <div className="flex items-center gap-1" style={{ color: "rgba(255,255,255,.42)", fontSize: "14px" }}>
-                              <span>{speedLabel}</span>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                            <span className="text-white/75">Quality</span>
+                            <div className="flex items-center gap-1 text-white/50 text-[13px]">
+                              <span>{qualityLabel}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
                             </div>
                           </button>
-                          {qualities.length > 0 && (
-                            <button
-                              className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[15px] font-medium bg-transparent border-none cursor-pointer"
-                              onClick={() => setSettingsPanel("quality")}
-                            >
-                              <span>Quality</span>
-                              <div className="flex items-center gap-1" style={{ color: "rgba(255,255,255,.42)", fontSize: "14px" }}>
-                                <span>{qualityLabel}</span>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
-                              </div>
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {settingsPanel === "speed" && (
-                        <div>
-                          <button
-                            className="flex items-center gap-2.5 w-full px-4 py-3 border-none bg-transparent cursor-pointer"
-                            style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}
-                            onClick={() => setSettingsPanel("main")}
+                        )}
+                      </div>
+                    )}
+                    {settingsPanel === "speed" && (
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={() => setSettingsPanel("main")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-semibold">Speed</span>
+                        </button>
+                        {SPEEDS.map((s) => (
+                          <button key={s}
+                            className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5"
+                            style={{ background: speed === s ? `rgba(90,75,218,.22)` : "transparent", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                            onClick={() => setVideoSpeed(s)}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                            <span className="text-white text-[15px] font-bold">Speed</span>
+                            <span>{s === 1 ? "Normal" : `${s}×`}</span>
+                            {speed === s && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
                           </button>
-                          <div className="overflow-y-auto max-h-[220px]">
-                            {SPEEDS.map((s) => (
-                              <button
-                                key={s}
-                                className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-sm"
-                                style={{
-                                  borderBottom: "1px solid rgba(255,255,255,.06)",
-                                  background: speed === s ? `rgba(90,75,218,.2)` : "transparent",
-                                }}
-                                onClick={() => setVideoSpeed(s)}
-                              >
-                                <span>{s === 1 ? "Normal" : `${s}x`}</span>
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ border: `2px solid ${speed === s ? ACCENT : "rgba(255,255,255,.3)"}`, background: speed === s ? ACCENT : "transparent" }}>
-                                  {speed === s && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {settingsPanel === "quality" && (
-                        <div>
-                          <button
-                            className="flex items-center gap-2.5 w-full px-4 py-3 border-none bg-transparent cursor-pointer"
-                            style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}
-                            onClick={() => setSettingsPanel("main")}
+                        ))}
+                      </div>
+                    )}
+                    {settingsPanel === "quality" && (
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={() => setSettingsPanel("main")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-semibold">Quality</span>
+                        </button>
+                        {[{ label: "Auto", value: "auto" as const }, ...qualities.map((q) => ({ label: `${q.height}p`, value: q.height as number | "auto" }))].map((opt) => (
+                          <button key={opt.value}
+                            className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5"
+                            style={{ background: activeQuality === opt.value ? `rgba(90,75,218,.22)` : "transparent", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                            onClick={() => selectQuality(opt.value)}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                            <span className="text-white text-[15px] font-bold">Quality</span>
+                            <span>{opt.label}</span>
+                            {activeQuality === opt.value && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
                           </button>
-                          <div className="overflow-y-auto max-h-[220px]">
-                            {[{ label: "Auto", value: "auto" as const }, ...qualities.map((q) => ({ label: `${q.height}p`, value: q.height as number | "auto" }))].map((opt) => (
-                              <button
-                                key={opt.value}
-                                className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-sm"
-                                style={{
-                                  borderBottom: "1px solid rgba(255,255,255,.06)",
-                                  background: activeQuality === opt.value ? `rgba(90,75,218,.2)` : "transparent",
-                                }}
-                                onClick={() => selectQuality(opt.value)}
-                              >
-                                <span>{opt.label}</span>
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ border: `2px solid ${activeQuality === opt.value ? ACCENT : "rgba(255,255,255,.3)"}`, background: activeQuality === opt.value ? ACCENT : "transparent" }}>
-                                  {activeQuality === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Fullscreen */}
-                <CBtn onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} title="Fullscreen (f)">
-                  {fullscreen ? (
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-                      <path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/>
-                    </svg>
-                  ) : (
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-                      <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
-                    </svg>
-                  )}
-                </CBtn>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Fullscreen */}
+              <CBtn onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} title={fullscreen ? "Exit fullscreen" : "Fullscreen (f)"}>
+                {fullscreen ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round"><path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/></svg>
+                )}
+              </CBtn>
             </div>
           </div>
         </div>

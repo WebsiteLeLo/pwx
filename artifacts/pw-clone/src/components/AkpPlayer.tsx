@@ -83,6 +83,18 @@ function VolumeIcon({ level }: { level: "off" | "low" | "high" }) {
   );
 }
 
+function Btn({ onClick, title, children, className = "" }: { onClick?: (e: React.MouseEvent) => void; title?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`w-10 h-10 flex items-center justify-center rounded-full bg-transparent border-none cursor-pointer text-white transition-colors hover:bg-white/10 active:bg-white/20 outline-none flex-shrink-0 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
   const videoRef     = useRef<HTMLVideoElement>(null);
   const playerRef    = useRef<any>(null);
@@ -599,60 +611,98 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         </div>
       )}
 
-      {/* Controls */}
+      {/* Controls overlay */}
       {status === "ready" && (
         <div
-          className="absolute inset-0 z-20 flex flex-col transition-opacity duration-300"
+          className="absolute inset-0 z-20 flex flex-col transition-opacity duration-200"
           style={{ opacity: showControls || !playing ? 1 : 0, pointerEvents: showControls || !playing ? "auto" : "none" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Header ── */}
-          <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
-            style={{ background: "linear-gradient(rgba(0,0,0,.72) 0%, transparent 100%)" }}>
-            <button className="text-white p-1.5 rounded-lg bg-transparent border-none cursor-pointer flex items-center"
-              onClick={() => window.history.back()}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+          <div
+            className="flex items-center gap-1 px-1 pt-1 pb-10 flex-shrink-0"
+            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.88) 0%, transparent 100%)" }}
+          >
+            <Btn onClick={() => window.history.back()} title="Back">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
               </svg>
-            </button>
+            </Btn>
             {displayTitle && (
-              <div className="flex-1 min-w-0 text-sm font-medium text-white truncate">{displayTitle}</div>
+              <div className="flex-1 min-w-0 text-[13px] font-semibold text-white/90 truncate leading-snug ml-1 pr-2">{displayTitle}</div>
             )}
           </div>
 
-          {/* ── Centre play/skip (mobile) ── */}
+          {/* ── Centre (mobile skip+play, desktop invisible) ── */}
           <div className="flex-1 flex items-center justify-center gap-10 pointer-events-none">
             {isMobile && (
               <>
-                <button className="pointer-events-auto text-white/80 bg-black/30 rounded-full p-2" onClick={(e) => { e.stopPropagation(); skip(-10); }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                    <path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
-                    <text x="12" y="20" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">10</text>
-                  </svg>
+                <button
+                  className="pointer-events-auto flex flex-col items-center gap-1.5 border-none bg-transparent cursor-pointer outline-none"
+                  onClick={(e) => { e.stopPropagation(); skip(-10); }}
+                >
+                  <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,.5)", backdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,.18)" }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+                      <path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.11 7.11 0 0 1 12.5 10.5c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+                      <text x="12" y="21" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">10</text>
+                    </svg>
+                  </div>
+                  <span className="text-white/60 text-[11px] font-medium tracking-wide">10 sec</span>
                 </button>
-                <button className="pointer-events-auto text-white/80 bg-black/30 rounded-full p-2" onClick={(e) => { e.stopPropagation(); skip(10); }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                    <path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
-                    <text x="12" y="20" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">10</text>
-                  </svg>
+
+                <button
+                  className="pointer-events-auto border-none bg-transparent cursor-pointer outline-none"
+                  onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                >
+                  <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center" style={{ background: "rgba(90,75,218,.75)", boxShadow: "0 0 28px rgba(90,75,218,.55), 0 4px 16px rgba(0,0,0,.4)" }}>
+                    {playing ? (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    ) : (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                    )}
+                  </div>
+                </button>
+
+                <button
+                  className="pointer-events-auto flex flex-col items-center gap-1.5 border-none bg-transparent cursor-pointer outline-none"
+                  onClick={(e) => { e.stopPropagation(); skip(10); }}
+                >
+                  <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,.5)", backdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,.18)" }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+                      <path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5a7.1 7.1 0 0 1 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
+                      <text x="12" y="21" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">10</text>
+                    </svg>
+                  </div>
+                  <span className="text-white/60 text-[11px] font-medium tracking-wide">10 sec</span>
                 </button>
               </>
             )}
           </div>
 
           {/* ── Footer ── */}
-          <div className="flex-shrink-0 pb-2"
-            style={{ background: "linear-gradient(transparent 0%, rgba(0,0,0,.82) 100%)" }}>
-            {/* Progress bar */}
-            <div className="px-3.5 pb-1.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-white font-mono text-[13px] font-medium">{formatTime(currentTime)}</span>
-                <span className="text-white/50 font-mono text-[12px]">{formatTime(duration)}</span>
-              </div>
+          <div
+            className="flex-shrink-0"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.65) 55%, transparent 100%)" }}
+          >
+            {/* Seekbar */}
+            <div
+              className="group px-3 pt-3 pb-0 cursor-pointer relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Tooltip */}
+              {seekTooltip && (
+                <div
+                  className="absolute -translate-x-1/2 bg-black/90 text-white text-[11px] font-mono px-2 py-0.5 rounded-md pointer-events-none whitespace-nowrap z-10"
+                  style={{ left: `calc(${seekTooltip.pct * 100}% + 12px)`, bottom: "calc(100% - 8px)" }}
+                >
+                  {formatTime(seekTooltip.time)}
+                </div>
+              )}
+
+              {/* Track + hit area */}
               <div
+                className="relative h-8 flex items-center"
                 ref={seekBarRef}
-                className="relative h-1 rounded-full cursor-pointer group"
-                style={{ background: "rgba(255,255,255,.2)" }}
                 onClick={onSeekClick}
                 onMouseMove={onSeekMouseMove}
                 onMouseLeave={() => { setSeekTooltip(null); if (seeking) setSeeking(false); }}
@@ -662,162 +712,183 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
                 onTouchMove={onSeekTouchMove}
                 onTouchEnd={onSeekTouchEnd}
               >
-                {/* Buffered */}
-                <div className="absolute inset-y-0 left-0 rounded-full"
-                  style={{ width: `${buf * 100}%`, background: "rgba(255,255,255,.3)" }} />
-                {/* Played */}
-                <div className="absolute inset-y-0 left-0 rounded-full transition-all"
-                  style={{ width: `${played * 100}%`, background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }} />
+                {/* Visual track */}
+                <div
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-full overflow-hidden transition-all duration-150"
+                  style={{ height: seeking ? "5px" : "3px" }}
+                >
+                  <div className="absolute inset-0 rounded-full" style={{ background: "rgba(255,255,255,.2)" }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${buf * 100}%`, background: "rgba(255,255,255,.38)" }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${played * 100}%`, background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }} />
+                </div>
                 {/* Thumb */}
-                <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `${played * 100}%` }} />
-                {/* Tooltip */}
-                {seekTooltip && (
-                  <div className="absolute bottom-5 -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-0.5 rounded pointer-events-none"
-                    style={{ left: `${seekTooltip.pct * 100}%` }}>
-                    {formatTime(seekTooltip.time)}
-                  </div>
-                )}
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[15px] h-[15px] rounded-full bg-white pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `${played * 100}%`, boxShadow: "0 0 8px rgba(90,75,218,.7), 0 1px 4px rgba(0,0,0,.5)" }}
+                />
               </div>
             </div>
 
-            {/* Button row */}
-            <div className="flex items-center px-2 gap-1">
+            {/* Controls row */}
+            <div className="flex items-center px-1.5 pb-2 gap-0">
               {/* Skip back */}
-              <button className="text-white p-2 bg-transparent border-none cursor-pointer" onClick={(e) => { e.stopPropagation(); skip(-10); }} title="Back 10s">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                  <path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.11 7.11 0 0 1 12.5 10.5c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
+              <Btn title="Back 10s" onClick={(e) => { e.stopPropagation(); skip(-10); }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.11 7.11 0 0 1 12.5 10.5c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
                   <text x="12" y="21" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">10</text>
                 </svg>
-              </button>
+              </Btn>
 
               {/* Play/Pause */}
-              <button className="text-white p-2 bg-transparent border-none cursor-pointer" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+              <Btn title={playing ? "Pause" : "Play"} onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
                 {playing ? (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                  </svg>
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 ) : (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                 )}
-              </button>
+              </Btn>
 
               {/* Skip forward */}
-              <button className="text-white p-2 bg-transparent border-none cursor-pointer" onClick={(e) => { e.stopPropagation(); skip(10); }} title="Forward 10s">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                  <path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5a7.1 7.1 0 0 1 5.12 1.88L13 16h9V7l-3.6 3.6z" />
+              <Btn title="Forward 10s" onClick={(e) => { e.stopPropagation(); skip(10); }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                  <path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5a7.1 7.1 0 0 1 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
                   <text x="12" y="21" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">10</text>
                 </svg>
-              </button>
+              </Btn>
 
-              {/* Volume */}
-              <button className="text-white p-2 bg-transparent border-none cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleMute(); }}>
-                <VolumeIcon level={volumeLevel} />
-              </button>
-              {!isMobile && (
+              {/* Volume (desktop) */}
+              <div className="hidden sm:flex items-center">
+                <Btn title="Mute" onClick={(e) => { e.stopPropagation(); toggleMute(); }}>
+                  <VolumeIcon level={volumeLevel} />
+                </Btn>
                 <input
                   type="range" min={0} max={1} step={0.05}
                   value={muted ? 0 : volume}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => setVideoVolume(parseFloat(e.target.value))}
-                  className="w-20 h-1 cursor-pointer accent-indigo-400"
+                  className="w-[68px] cursor-pointer h-[3px] rounded-full"
+                  style={{ accentColor: ACCENT }}
                 />
-              )}
+              </div>
+
+              {/* Time display */}
+              <div className="flex items-center ml-2 gap-0.5">
+                <span className="text-white font-mono text-[12px] tabular-nums">{formatTime(currentTime)}</span>
+                <span className="text-white/35 font-mono text-[12px] mx-0.5">/</span>
+                <span className="text-white/55 font-mono text-[12px] tabular-nums">{formatTime(duration)}</span>
+                {speed !== 1 && (
+                  <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: `rgba(90,75,218,.85)`, color: "#fff" }}>{speed}×</span>
+                )}
+              </div>
 
               <div className="flex-1" />
 
               {/* Settings */}
               <div className="relative">
-                <button
-                  className="text-white p-2 bg-transparent border-none cursor-pointer text-[13px] font-semibold rounded"
+                <Btn
+                  title="Settings"
                   onClick={(e) => { e.stopPropagation(); setShowSettings((v) => !v); setSettingsPanel("main"); }}
-                  style={{ background: showSettings ? "rgba(255,255,255,.12)" : "transparent" }}
+                  className={showSettings ? "bg-white/15 hover:bg-white/15" : ""}
                 >
-                  ⚙
-                </button>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                </Btn>
+
                 {showSettings && (
                   <div
-                    className="absolute bottom-12 right-0 rounded-xl overflow-hidden min-w-[180px] z-50"
-                    style={{ background: "rgba(10,10,18,.97)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 8px 32px rgba(0,0,0,.9)" }}
+                    className="absolute bottom-[calc(100%+8px)] right-0 w-[200px] rounded-2xl overflow-hidden z-50"
+                    style={{ background: "rgba(12,12,20,.98)", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 8px 40px rgba(0,0,0,.95)" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {settingsPanel === "main" && (
-                      <>
-                        <button className="w-full flex items-center justify-between px-4 py-3.5 text-white text-sm cursor-pointer bg-transparent border-none text-left"
+                      <div>
+                        <button
+                          className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={() => setSettingsPanel("speed")}>
-                          <span className="text-white/70">Speed</span>
-                          <span className="text-white/90 font-medium">{speedLabel} ›</span>
+                          onClick={() => setSettingsPanel("speed")}
+                        >
+                          <span className="text-white/75">Speed</span>
+                          <div className="flex items-center gap-1 text-white/50 text-[13px]">
+                            <span>{speedLabel}</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                          </div>
                         </button>
                         {qualities.length > 0 && (
-                          <button className="w-full flex items-center justify-between px-4 py-3.5 text-white text-sm cursor-pointer bg-transparent border-none text-left"
-                            onClick={() => setSettingsPanel("quality")}>
-                            <span className="text-white/70">Quality</span>
-                            <span className="text-white/90 font-medium">{qualityLabel} ›</span>
+                          <button
+                            className="w-full flex items-center justify-between px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                            onClick={() => setSettingsPanel("quality")}
+                          >
+                            <span className="text-white/75">Quality</span>
+                            <div className="flex items-center gap-1 text-white/50 text-[13px]">
+                              <span>{qualityLabel}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                            </div>
                           </button>
                         )}
-                      </>
+                      </div>
                     )}
                     {settingsPanel === "speed" && (
-                      <>
-                        <button className="w-full flex items-center gap-2 px-4 py-3 text-white/60 text-sm cursor-pointer bg-transparent border-none text-left"
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={() => setSettingsPanel("main")}>
-                          ‹ Speed
+                          onClick={() => setSettingsPanel("main")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-semibold">Speed</span>
                         </button>
                         {SPEEDS.map((s) => (
                           <button key={s}
-                            className="w-full flex items-center justify-between px-4 py-3 text-white text-sm cursor-pointer bg-transparent border-none text-left"
-                            style={{ background: speed === s ? "rgba(90,75,218,.18)" : "transparent" }}
-                            onClick={() => setVideoSpeed(s)}>
+                            className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5"
+                            style={{ background: speed === s ? `rgba(90,75,218,.22)` : "transparent", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                            onClick={() => setVideoSpeed(s)}
+                          >
                             <span>{s === 1 ? "Normal" : `${s}×`}</span>
-                            {speed === s && <span style={{ color: ACCENT }}>✓</span>}
+                            {speed === s && (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                            )}
                           </button>
                         ))}
-                      </>
+                      </div>
                     )}
                     {settingsPanel === "quality" && (
-                      <>
-                        <button className="w-full flex items-center gap-2 px-4 py-3 text-white/60 text-sm cursor-pointer bg-transparent border-none text-left"
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={() => setSettingsPanel("main")}>
-                          ‹ Quality
+                          onClick={() => setSettingsPanel("main")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-semibold">Quality</span>
                         </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 text-white text-sm cursor-pointer bg-transparent border-none text-left"
-                          style={{ background: activeQuality === "auto" ? "rgba(90,75,218,.18)" : "transparent" }}
-                          onClick={() => selectQuality("auto")}>
-                          <span>Auto</span>
-                          {activeQuality === "auto" && <span style={{ color: ACCENT }}>✓</span>}
-                        </button>
-                        {qualities.map((q) => (
-                          <button key={q.height}
-                            className="w-full flex items-center justify-between px-4 py-3 text-white text-sm cursor-pointer bg-transparent border-none text-left"
-                            style={{ background: activeQuality === q.height ? "rgba(90,75,218,.18)" : "transparent" }}
-                            onClick={() => selectQuality(q.height)}>
-                            <span>{q.height}p</span>
-                            {activeQuality === q.height && <span style={{ color: ACCENT }}>✓</span>}
+                        {[{ label: "Auto", value: "auto" as const }, ...qualities.map((q) => ({ label: `${q.height}p`, value: q.height as number | "auto" }))].map((opt) => (
+                          <button key={opt.value}
+                            className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5"
+                            style={{ background: activeQuality === opt.value ? `rgba(90,75,218,.22)` : "transparent", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                            onClick={() => selectQuality(opt.value)}
+                          >
+                            <span>{opt.label}</span>
+                            {activeQuality === opt.value && (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                            )}
                           </button>
                         ))}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
               {/* Fullscreen */}
-              <button className="text-white p-2 bg-transparent border-none cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}>
+              <Btn title={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}>
                 {fullscreen ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                    <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
-                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round"><path d="M8 3v3a2 2 0 01-2 2H3M21 8h-3a2 2 0 01-2-2V3M3 16h3a2 2 0 012 2v3M16 21v-3a2 2 0 012-2h3"/></svg>
                 ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-                  </svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/></svg>
                 )}
-              </button>
+              </Btn>
             </div>
           </div>
         </div>
