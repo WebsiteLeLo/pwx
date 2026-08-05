@@ -6,7 +6,7 @@
 
   <!-- Main content page (PWX batches) -->
   <url>
-    <loc>https://pwx.onrender.com/pw</loc>
+    <loc>https://pwx.pages.dev/pw</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -14,7 +14,7 @@
 
   <!-- App launcher / hub -->
   <url>
-    <loc>https://pwx.onrender.com/</loc>
+    <loc>https://pwx.pages.dev/</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -30,7 +30,7 @@
 
   <!-- Dashboard -->
   <url>
-    <loc>https://pwx.onrender.com/dashboard</loc>
+    <loc>https://pwx.pages.dev/dashboard</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -46,7 +46,7 @@
 
   <!-- Study materials -->
   <url>
-    <loc>https://pwx.onrender.com/materials</loc>
+    <loc>https://pwx.pages.dev/materials</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -54,7 +54,7 @@
 
   <!-- DPP Quiz -->
   <url>
-    <loc>https://pwx.onrender.com/dpp-quiz</loc>
+    <loc>https://pwx.pages.dev/dpp-quiz</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
@@ -62,7 +62,7 @@
 
   <!-- Revision -->
   <url>
-    <loc>https://pwx.onrender.com/revision</loc>
+    <loc>https://pwx.pages.dev/revision</loc>
     <lastmod>2026-08-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
