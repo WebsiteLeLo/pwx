@@ -6,7 +6,8 @@ const CDN_HOSTS = [
   "sec-prod-mediacdn.pw.live",
   "prod-mediacdn.pw.live",
   "mediacdn.pw.live",
-  "cloudfront.net",  // PW video CDN distributions
+  "cloudfront.net",          // PW video CDN distributions
+  "proxy.primestudy.site",   // learnbyakp stream proxy
 ];
 const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net"];
 
@@ -124,6 +125,44 @@ proxyRouter.get("/vidcloud-stream", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "vidcloud-stream fetch failed");
     res.status(502).json({ error: "Failed to fetch vidcloud page" });
+  }
+});
+
+// ── learnbyakp video-url proxy ───────────────────────────────────────────────
+// Forwards to https://learnbyakp.onrender.com/api/video-url and returns the
+// full JSON (url, directUrl, streamUrl, signedUrl, clearKeys, vid, topic).
+proxyRouter.options("/akp-video-url", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.status(204).end();
+});
+
+proxyRouter.get("/akp-video-url", async (req, res) => {
+  const { batchId, childId } = req.query as Record<string, string>;
+  if (!batchId || !childId) {
+    res.status(400).json({ error: "Missing batchId or childId" });
+    return;
+  }
+
+  const upstream = `https://learnbyakp.onrender.com/api/video-url?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}`;
+
+  try {
+    const resp = await fetch(upstream, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, */*",
+        "Referer": "https://learnbyakp.online/",
+        "Origin": "https://learnbyakp.online",
+      },
+    });
+
+    const data = await resp.json();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.status(resp.status).json(data);
+  } catch (err) {
+    req.log.error({ err }, "akp-video-url proxy fetch failed");
+    res.status(502).json({ error: "Upstream fetch failed" });
   }
 });
 
