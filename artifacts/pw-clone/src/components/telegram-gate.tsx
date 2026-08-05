@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTelegramGateSetting } from "@/hooks/useAdmin";
+import { apiUrl } from "@/lib/apiUrl";
 
 type Lang = "hi" | "en";
 
@@ -101,7 +102,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
   const createSession = useCallback(async () => {
     setSessionLoading(true);
     try {
-      const res = await fetch("/api/auth/session", { method: "POST" });
+      const res = await fetch(apiUrl("/api/auth/session"), { method: "POST" });
       const json = (await res.json()) as { sessionId: string; botLink: string };
       setSessionId(json.sessionId);
       setBotLink(json.botLink);
@@ -133,7 +134,7 @@ export function TelegramGate({ children }: { children: React.ReactNode }) {
     }
     setStatus("loading");
     try {
-      const res = await fetch("/api/auth/verify", {
+      const res = await fetch(apiUrl("/api/auth/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, code: code.trim() }),

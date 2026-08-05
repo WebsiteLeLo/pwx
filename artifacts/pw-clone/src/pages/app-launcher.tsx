@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
+import { apiUrl } from "@/lib/apiUrl";
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const SS_AUTH_KEY     = "ss_tg_auth";
@@ -52,7 +53,7 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
   const createSession = useCallback(async () => {
     setSessionLoading(true);
     try {
-      const res  = await fetch("/api/ss-auth/session", { method: "POST" });
+      const res  = await fetch(apiUrl("/api/ss-auth/session"), { method: "POST" });
       const json = (await res.json()) as { sessionId: string; botLink: string | null };
       setSessionId(json.sessionId);
       setBotLink(json.botLink);
@@ -80,7 +81,7 @@ function StudySquadGate({ onClose, onSuccess }: { onClose: () => void; onSuccess
     if (!sessionId) { setStatus("session_error"); return; }
     setStatus("loading");
     try {
-      const res  = await fetch("/api/ss-auth/verify", {
+      const res  = await fetch(apiUrl("/api/ss-auth/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, code: code.trim() }),
