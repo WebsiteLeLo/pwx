@@ -208,10 +208,18 @@ export function LivePlayer({
       try {
         /* ── HLS path ── */
         if (isHls) {
-          // Try native HLS first (Safari)
-          if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          // Only use native HLS on Safari/iOS — Chrome now reports canPlayType
+          // truthy for HLS but its native engine fetches variant playlists
+          // without query params (CloudFront signature), causing 403s.
+          // HLS.js is always preferred when supported.
+          const isSafariNative =
+            !!(video as any).webkitEnterFullscreen &&              // iOS Safari
+            !/Chrome|CriOS|android/i.test(navigator.userAgent);   // not Chrome/Android
+          const hlsJsSupported = (await import("hls.js")).default?.isSupported?.() ?? false;
+
+          if (isSafariNative && !hlsJsSupported) {
             video.src = streamUrl;
-            await video.play();
+            video.play().catch(() => {});
             if (!cancelled) setStatus("ready");
             return;
           }
