@@ -14,11 +14,23 @@ function addStrike(): number {
   return s;
 }
 
-// Only run in production — disable-devtool accesses window.top which is
-// blocked by cross-origin policy inside the Replit iframe dev preview.
+// Mount React immediately — never block on devtools detection
+createRoot(document.getElementById("root")!).render(<App />);
+
+// Register service worker for PWA support
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // SW registration failure is non-fatal
+    });
+  });
+}
+
+// Load devtools detection after React renders (fire-and-forget).
+// disable-devtool accesses window.top which is blocked in cross-origin iframes,
+// so we guard for PROD and catch any failure silently.
 if (import.meta.env.PROD) {
-  try {
-    const { default: DisableDevtool } = await import("disable-devtool");
+  import("disable-devtool").then(({ default: DisableDevtool }) => {
     DisableDevtool({
       disableMenu: true,
       clearLog: true,
@@ -30,18 +42,7 @@ if (import.meta.env.PROD) {
         );
       },
     });
-  } catch {
-    // Silently ignore if disable-devtool fails (e.g. sandboxed environments)
-  }
-}
-
-createRoot(document.getElementById("root")!).render(<App />);
-
-// Register service worker for PWA support
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // SW registration failure is non-fatal
-    });
+  }).catch(() => {
+    // Silently ignore if disable-devtool fails (sandboxed / cross-origin env)
   });
 }
