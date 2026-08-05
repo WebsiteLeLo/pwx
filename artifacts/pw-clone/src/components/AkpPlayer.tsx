@@ -199,13 +199,46 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         await player.attach(video);
         playerRef.current = player;
 
+        // Buffering tuning — preload more, recover faster from stalls
+        player.configure({
+          streaming: {
+            bufferingGoal: 60,
+            rebufferingGoal: 1.5,
+            bufferBehind: 30,
+            safeSeekOffset: 3,
+            stallEnabled: true,
+            stallThreshold: 1,
+            stallSkip: 0.1,
+            retryParameters: {
+              maxAttempts: 4,
+              baseDelay: 100,
+              backoffFactor: 1.5,
+              fuzzFactor: 0.5,
+              timeout: 30000,
+            },
+          },
+        });
+
         // Configure ClearKey DRM if keys present
         if (Object.keys(shakaKeys).length > 0) {
           player.configure({ drm: { clearKeys: shakaKeys } });
         }
 
-        // proxy.primestudy.site already includes CORS headers — Shaka can reach
-        // it directly without our /api/proxy wrapper. No network filter needed.
+        // Shaka resolves segment URLs relative to the MPD base, dropping the
+        // CloudFront signature. Re-attach signature params to every primestudy
+        // segment request that arrives without them.
+        const sigParams = signedQs.startsWith("?") ? signedQs.slice(1) : signedQs;
+        if (sigParams) {
+          player.getNetworkingEngine().registerRequestFilter(
+            (_type: number, request: any) => {
+              const uri: string = request.uris[0] ?? "";
+              if (uri.includes("proxy.primestudy.site") && !uri.includes("Signature=")) {
+                const sep = uri.includes("?") ? "&" : "?";
+                request.uris[0] = `${uri}${sep}${sigParams}`;
+              }
+            }
+          );
+        }
 
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;

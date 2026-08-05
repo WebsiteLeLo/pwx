@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Readable } from "node:stream";
 
 const proxyRouter = Router();
 
@@ -337,18 +338,32 @@ proxyRouter.get("/dash-seg/:sig/{*path}", async (req, res) => {
     return;
   }
 
-  try {
-    const { status, contentType, buffer } = await fetchCdn(cdnUrl);
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600, immutable");
-    res.status(status);
-    res.end(Buffer.from(buffer));
-  } catch (err) {
-    req.log.error({ err }, "dash-seg fetch failed");
-    res.status(502).json({ error: "Segment fetch failed" });
+  // Stream segments directly — avoids buffering entire segment on server before sending
+  for (const headers of CDN_HEADER_VARIANTS) {
+    try {
+      const upstream = await fetch(cdnUrl, { headers });
+      if (upstream.status === 403) continue;
+
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      res.setHeader("Content-Type", upstream.headers.get("content-type") || "application/octet-stream");
+      res.setHeader("Cache-Control", "public, max-age=3600, immutable");
+      const cl = upstream.headers.get("content-length");
+      if (cl) res.setHeader("Content-Length", cl);
+      res.status(upstream.status);
+
+      if (upstream.body) {
+        Readable.fromWeb(upstream.body as any).pipe(res);
+      } else {
+        res.end();
+      }
+      return;
+    } catch (err) {
+      req.log.error({ err }, "dash-seg stream attempt failed");
+    }
   }
+
+  res.status(502).json({ error: "Segment fetch failed" });
 });
 
 // ── RareStudy PDF proxy ──────────────────────────────────────────────────────

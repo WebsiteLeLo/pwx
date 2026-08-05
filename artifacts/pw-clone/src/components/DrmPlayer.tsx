@@ -244,7 +244,25 @@ export function DrmPlayer({
         const player = new shaka.Player();
         await player.attach(video);
         playerRef.current = player;
-        player.configure({ drm: { clearKeys: { [kidB64]: keyB64 } } });
+        player.configure({
+          drm: { clearKeys: { [kidB64]: keyB64 } },
+          streaming: {
+            bufferingGoal: 60,
+            rebufferingGoal: 1.5,
+            bufferBehind: 30,
+            safeSeekOffset: 3,
+            stallEnabled: true,
+            stallThreshold: 1,
+            stallSkip: 0.1,
+            retryParameters: {
+              maxAttempts: 4,
+              baseDelay: 100,
+              backoffFactor: 1.5,
+              fuzzFactor: 0.5,
+              timeout: 30000,
+            },
+          },
+        });
 
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;
