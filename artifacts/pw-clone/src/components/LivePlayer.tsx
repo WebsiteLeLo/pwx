@@ -224,43 +224,78 @@ export function LivePlayer({
           if (cancelled) return;
 
           // ── Signature re-attachment ────────────────────────────────────
-          // CloudFront/CDN signed URLs carry ?Signature=…&Policy=…&Key-Pair-Id=…
-          // HLS.js resolves segment/sub-playlist URLs relatively and strips the
-          // query string, causing 403s. We extract the sig params from the master
-          // manifest URL and re-attach them via a custom loader.
+          // CloudFront signed URLs carry ?Signature=…&Policy=…&Key-Pair-Id=…
+          // HLS.js resolves sub-playlist / segment URLs relatively, stripping
+          // the query string → 403. Strategy:
+          //   pLoader: re-signs the request URL AND rewrites every URL line
+          //            inside the returned M3U8 text to be absolute+signed, so
+          //            HLS.js never sees an unsigned URL for any level/segment.
           let sigParams = "";
           let sigHost   = "";
           try {
             const u = new URL(streamUrl);
-            sigHost   = u.hostname; // e.g. "proxy.primestudy.site"
+            sigHost   = u.hostname;
             sigParams = u.search.startsWith("?") ? u.search.slice(1) : u.search;
           } catch {}
 
-          // Factory: extends the default loader, patches any unsigned URL on the same host
-          function makeSignedLoader(DefaultLoader: any) {
-            return class SignedLoader extends DefaultLoader {
-              load(context: any, cfg: any, cbs: any) {
-                try {
-                  const url: string = context.url ?? "";
-                  if (
-                    sigParams &&
-                    sigHost &&
-                    url.includes(sigHost) &&
-                    !url.includes("Signature=") &&
-                    !url.includes("signature=")
-                  ) {
-                    context.url = url.includes("?")
-                      ? `${url}&${sigParams}`
-                      : `${url}?${sigParams}`;
-                  }
-                } catch {}
-                super.load(context, cfg, cbs);
+          /** Append sig params to a URL that needs them */
+          function signUrl(url: string): string {
+            if (!sigParams || !sigHost) return url;
+            if (!url.includes(sigHost)) return url;
+            if (url.includes("Signature=") || url.includes("signature=")) return url;
+            return url.includes("?") ? `${url}&${sigParams}` : `${url}?${sigParams}`;
+          }
+
+          /** Rewrite every non-comment line in an M3U8 to be absolute+signed */
+          function rewriteM3u8(text: string, baseUrl: string): string {
+            return text.split("\n").map(rawLine => {
+              const line = rawLine.trim();
+              if (!line || line.startsWith("#")) return rawLine;
+              try {
+                const abs = new URL(line, baseUrl).href;
+                return signUrl(abs);
+              } catch {
+                return rawLine;
+              }
+            }).join("\n");
+          }
+
+          /**
+           * Custom playlist loader — fully self-contained so there are no
+           * issues with HLS.js version-specific class-extension quirks.
+           */
+          function makeSignedPlaylistLoader(DefaultLoader: any) {
+            return class SignedPlaylistLoader {
+              private _inner: any;
+              constructor(cfg: any) { this._inner = new DefaultLoader(cfg); }
+              destroy() { try { this._inner.destroy(); } catch {} }
+              abort()   { try { this._inner.abort();   } catch {} }
+              load(context: any, cfg: any, callbacks: any) {
+                // 1. Re-sign the request URL
+                context.url = signUrl(context.url ?? "");
+                const baseUrl = context.url; // absolute URL with signature
+
+                // 2. Intercept onSuccess to rewrite URLs inside the M3U8 body
+                const origSuccess = callbacks.onSuccess;
+                const patchedCallbacks = {
+                  ...callbacks,
+                  onSuccess: (response: any, stats: any, ctx: any, xhr: any) => {
+                    try {
+                      if (typeof response.data === "string" && sigParams) {
+                        response.data = rewriteM3u8(response.data, baseUrl);
+                      }
+                    } catch {}
+                    origSuccess(response, stats, ctx, xhr);
+                  },
+                };
+
+                this._inner.load(context, cfg, patchedCallbacks);
               }
             };
           }
 
-          const SignedLoader = sigParams
-            ? makeSignedLoader(Hls.DefaultConfig.loader)
+          const SignedPlaylistLoader = sigParams
+            ? makeSignedPlaylistLoader(Hls.DefaultConfig.loader)
             : undefined;
 
           const hls = new Hls({
@@ -270,7 +305,7 @@ export function LivePlayer({
             maxMaxBufferLength: 120,
             enableWorker: true,
             lowLatencyMode: false,
-            ...(SignedLoader ? { pLoader: SignedLoader, fLoader: SignedLoader } : {}),
+            ...(SignedPlaylistLoader ? { pLoader: SignedPlaylistLoader } : {}),
           });
           hlsRef.current = hls;
 
