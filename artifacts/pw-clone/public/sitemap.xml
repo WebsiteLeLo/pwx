@@ -1,71 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-
-  <!-- Main content page (PWX batches) -->
-  <url>
-    <loc>https://pwx.pages.dev/pw</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-  <!-- App launcher / hub -->
-  <url>
-    <loc>https://pwx.pages.dev/</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Schedule / live classes -->
-  <url>
-    <loc>https://pwx.onrender.com/schedule</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Dashboard -->
-  <url>
-    <loc>https://pwx.pages.dev/dashboard</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-
-  <!-- My Mix / saved playlists -->
-  <url>
-    <loc>https://pwx.onrender.com/my-mix</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Study materials -->
-  <url>
-    <loc>https://pwx.pages.dev/materials</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- DPP Quiz -->
-  <url>
-    <loc>https://pwx.pages.dev/dpp-quiz</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Revision -->
-  <url>
-    <loc>https://pwx.pages.dev/revision</loc>
-    <lastmod>2026-08-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>https://pwx.pages.dev/pw</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>daily</changefreq>
+<priority>1.0</priority>
+</url>
+<url>
+<loc>https://pwx.pages.dev/</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.8</priority>
+</url>
+<url>
+<loc>https://pwx.pages.dev/dashboard</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.7</priority>
+</url>
+<url>
+<loc>https://pwx.pages.dev/materials</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.6</priority>
+</url>
+<url>
+<loc>https://pwx.pages.dev/dpp-quiz</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.6</priority>
+</url>
+<url>
+<loc>https://pwx.pages.dev/revision</loc>
+<lastmod>2026-08-04</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0.5</priority>
+</url>
 </urlset>
