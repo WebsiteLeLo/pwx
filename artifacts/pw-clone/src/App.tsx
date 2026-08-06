@@ -8,6 +8,7 @@ import { LoadingBar } from "@/components/loading-bar";
 import DevToolsBlocked from "@/pages/devtools-blocked";
 import { NotificationBanner } from "@/components/notification-banner";
 import { MaintenanceGate } from "@/components/maintenance-gate";
+import { hasValidAccess } from "@/lib/access-key";
 
 // Pages
 import Home from "@/pages/home";
@@ -27,6 +28,9 @@ import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 import AiGirl from "@/components/ai-girl/AiGirl";
 import AdminPanel from "@/pages/admin";
+// New: key-system pages
+import AccessPage from "@/pages/access";
+import VerifyPage from "@/pages/verify";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +53,17 @@ function ScrollToTop() {
   return null;
 }
 
+// Gate: lets /access and /verify through always, everything else requires a valid 24h key.
+function AccessGate({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const exempt = location === "/access" || location === "/verify";
+
+  if (!exempt && !hasValidAccess()) {
+    return <Redirect to="/access" />;
+  }
+  return <>{children}</>;
+}
+
 function Router() {
   const [location] = useLocation();
 
@@ -61,38 +76,42 @@ function Router() {
         <AdminPanel />
       ) : (
         <MaintenanceGate>
-          <NotificationBanner />
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={location}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
-              style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
-            >
-              <Switch>
-                <Route path="/"><Redirect to="/pw" /></Route>
-                <Route path="/pw" component={Home} />
-                <Route path="/batch/:batchId" component={Batch} />
-                <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
-                <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
-                <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
-                <Route path="/watch" component={Watch} />
-                <Route path="/live-watch" component={LiveWatch} />
-                <Route path="/schedule-watch" component={ScheduleWatch} />
-                <Route path="/materials" component={Materials} />
-                <Route path="/schedule" component={Schedule} />
-                <Route path="/my-mix" component={MyMixList} />
-                <Route path="/my-mix/:mixId" component={MyMixDetail} />
-                <Route path="/dpp-quiz" component={DppQuiz} />
-                <Route path="/revision" component={RevisionPage} />
-                <Route path="/dashboard" component={Dashboard} />
-                <Route component={NotFound} />
-              </Switch>
-            </motion.div>
-          </AnimatePresence>
-          {location !== "/watch" && location !== "/schedule-watch" && location !== "/live-watch" && <AiGirl />}
+          <AccessGate>
+            <NotificationBanner />
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={location}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                style={{ position: "absolute", inset: 0, minHeight: "100dvh" }}
+              >
+                <Switch>
+                  <Route path="/"><Redirect to="/pw" /></Route>
+                  <Route path="/access" component={AccessPage} />
+                  <Route path="/verify" component={VerifyPage} />
+                  <Route path="/pw" component={Home} />
+                  <Route path="/batch/:batchId" component={Batch} />
+                  <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />
+                  <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
+                  <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
+                  <Route path="/watch" component={Watch} />
+                  <Route path="/live-watch" component={LiveWatch} />
+                  <Route path="/schedule-watch" component={ScheduleWatch} />
+                  <Route path="/materials" component={Materials} />
+                  <Route path="/schedule" component={Schedule} />
+                  <Route path="/my-mix" component={MyMixList} />
+                  <Route path="/my-mix/:mixId" component={MyMixDetail} />
+                  <Route path="/dpp-quiz" component={DppQuiz} />
+                  <Route path="/revision" component={RevisionPage} />
+                  <Route path="/dashboard" component={Dashboard} />
+                  <Route component={NotFound} />
+                </Switch>
+              </motion.div>
+            </AnimatePresence>
+            {location !== "/watch" && location !== "/schedule-watch" && location !== "/live-watch" && <AiGirl />}
+          </AccessGate>
         </MaintenanceGate>
       )}
     </>
