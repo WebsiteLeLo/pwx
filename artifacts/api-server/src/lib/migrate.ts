@@ -23,6 +23,15 @@ export async function ensureTables() {
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS access_keys (
+        id SERIAL PRIMARY KEY,
+        key_hash TEXT NOT NULL UNIQUE,
+        label TEXT,
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        last_used_at TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS tg_sessions (
         session_id TEXT PRIMARY KEY,
         code TEXT,

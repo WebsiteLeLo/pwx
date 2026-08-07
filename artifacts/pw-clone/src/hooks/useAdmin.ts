@@ -68,6 +68,20 @@ export function useTelegramGateSetting() {
   });
 }
 
+export function useAccessGateSetting() {
+  return useQuery({
+    queryKey: ["settings", "access_gate"],
+    queryFn: async () => {
+      const r = await fetch(api("/settings/access_gate"));
+      if (!r.ok) return null;
+      return r.json();
+    },
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 30,
+    refetchOnMount: true,
+  });
+}
+
 // ─── Admin ───────────────────────────────────────────────────────
 
 export function useAdminNotifications() {
@@ -135,6 +149,53 @@ export function useAdminSettings() {
       const r = await fetch(withKey(api("/admin/settings")), { headers: adminHeaders() });
       if (!r.ok) throw new Error("Unauthorized");
       return r.json();
+    },
+  });
+}
+
+export function useAdminAccessKeys() {
+  return useQuery({
+    queryKey: ["admin-access-keys"],
+    queryFn: async () => {
+      const r = await fetch(withKey(api("/admin/access-keys")), { headers: adminHeaders() });
+      if (!r.ok) throw new Error("Unauthorized");
+      return r.json();
+    },
+  });
+}
+
+export function useCreateAccessKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (label?: string) => {
+      const r = await fetch(withKey(api("/admin/access-keys")), {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ label: label?.trim() || undefined }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-access-keys"] });
+    },
+  });
+}
+
+export function useToggleAccessKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const r = await fetch(withKey(api(`/admin/access-keys/${id}`)), {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ active }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-access-keys"] });
     },
   });
 }

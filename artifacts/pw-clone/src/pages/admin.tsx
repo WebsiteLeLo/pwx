@@ -4,6 +4,7 @@ import {
   Bell, Settings, Shield, LogOut, Plus, Trash2, Eye, EyeOff,
   Wrench, AlertTriangle, CheckCircle, Info, AlertCircle, Loader2,
   Send, ToggleLeft, ToggleRight, X, Save, RefreshCw,
+  KeyRound, Copy, Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,9 @@ import {
   useUpdateSetting,
   verifyAdminKey,
   useAdminAuth,
+  useAdminAccessKeys,
+  useCreateAccessKey,
+  useToggleAccessKey,
 } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 
@@ -303,6 +307,9 @@ function NotificationsTab() {
 function SettingsTab() {
   const { data: settings = [], isLoading, refetch } = useAdminSettings();
   const updateSetting = useUpdateSetting();
+  const { data: accessKeys = [], isLoading: keysLoading } = useAdminAccessKeys();
+  const createAccessKey = useCreateAccessKey();
+  const toggleAccessKey = useToggleAccessKey();
   const { toast } = useToast();
 
   // Maintenance state
@@ -312,6 +319,10 @@ function SettingsTab() {
   // Telegram gate state
   const [tgGateEnabled, setTgGateEnabled] = useState(true);
   const [tgLoaded, setTgLoaded] = useState(false);
+  const [accessGateEnabled, setAccessGateEnabled] = useState(true);
+  const [accessLoaded, setAccessLoaded] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [keyLabel, setKeyLabel] = useState("");
 
   useEffect(() => {
     if (!isLoading && !mLoaded) {
@@ -330,7 +341,12 @@ function SettingsTab() {
       setTgGateEnabled(tg?.value?.enabled ?? true);
       setTgLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, tgLoaded]);
+    if (!isLoading && !accessLoaded) {
+      const gate = (settings as any[]).find((s) => s.key === "access_gate");
+      setAccessGateEnabled(gate?.value?.enabled ?? true);
+      setAccessLoaded(true);
+    }
+  }, [settings, isLoading, mLoaded, tgLoaded, accessLoaded]);
 
   async function saveMaintenance() {
     try {
@@ -350,6 +366,34 @@ function SettingsTab() {
     }
   }
 
+  async function saveAccessGate(enabled: boolean) {
+    try {
+      setAccessGateEnabled(enabled);
+      await updateSetting.mutateAsync({ key: "access_gate", value: { enabled } });
+      toast({ title: enabled ? "🔒 Access key gate started" : "🔓 Access key gate removed" });
+    } catch (e: any) {
+      setAccessGateEnabled(!enabled);
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function generateKey() {
+    try {
+      const result = await createAccessKey.mutateAsync(keyLabel);
+      setNewKey(result.key);
+      setKeyLabel("");
+      toast({ title: "Access key generated", description: "Copy it now — it cannot be shown again." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function copyKey() {
+    if (!newKey) return;
+    await navigator.clipboard.writeText(newKey);
+    toast({ title: "Key copied" });
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -361,6 +405,78 @@ function SettingsTab() {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-400" /></div>
       ) : (
         <div className="space-y-4">
+          {/* Generated Access Key Gate */}
+          <div className={`bg-zinc-900 border rounded-xl p-5 transition-colors ${accessGateEnabled ? "border-violet-600/50" : "border-green-600/50"}`}>
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accessGateEnabled ? "bg-violet-600/20 text-violet-400" : "bg-green-600/20 text-green-400"}`}>
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-white">Generated Key Access Gate</h3>
+                    <p className="text-zinc-400 text-sm">
+                      {accessGateEnabled ? "Visitors need an active generated key to enter" : "Gate removed — the site is open to everyone"}
+                    </p>
+                  </div>
+                  <Switch checked={accessGateEnabled} onCheckedChange={saveAccessGate} />
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={keyLabel}
+                    onChange={(e) => setKeyLabel(e.target.value)}
+                    placeholder="Optional label (e.g. Student batch)"
+                    className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500"
+                  />
+                  <Button onClick={generateKey} disabled={createAccessKey.isPending} className="bg-violet-600 hover:bg-violet-700 shrink-0">
+                    {createAccessKey.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    Generate key
+                  </Button>
+                </div>
+
+                {newKey && (
+                  <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                    <p className="text-amber-300 text-xs mb-2">Copy this key now. The full key will not be displayed again.</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-sm text-white break-all">{newKey}</code>
+                      <Button variant="outline" size="sm" onClick={copyKey} className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10">
+                        <Copy className="w-4 h-4 mr-1" /> Copy
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">Generated keys</p>
+                  {keysLoading ? <Loader2 className="w-4 h-4 animate-spin text-zinc-400" /> : (accessKeys as any[]).length === 0 ? (
+                    <p className="text-sm text-zinc-500">No keys generated yet.</p>
+                  ) : (accessKeys as any[]).map((accessKey) => (
+                    <div key={accessKey.id} className="flex items-center gap-3 rounded-lg bg-zinc-800/70 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-zinc-200 truncate">{accessKey.label || "Untitled key"}</p>
+                        <p className="text-xs text-zinc-500">{new Date(accessKey.createdAt).toLocaleString()} · {accessKey.lastUsedAt ? "Used" : "Never used"}</p>
+                      </div>
+                      <Badge className={accessKey.active ? "bg-green-600/15 text-green-400 border-green-600/30" : "bg-zinc-700 text-zinc-400 border-zinc-600"}>
+                        {accessKey.active ? "Active" : "Revoked"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAccessKey.mutate({ id: accessKey.id, active: !accessKey.active })}
+                        disabled={toggleAccessKey.isPending}
+                        className={accessKey.active ? "text-red-400 hover:text-red-300" : "text-green-400 hover:text-green-300"}
+                        title={accessKey.active ? "Revoke key" : "Reactivate key"}
+                      >
+                        {accessKey.active ? <Ban className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Telegram Verification Gate */}
           <div className={`bg-zinc-900 border rounded-xl p-5 transition-colors ${tgGateEnabled ? "border-blue-600/50" : "border-green-600/50"}`}>
             <div className="flex items-start gap-3">

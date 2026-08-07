@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { verifyPendingToken } from "@/lib/access-key";
+import { getStoredAccessKey, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
 
 const styles = {
   shell: {
@@ -65,8 +65,9 @@ export default function VerifyPage() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      const success = verifyPendingToken();
+    const timeout = setTimeout(async () => {
+      const key = getStoredAccessKey();
+      const success = Boolean(key) && await verifyAccessKey(key);
       setStatus(success ? "success" : "failed");
       if (success) setTimeout(() => setLocation("/pw"), 1800);
     }, 600);

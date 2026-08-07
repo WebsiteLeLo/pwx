@@ -4,11 +4,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { LoadingBar } from "@/components/loading-bar";
 import DevToolsBlocked from "@/pages/devtools-blocked";
 import { NotificationBanner } from "@/components/notification-banner";
 import { MaintenanceGate } from "@/components/maintenance-gate";
-import { hasValidAccess } from "@/lib/access-key";
+import { getStoredAccessKey, verifyAccessKey } from "@/lib/access-key";
+import { useAccessGateSetting } from "@/hooks/useAdmin";
 
 // Pages
 import Home from "@/pages/home";
@@ -53,12 +55,27 @@ function ScrollToTop() {
   return null;
 }
 
-// Gate: lets /access and /verify through always, everything else requires a valid 24h key.
+// Gate: the admin can switch this off globally. When enabled, every visitor
+// must present a currently active key from the server.
 function AccessGate({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const exempt = location === "/access" || location === "/verify";
+  const { data: setting, isLoading: settingLoading } = useAccessGateSetting();
+  const accessGateEnabled = setting?.value?.enabled ?? true;
+  const storedKey = getStoredAccessKey();
+  const verification = useQuery({
+    queryKey: ["access-key-verification", storedKey],
+    queryFn: () => verifyAccessKey(storedKey),
+    enabled: !exempt && accessGateEnabled && Boolean(storedKey),
+    staleTime: 1000 * 60,
+    refetchOnMount: true,
+  });
 
-  if (!exempt && !hasValidAccess()) {
+  if (exempt) return <>{children}</>;
+  if (settingLoading || (accessGateEnabled && Boolean(storedKey) && verification.isLoading)) {
+    return <div className="min-h-screen bg-[#0a0a0f]" />;
+  }
+  if (accessGateEnabled && (!storedKey || verification.data !== true)) {
     return <Redirect to="/access" />;
   }
   return <>{children}</>;

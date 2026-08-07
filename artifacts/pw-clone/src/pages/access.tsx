@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { KeyRound, Info } from "lucide-react";
-import { generateAndRedirect } from "@/lib/access-key";
+import { KeyRound, Info, CheckCircle2, Loader2 } from "lucide-react";
+import { generateAndRedirect, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 const AROLINKS_URL = "https://arolinks.com/vSDzpK";
 
@@ -78,11 +79,29 @@ const styles = {
 
 export default function AccessPage() {
   const [redirecting, setRedirecting] = useState(false);
+  const [key, setKey] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
+  const [, setLocation] = useLocation();
 
   const handleClick = () => {
     setRedirecting(true);
     generateAndRedirect(AROLINKS_URL);
   };
+
+  async function handleVerify(event: React.FormEvent) {
+    event.preventDefault();
+    setChecking(true);
+    setError("");
+    const valid = await verifyAccessKey(key);
+    if (valid) {
+      storeAccessKey(key);
+      setLocation("/pw");
+      return;
+    }
+    setError("That key is invalid or has been revoked.");
+    setChecking(false);
+  }
 
   return (
     <div style={styles.shell}>
@@ -154,6 +173,52 @@ export default function AccessPage() {
           <KeyRound size={16} />
           {redirecting ? "Redirecting…" : "Generate Key"}
         </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", margin: "1.25rem 0", color: "#636383", fontSize: "0.68rem", letterSpacing: "0.08em" }}>
+          <span style={{ height: 1, flex: 1, background: "rgba(255,255,255,0.1)" }} />
+          OR ENTER A KEY
+          <span style={{ height: 1, flex: 1, background: "rgba(255,255,255,0.1)" }} />
+        </div>
+
+        <form onSubmit={handleVerify} style={{ display: "grid", gap: "0.6rem" }}>
+          <input
+            value={key}
+            onChange={(event) => setKey(event.target.value.toUpperCase())}
+            placeholder="PWX-XXXXXX-XXXXXX-XXXXXX"
+            aria-label="Access key"
+            autoComplete="off"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              borderRadius: 8,
+              border: "1px solid rgba(124,58,237,0.4)",
+              background: "rgba(0,0,0,0.25)",
+              color: "#f4f4fb",
+              padding: "0.8rem 0.9rem",
+              outline: "none",
+              fontFamily: "monospace",
+              fontSize: "0.78rem",
+            }}
+          />
+          {error && <p style={{ color: "#f87171", fontSize: "0.78rem", margin: 0 }}>{error}</p>}
+          <button
+            type="submit"
+            disabled={checking || !key.trim()}
+            style={{
+              border: "1px solid rgba(34,211,238,0.35)",
+              borderRadius: 8,
+              padding: "0.7rem 1rem",
+              background: "rgba(34,211,238,0.1)",
+              color: "#67e8f9",
+              cursor: checking || !key.trim() ? "not-allowed" : "pointer",
+              opacity: checking || !key.trim() ? 0.55 : 1,
+              fontWeight: 600,
+            }}
+          >
+            {checking ? <Loader2 size={16} style={{ verticalAlign: "middle", marginRight: 6 }} /> : <CheckCircle2 size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />}
+            Verify access key
+          </button>
+        </form>
 
         <div style={styles.note}>
           <Info size={15} color="#22d3ee" style={{ flexShrink: 0, marginTop: 2 }} />
