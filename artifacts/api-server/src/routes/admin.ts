@@ -300,6 +300,24 @@ router.patch("/admin/access-keys/:id", adminAuth, async (req, res) => {
   }
 });
 
+// Permanently delete an access key. This also removes its device claim,
+// so the key can never be reactivated or used again.
+router.delete("/admin/access-keys/:id", adminAuth, async (req, res) => {
+  try {
+    const deleted = await db
+      .delete(accessKeysTable)
+      .where(eq(accessKeysTable.id, Number(req.params.id)))
+      .returning({ id: accessKeysTable.id });
+    if (!deleted.length) {
+      res.status(404).json({ error: "Access key not found" });
+      return;
+    }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to permanently delete access key" });
+  }
+});
+
 // PUT upsert setting
 router.put("/admin/settings/:key", adminAuth, async (req, res) => {
   try {

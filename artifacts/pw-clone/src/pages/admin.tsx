@@ -24,6 +24,7 @@ import {
   useAdminAccessKeys,
   useCreateAccessKey,
   useToggleAccessKey,
+  useDeleteAccessKey,
 } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 
@@ -310,6 +311,7 @@ function SettingsTab() {
   const { data: accessKeys = [], isLoading: keysLoading } = useAdminAccessKeys();
   const createAccessKey = useCreateAccessKey();
   const toggleAccessKey = useToggleAccessKey();
+  const deleteAccessKey = useDeleteAccessKey();
   const { toast } = useToast();
 
   // Maintenance state
@@ -375,6 +377,17 @@ function SettingsTab() {
     if (!newKey) return;
     await navigator.clipboard.writeText(newKey);
     toast({ title: "Key copied" });
+  }
+
+  async function permanentlyDeleteKey(accessKey: any) {
+    const label = accessKey.label || "this access key";
+    if (!window.confirm(`Permanently delete ${label}? This cannot be undone.`)) return;
+    try {
+      await deleteAccessKey.mutateAsync(accessKey.id);
+      toast({ title: "Access key permanently deleted" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
   }
 
   return (
@@ -455,6 +468,16 @@ function SettingsTab() {
                         title={accessKey.active ? "Revoke key" : "Reactivate key"}
                       >
                         {accessKey.active ? <Ban className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => permanentlyDeleteKey(accessKey)}
+                        disabled={deleteAccessKey.isPending}
+                        className="text-zinc-500 hover:text-red-400"
+                        title="Permanently delete key"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   ))}

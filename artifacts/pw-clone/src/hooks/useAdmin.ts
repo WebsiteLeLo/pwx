@@ -186,6 +186,23 @@ export function useToggleAccessKey() {
   });
 }
 
+export function useDeleteAccessKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(withKey(api(`/admin/access-keys/${id}`)), {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-access-keys"] });
+    },
+  });
+}
+
 export function useUpdateSetting() {
   const qc = useQueryClient();
   return useMutation({

@@ -7,4 +7,4 @@ The access gate must be enforced through the API, not only through browser stora
 
 **Why:** A local-only access flag can be copied or edited by visitors and cannot be revoked centrally.
 
-**How to apply:** Keep public verification responses free of key material; return plaintext keys only once from an authenticated admin generation action, and use the admin panel for global enable/disable plus per-key revocation. On first verification, atomically bind each key to a server-issued claim token stored by that browser; later verification requires the same token.
+**How to apply:** Keep public verification responses free of key material; return plaintext keys only once from an authenticated admin generation action, and use the admin panel for global enable/disable, per-key revoke/reactivate, and permanent deletion. On first verification, atomically bind each key to a server-issued claim token stored by that browser; later verification requires the same token. Permanent deletion removes the key and its claim permanently.
