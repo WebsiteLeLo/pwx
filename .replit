@@ -83,7 +83,7 @@ channel = "stable-25_05"
 
 [userenv.shared]
 VITE_API_URL = "/api"
-FRONTEND_URL = "https://pwx.onrender.com"
+FRONTEND_URL = "https://pwx.pages.dev"
 API_PUBLIC_URL = "https://getpwx.onrender.com"
 TELEGRAM_BOT_USERNAME = "pwxsubscribebot"
 TELEGRAM_CHANNEL = "@pwxonrender"
