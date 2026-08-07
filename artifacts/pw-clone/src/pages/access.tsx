@@ -177,6 +177,7 @@ export default function AccessPage() {
         }
         .access-secondary-btn {
           width: 100%;
+          margin-top: 12px;
           border: 1px solid rgba(124,58,237,0.42);
           border-radius: 8px;
           padding: 0.78rem 1rem;
