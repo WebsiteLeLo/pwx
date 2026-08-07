@@ -19,3 +19,4 @@ Crawl-delay: 2
 
 # Sitemap
 Sitemap: https://pwx.pages.dev/sitemap.xml
+Sitemap: https://pwx.pages.dev/sitemap.txt
