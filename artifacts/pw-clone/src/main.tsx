@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { AppErrorBoundary } from "./components/app-error-boundary";
 
 const STRIKE_KEY = "pwx_dt_strikes";
 
@@ -15,7 +16,11 @@ function addStrike(): number {
 }
 
 // Mount React immediately — never block on devtools detection
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);
 
 // Register service worker for PWA support
 if ("serviceWorker" in navigator) {

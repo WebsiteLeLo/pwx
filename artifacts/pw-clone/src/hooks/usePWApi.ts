@@ -289,8 +289,23 @@ export function useBatchDetails(batchId: string) {
     queryKey: ["batchDetails", batchId],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/v3/batches/${batchId}/details`);
-      if (!res.ok) throw new Error("Failed to fetch batch details");
-      return res.json() as Promise<{ success: boolean; data: BatchDetailsData }>;
+      const json = await res.json().catch(() => null) as
+        | { success?: boolean; data?: BatchDetailsData }
+        | null;
+      if (!res.ok || !json?.success || !json.data || typeof json.data !== "object") {
+        throw new Error(
+          res.status === 403
+            ? "The batch service is temporarily rate-limited. Please try again later."
+            : "Failed to fetch batch details",
+        );
+      }
+      return {
+        ...json,
+        data: {
+          ...json.data,
+          subjects: Array.isArray(json.data.subjects) ? json.data.subjects : [],
+        },
+      } as { success: boolean; data: BatchDetailsData };
     },
     enabled: !!batchId,
     staleTime: MIN * 30,

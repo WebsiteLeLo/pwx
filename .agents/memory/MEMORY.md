@@ -2,3 +2,4 @@
 - [Edge mixed-voice TTS](edge-mixed-voice-tts.md) — one continuous Edge TTS stream is preferred; separate language audio segments create audible boundary pauses.
 - [Server-controlled access gate](access-gate.md) — browser storage is only a convenience; API state and hashed admin-issued keys are authoritative.
 - [Sitemap domain alignment](sitemap-domain-alignment.md) — sitemap URLs, robots.txt, canonical tags, and the published host must all use the same domain.
+- [External batch API failures](external-batch-api-failures.md) — third-party batch responses can be rate-limited or incomplete; always normalize them before rendering.

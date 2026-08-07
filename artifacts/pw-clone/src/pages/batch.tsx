@@ -76,12 +76,15 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
   const status    = getLectureStatus(item);
   const kind      = getScheduleItemKind(item);
   const isVideo   = kind === "video";
-  const subjectId = item.data.subjectId._id;
+  const subjectId = item.data.subjectId?._id ?? "";
   const scheduleId= item.data._id;
   const batchId   = item.data.batchId;
   const topicId   = item.data.tags?.[0]?._id ?? scheduleId;
   const kindMeta  = KIND_META[kind] ?? KIND_META.other;
-  const subjectName = item.data.subjectId.name;
+  const subjectName = item.data.subjectId?.name || "Class";
+  const topic = typeof item.data.topic === "string" && item.data.topic.trim()
+    ? item.data.topic.trim()
+    : "Untitled class";
 
   // Thumbnail — try undocumented API fields first
   const raw = item.data as any;
@@ -102,7 +105,7 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
       // Open the dedicated live player
       const params = new URLSearchParams({
         batchId, videoId: scheduleId,
-        title: item.data.topic.trim(),
+        title: topic,
         backUrl: `/batch/${batchId}`,
       });
       window.location.href = `/live-watch?${params.toString()}`;
@@ -110,7 +113,7 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
     }
     const params = new URLSearchParams({
       batchId, subjectId, videoId: scheduleId,
-      title: item.data.topic.trim(),
+      title: topic,
       backUrl: `/batch/${batchId}`,
     });
     window.location.href = `/watch?${params.toString()}`;
@@ -212,7 +215,7 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 
           {/* Row 2: bold title */}
           <h3 className={`text-[13px] font-bold leading-snug line-clamp-2 ${status === "completed" ? "text-muted-foreground" : "text-foreground"}`}>
-            {item.data.topic.trim()}
+            {topic}
           </h3>
 
           {/* Row 3: time range */}
@@ -753,7 +756,7 @@ type BatchTab = "subjects" | "tests";
 
 export default function Batch() {
   const { batchId } = useParams<{ batchId: string }>();
-  const { data, isLoading, isError, refetch } = useBatchDetails(batchId!);
+  const { data, isLoading, isError, refetch, error } = useBatchDetails(batchId!);
   const { getSubjectMixes } = useCustomBatches();
   const { enroll, unenroll, isEnrolled } = useEnrolledBatches();
   const [dialogSubject, setDialogSubject] = useState<MixSubject | null>(null);
@@ -761,7 +764,9 @@ export default function Batch() {
   const [activeTab, setActiveTab] = useState<BatchTab>("subjects");
 
   const enrolled = isEnrolled(batchId!);
-  const batchName = data?.data.name || "";
+  const batchDetails = data?.data;
+  const subjects = Array.isArray(batchDetails?.subjects) ? batchDetails.subjects : [];
+  const batchName = batchDetails?.name || "";
 
   // Hook must be called unconditionally — before any early returns
   usePageMeta({
@@ -794,7 +799,9 @@ export default function Batch() {
           <AlertCircle className="w-12 h-12 text-destructive" />
           <h2 className="text-2xl font-bold">Failed to load subjects</h2>
           <p className="text-muted-foreground max-w-md">
-            We couldn't retrieve the batch details. Please check your connection and try again.
+            {error instanceof Error
+              ? error.message
+              : "We couldn't retrieve the batch details. Please check your connection and try again."}
           </p>
           <Button onClick={() => refetch()} variant="outline">Retry Connection</Button>
         </div>
@@ -957,7 +964,7 @@ export default function Batch() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
-            {data?.data.subjects.map((subject, index) => {
+            {subjects.map((subject, index) => {
               const imageUrl = subject.imageId
                 ? `${subject.imageId.baseUrl}${subject.imageId.key}`
                 : undefined;
@@ -990,7 +997,7 @@ export default function Batch() {
                         <LazyImage
                           src={imageUrl!}
                           alt={subject.subject}
-                          fallbackText={subject.subject[0]}
+                          fallbackText={subject.subject?.[0] || "S"}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                       ) : (
@@ -1041,7 +1048,7 @@ export default function Batch() {
             })}
           </AnimatePresence>
 
-          {(!data?.data.subjects || data.data.subjects.length === 0) && (
+          {subjects.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border/50">
               <BookOpen className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-xl font-bold">No Subjects Found</h3>
