@@ -124,7 +124,7 @@ function TelegramModal({ batchName, onClose }: { batchName: string; onClose: () 
   );
 }
 
-const SITE_URL = "https://pwx.onrender.com";
+const SITE_URL = "https://pwx.pages.dev";
 const SHARE_TEXT = "🔥 PWX — Physics Wallah ke saare FREE batches ek jagah! IIT JEE, NEET, Foundation — sab free! Dekho:";
 
 function PinnedChaptersSection() {

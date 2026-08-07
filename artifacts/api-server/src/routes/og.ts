@@ -70,7 +70,7 @@ ogRouter.get("/og/img", async (req, res) => {
 
 ogRouter.get("/og/batch/:batchId", async (req, res) => {
   const { batchId } = req.params;
-  const frontendOrigin = process.env["FRONTEND_URL"] ?? "https://pwx.onrender.com";
+  const frontendOrigin = process.env["FRONTEND_URL"] ?? "https://pwx.pages.dev";
   const apiOrigin = process.env["API_PUBLIC_URL"] ?? `${req.protocol}://${req.get("host")}`;
   const batchUrl = `${frontendOrigin}/batch/${batchId}`;
 

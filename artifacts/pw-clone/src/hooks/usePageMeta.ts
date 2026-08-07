@@ -11,7 +11,7 @@
 
 import { useEffect } from "react";
 
-const BASE_SITE = "https://pwx.onrender.com";
+const BASE_SITE = "https://pwx.pages.dev";
 const DEFAULT_OG_IMAGE = "https://cdn.pw.live/subjects/pwicons/PW.png";
 const SITE_SUFFIX = "PWX";
 

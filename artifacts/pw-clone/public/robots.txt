@@ -18,4 +18,4 @@ Disallow: /*?*_k=
 Crawl-delay: 2
 
 # Sitemap
-Sitemap: https://pwx.onrender.com/sitemap.xml
+Sitemap: https://pwx.pages.dev/sitemap.xml

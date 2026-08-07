@@ -13,7 +13,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import type { Request, Response } from "express";
 
-const SITE_URL = process.env.FRONTEND_URL ?? "https://pwx.onrender.com";
+const SITE_URL = process.env.FRONTEND_URL ?? "https://pwx.pages.dev";
 const SITE_NAME = "PWX — PW Free Batches";
 const DEFAULT_IMAGE = "https://cdn.pw.live/subjects/pwicons/PW.png";
 const TITLE_SUFFIX = "PWX";

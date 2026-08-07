@@ -1,3 +1,4 @@
 - [Artifact workflow ports](artifact-workflow-ports.md) — Replit injects PORT env for artifact workflows; pw-clone gets PORT=20318 (→ ext 80), api-server needs PORT=8080 in its dev script to match waitForPort.
 - [Edge mixed-voice TTS](edge-mixed-voice-tts.md) — one continuous Edge TTS stream is preferred; separate language audio segments create audible boundary pauses.
 - [Server-controlled access gate](access-gate.md) — browser storage is only a convenience; API state and hashed admin-issued keys are authoritative.
+- [Sitemap domain alignment](sitemap-domain-alignment.md) — sitemap URLs, robots.txt, canonical tags, and the published host must all use the same domain.

@@ -1,1 +1,6 @@
-/*    /index.html   200
+# Keep crawler files as real static files instead of sending them through
+# the SPA fallback.
+/sitemap.xml    /sitemap.xml    200
+/robots.txt     /robots.txt     200
+
+/*              /index.html     200

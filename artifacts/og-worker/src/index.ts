@@ -60,7 +60,7 @@ async function handleImageProxy(request: Request): Promise<Response> {
 
 async function handleBatchOg(request: Request, batchId: string, env: Env): Promise<Response> {
   const workerOrigin = new URL(request.url).origin;
-  const frontendOrigin = env.FRONTEND_URL ?? "https://pwx.onrender.com";
+  const frontendOrigin = env.FRONTEND_URL ?? "https://pwx.pages.dev";
   const batchUrl = `${frontendOrigin}/batch/${batchId}`;
 
   let title = "PWX — JEE & NEET Video Player";
