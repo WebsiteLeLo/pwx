@@ -13,9 +13,17 @@ function hashAccessKey(key: string) {
   return createHash("sha256").update(key.trim().toUpperCase()).digest("hex");
 }
 
+function hashClaimToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 function createAccessKey() {
   const raw = randomBytes(ACCESS_KEY_LENGTH).toString("base64url").toUpperCase();
   return `PWX-${raw.slice(0, 6)}-${raw.slice(6, 12)}-${raw.slice(12, 18)}`;
+}
+
+function createClaimToken() {
+  return randomBytes(32).toString("base64url");
 }
 
 async function isAccessGateEnabled() {
@@ -148,6 +156,7 @@ router.post("/access/verify", async (req, res) => {
     }
 
     const key = typeof req.body?.key === "string" ? req.body.key.trim() : "";
+    const claimToken = typeof req.body?.claimToken === "string" ? req.body.claimToken.trim() : "";
     if (!key) {
       res.status(400).json({ ok: false, error: "Access key required" });
       return;
@@ -163,12 +172,61 @@ router.post("/access/verify", async (req, res) => {
       return;
     }
 
-    await db
-      .update(accessKeysTable)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(accessKeysTable.id, row.id));
+    const [fullRow] = await db
+      .select({
+        id: accessKeysTable.id,
+        claimTokenHash: accessKeysTable.claimTokenHash,
+      })
+      .from(accessKeysTable)
+      .where(and(eq(accessKeysTable.id, row.id), eq(accessKeysTable.active, true)));
 
-    res.json({ ok: true });
+    if (!fullRow) {
+      res.status(401).json({ ok: false, error: "Invalid or revoked access key" });
+      return;
+    }
+
+    if (fullRow.claimTokenHash) {
+      if (!claimToken || hashClaimToken(claimToken) !== fullRow.claimTokenHash) {
+        res.status(409).json({
+          ok: false,
+          error: "This key is already assigned to another browser or device",
+        });
+        return;
+      }
+
+      await db
+        .update(accessKeysTable)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(accessKeysTable.id, fullRow.id));
+      res.json({ ok: true });
+      return;
+    }
+
+    // Claim atomically so two first-time users cannot claim the same key.
+    const newClaimToken = createClaimToken();
+    const [claimed] = await db
+      .update(accessKeysTable)
+      .set({
+        claimTokenHash: hashClaimToken(newClaimToken),
+        claimedAt: new Date(),
+        lastUsedAt: new Date(),
+      })
+      .where(and(
+        eq(accessKeysTable.id, fullRow.id),
+        eq(accessKeysTable.active, true),
+        isNull(accessKeysTable.claimTokenHash),
+      ))
+      .returning({ id: accessKeysTable.id });
+
+    if (!claimed) {
+      res.status(409).json({
+        ok: false,
+        error: "This key was just assigned to another browser or device",
+      });
+      return;
+    }
+
+    res.json({ ok: true, claimToken: newClaimToken });
   } catch (e) {
     res.status(500).json({ ok: false, error: "Unable to verify access key" });
   }
@@ -194,6 +252,7 @@ router.get("/admin/access-keys", adminAuth, async (_req, res) => {
         label: accessKeysTable.label,
         active: accessKeysTable.active,
         createdAt: accessKeysTable.createdAt,
+        claimedAt: accessKeysTable.claimedAt,
         lastUsedAt: accessKeysTable.lastUsedAt,
       })
       .from(accessKeysTable)

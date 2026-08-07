@@ -438,7 +438,10 @@ function SettingsTab() {
                     <div key={accessKey.id} className="flex items-center gap-3 rounded-lg bg-zinc-800/70 px-3 py-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-zinc-200 truncate">{accessKey.label || "Untitled key"}</p>
-                        <p className="text-xs text-zinc-500">{new Date(accessKey.createdAt).toLocaleString()} · {accessKey.lastUsedAt ? "Used" : "Never used"}</p>
+                        <p className="text-xs text-zinc-500">
+                          {new Date(accessKey.createdAt).toLocaleString()} ·{" "}
+                          {accessKey.claimedAt ? "Assigned to one device" : "Available"}
+                        </p>
                       </div>
                       <Badge className={accessKey.active ? "bg-green-600/15 text-green-400 border-green-600/30" : "bg-zinc-700 text-zinc-400 border-zinc-600"}>
                         {accessKey.active ? "Active" : "Revoked"}

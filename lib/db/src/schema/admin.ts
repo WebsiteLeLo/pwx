@@ -32,9 +32,11 @@ export type SiteSetting = typeof siteSettingsTable.$inferSelect;
 export const accessKeysTable = pgTable("access_keys", {
   id: serial("id").primaryKey(),
   keyHash: text("key_hash").notNull().unique(),
+  claimTokenHash: text("claim_token_hash").unique(),
   label: text("label"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  claimedAt: timestamp("claimed_at"),
   lastUsedAt: timestamp("last_used_at"),
 });
 

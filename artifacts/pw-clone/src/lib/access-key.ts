@@ -5,6 +5,7 @@ export function generateAndRedirect(arolinksUrl: string) {
 }
 
 const ACCESS_KEY_STORAGE = "pwx_access_key";
+const CLAIM_TOKEN_STORAGE = "pwx_access_claim_token";
 
 export function getStoredAccessKey() {
   try {
@@ -20,16 +21,22 @@ export function storeAccessKey(key: string) {
 
 export function clearStoredAccessKey() {
   localStorage.removeItem(ACCESS_KEY_STORAGE);
+  localStorage.removeItem(CLAIM_TOKEN_STORAGE);
 }
 
 export async function verifyAccessKey(key: string): Promise<boolean> {
   try {
+    const claimToken = localStorage.getItem(CLAIM_TOKEN_STORAGE) ?? "";
     const response = await fetch(apiUrl("/access/verify"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({ key, claimToken }),
     });
-    return response.ok && Boolean((await response.json()).ok);
+    const result = await response.json();
+    if (response.ok && result.ok && result.claimToken) {
+      localStorage.setItem(CLAIM_TOKEN_STORAGE, result.claimToken);
+    }
+    return response.ok && Boolean(result.ok);
   } catch {
     return false;
   }

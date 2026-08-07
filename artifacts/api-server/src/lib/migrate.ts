@@ -26,11 +26,18 @@ export async function ensureTables() {
       CREATE TABLE IF NOT EXISTS access_keys (
         id SERIAL PRIMARY KEY,
         key_hash TEXT NOT NULL UNIQUE,
+        claim_token_hash TEXT UNIQUE,
         label TEXT,
         active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        claimed_at TIMESTAMP,
         last_used_at TIMESTAMP
       );
+
+      ALTER TABLE access_keys
+        ADD COLUMN IF NOT EXISTS claim_token_hash TEXT UNIQUE;
+      ALTER TABLE access_keys
+        ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP;
 
       CREATE TABLE IF NOT EXISTS tg_sessions (
         session_id TEXT PRIMARY KEY,
