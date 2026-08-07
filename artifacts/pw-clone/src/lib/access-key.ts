@@ -6,6 +6,7 @@ export function generateAndRedirect(arolinksUrl: string) {
 
 const ACCESS_KEY_STORAGE = "pwx_access_key";
 const CLAIM_TOKEN_STORAGE = "pwx_access_claim_token";
+const PENDING_GENERATION_STORAGE = "pwx_pending_generation";
 
 export function getStoredAccessKey() {
   try {
@@ -22,6 +23,47 @@ export function storeAccessKey(key: string) {
 export function clearStoredAccessKey() {
   localStorage.removeItem(ACCESS_KEY_STORAGE);
   localStorage.removeItem(CLAIM_TOKEN_STORAGE);
+}
+
+export function storePendingGeneration(token: string) {
+  localStorage.setItem(PENDING_GENERATION_STORAGE, token);
+}
+
+export function getPendingGeneration() {
+  try {
+    return localStorage.getItem(PENDING_GENERATION_STORAGE) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function clearPendingGeneration() {
+  localStorage.removeItem(PENDING_GENERATION_STORAGE);
+}
+
+export async function prepareAccessGeneration(): Promise<string> {
+  const response = await fetch(apiUrl("/access/prepare"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok || typeof result.token !== "string") {
+    throw new Error(result.error || "Unable to start key generation");
+  }
+  return result.token;
+}
+
+export async function claimAccessGeneration(token: string): Promise<string> {
+  const response = await fetch(apiUrl("/access/claim"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok || typeof result.key !== "string") {
+    throw new Error(result.error || "Unable to generate access key");
+  }
+  return result.key;
 }
 
 export async function verifyAccessKey(key: string): Promise<boolean> {

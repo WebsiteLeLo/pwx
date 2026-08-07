@@ -34,6 +34,14 @@ export async function ensureTables() {
         last_used_at TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS access_claims (
+        id SERIAL PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        claimed_at TIMESTAMP
+      );
+
       ALTER TABLE access_keys
         ADD COLUMN IF NOT EXISTS claim_token_hash TEXT UNIQUE;
       ALTER TABLE access_keys

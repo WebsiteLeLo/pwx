@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStoredAccessKey, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
+import {
+  claimAccessGeneration,
+  clearPendingGeneration,
+  getPendingGeneration,
+  getStoredAccessKey,
+  storeAccessKey,
+  verifyAccessKey,
+} from "@/lib/access-key";
 
 const styles = {
   shell: {
@@ -65,13 +72,35 @@ export default function VerifyPage() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
+    let cancelled = false;
+    let started = false;
     const timeout = setTimeout(async () => {
-      const key = getStoredAccessKey();
-      const success = Boolean(key) && await verifyAccessKey(key);
-      setStatus(success ? "success" : "failed");
-      if (success) setTimeout(() => setLocation("/pw"), 1800);
+      if (started) return;
+      started = true;
+      try {
+        const pendingGeneration = getPendingGeneration();
+        let key = getStoredAccessKey();
+        if (pendingGeneration) {
+          key = await claimAccessGeneration(pendingGeneration);
+          storeAccessKey(key);
+        }
+        const success = Boolean(key) && await verifyAccessKey(key);
+        if (cancelled) return;
+        if (success) {
+          clearPendingGeneration();
+          setStatus("success");
+          setTimeout(() => setLocation("/pw"), 1800);
+        } else {
+          setStatus("failed");
+        }
+      } catch {
+        if (!cancelled) setStatus("failed");
+      }
     }, 600);
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [setLocation]);
 
   return (

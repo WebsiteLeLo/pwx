@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { KeyRound, Info, CheckCircle2, Loader2, X } from "lucide-react";
-import { generateAndRedirect, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
+import { generateAndRedirect, prepareAccessGeneration, storePendingGeneration, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -83,12 +83,21 @@ export default function AccessPage() {
   const [key, setKey] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [redirectError, setRedirectError] = useState("");
   const [, setLocation] = useLocation();
   const keyInputRef = useRef<HTMLInputElement>(null);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     setRedirecting(true);
-    generateAndRedirect(AROLINKS_URL);
+    setRedirectError("");
+    try {
+      const token = await prepareAccessGeneration();
+      storePendingGeneration(token);
+      generateAndRedirect(AROLINKS_URL);
+    } catch (e: any) {
+      setRedirecting(false);
+      setRedirectError(e?.message || "Unable to start key generation. Please try again.");
+    }
   };
 
   function openKeyModal() {
@@ -250,6 +259,11 @@ export default function AccessPage() {
           <KeyRound size={16} />
           {redirecting ? "Redirecting…" : "Generate Key"}
         </button>
+        {redirectError && (
+          <p style={{ margin: "0.75rem 0 0", color: "#f87171", fontSize: "0.78rem", lineHeight: 1.4 }}>
+            {redirectError}
+          </p>
+        )}
 
         <button className="access-secondary-btn" onClick={openKeyModal} type="button">
           <CheckCircle2 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />

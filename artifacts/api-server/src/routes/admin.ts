@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createHash, randomBytes } from "node:crypto";
-import { db, accessKeysTable, notificationsTable, siteSettingsTable } from "@workspace/db";
+import { db, pool, accessKeysTable, notificationsTable, siteSettingsTable } from "@workspace/db";
 import { eq, and, or, isNull, gt, desc } from "drizzle-orm";
 
 const router = Router();
@@ -25,6 +25,71 @@ function createAccessKey() {
 function createClaimToken() {
   return randomBytes(32).toString("base64url");
 }
+
+// ─── Arolinks handoff ─────────────────────────────────────────────
+// The shortener returns the visitor to /verify without carrying the
+// administrator's key. Keep a server-side, short-lived handoff so /verify
+// can issue a fresh key only to a browser that started the flow.
+router.post("/access/prepare", async (_req, res) => {
+  try {
+    const token = createClaimToken();
+    await pool.query(
+      `INSERT INTO access_claims (token_hash, expires_at)
+       VALUES ($1, NOW() + INTERVAL '15 minutes')`,
+      [hashClaimToken(token)],
+    );
+    res.json({ ok: true, token });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Unable to start key generation" });
+  }
+});
+
+router.post("/access/claim", async (req, res) => {
+  const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+  if (!token) {
+    res.status(400).json({ ok: false, error: "Generation session required" });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const pending = await client.query(
+      `SELECT id
+       FROM access_claims
+       WHERE token_hash = $1
+         AND claimed_at IS NULL
+         AND expires_at > NOW()
+       FOR UPDATE`,
+      [hashClaimToken(token)],
+    );
+
+    if (pending.rowCount === 0) {
+      await client.query("ROLLBACK");
+      res.status(410).json({ ok: false, error: "Generation session expired" });
+      return;
+    }
+
+    const plainKey = createAccessKey();
+    const inserted = await client.query(
+      `INSERT INTO access_keys (key_hash, label, active)
+       VALUES ($1, $2, true)
+       RETURNING id`,
+      [hashAccessKey(plainKey), "Arolinks generated key"],
+    );
+    await client.query(
+      `UPDATE access_claims SET claimed_at = NOW() WHERE id = $1`,
+      [pending.rows[0].id],
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, key: plainKey, keyId: inserted.rows[0].id });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    res.status(500).json({ ok: false, error: "Unable to generate access key" });
+  } finally {
+    client.release();
+  }
+});
 
 async function isAccessGateEnabled() {
   const [setting] = await db
