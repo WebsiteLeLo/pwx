@@ -316,9 +316,6 @@ function SettingsTab() {
   const [maintenance, setMaintenance] = useState({ enabled: false, message: "", subMessage: "" });
   const [mLoaded, setMLoaded] = useState(false);
 
-  // Telegram gate state
-  const [tgGateEnabled, setTgGateEnabled] = useState(true);
-  const [tgLoaded, setTgLoaded] = useState(false);
   const [accessGateEnabled, setAccessGateEnabled] = useState(true);
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -336,31 +333,17 @@ function SettingsTab() {
       }
       setMLoaded(true);
     }
-    if (!isLoading && !tgLoaded) {
-      const tg = (settings as any[]).find((s) => s.key === "telegram_gate");
-      setTgGateEnabled(tg?.value?.enabled ?? true);
-      setTgLoaded(true);
-    }
     if (!isLoading && !accessLoaded) {
       const gate = (settings as any[]).find((s) => s.key === "access_gate");
       setAccessGateEnabled(gate?.value?.enabled ?? true);
       setAccessLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, tgLoaded, accessLoaded]);
+  }, [settings, isLoading, mLoaded, accessLoaded]);
 
   async function saveMaintenance() {
     try {
       await updateSetting.mutateAsync({ key: "maintenance", value: maintenance });
       toast({ title: maintenance.enabled ? "🔧 Maintenance mode enabled!" : "✅ Site is now live!" });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    }
-  }
-
-  async function saveTgGate(enabled: boolean) {
-    try {
-      await updateSetting.mutateAsync({ key: "telegram_gate", value: { enabled } });
-      toast({ title: enabled ? "🔒 Telegram verification ON" : "🔓 Telegram verification OFF — site open to all" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
@@ -473,40 +456,6 @@ function SettingsTab() {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Telegram Verification Gate */}
-          <div className={`bg-zinc-900 border rounded-xl p-5 transition-colors ${tgGateEnabled ? "border-blue-600/50" : "border-green-600/50"}`}>
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tgGateEnabled ? "bg-blue-600/20 text-blue-400" : "bg-green-600/20 text-green-400"}`}>
-                <Shield className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-white">Telegram Verification Gate</h3>
-                    <p className="text-zinc-400 text-sm">
-                      {tgGateEnabled
-                        ? "Users must verify via Telegram to access the site"
-                        : "Site is open to everyone — no Telegram verification required"}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={tgGateEnabled}
-                    onCheckedChange={async (v) => {
-                      setTgGateEnabled(v);
-                      await saveTgGate(v);
-                    }}
-                    className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-green-700"
-                  />
-                </div>
-                <p className="text-xs text-zinc-500 mt-2">
-                  {tgGateEnabled
-                    ? "🔒 New visitors will see the Telegram verify screen"
-                    : "🔓 All visitors can use the site directly"}
-                </p>
               </div>
             </div>
           </div>

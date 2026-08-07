@@ -54,20 +54,6 @@ export function useMaintenanceMode() {
   });
 }
 
-export function useTelegramGateSetting() {
-  return useQuery({
-    queryKey: ["settings", "telegram_gate"],
-    queryFn: async () => {
-      const r = await fetch(api("/settings/telegram_gate"));
-      if (!r.ok) return null;
-      return r.json();
-    },
-    staleTime: 1000 * 60 * 5,
-    refetchInterval: 1000 * 60 * 5,
-    refetchOnMount: true,
-  });
-}
-
 export function useAccessGateSetting() {
   return useQuery({
     queryKey: ["settings", "access_gate"],
