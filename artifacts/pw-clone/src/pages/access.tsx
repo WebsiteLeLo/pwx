@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { KeyRound, Info, CheckCircle2, Loader2 } from "lucide-react";
+import { KeyRound, Info, CheckCircle2, Loader2, X } from "lucide-react";
 import { generateAndRedirect, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 const AROLINKS_URL = "https://arolinks.com/vSDzpK";
@@ -79,15 +79,35 @@ const styles = {
 
 export default function AccessPage() {
   const [redirecting, setRedirecting] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
   const [key, setKey] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [, setLocation] = useLocation();
+  const keyInputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
     setRedirecting(true);
     generateAndRedirect(AROLINKS_URL);
   };
+
+  function openKeyModal() {
+    setError("");
+    setShowKeyModal(true);
+    window.setTimeout(() => keyInputRef.current?.focus(), 80);
+  }
+
+  function closeKeyModal() {
+    if (!checking) setShowKeyModal(false);
+  }
+
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") closeKeyModal();
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [checking]);
 
   async function handleVerify(event: React.FormEvent) {
     event.preventDefault();
@@ -99,7 +119,7 @@ export default function AccessPage() {
       setLocation("/pw");
       return;
     }
-    setError("That key is invalid or has been revoked.");
+    setError("This key is invalid, revoked, or already assigned to another device.");
     setChecking(false);
   }
 
@@ -109,6 +129,9 @@ export default function AccessPage() {
         @keyframes access-scan {
           0% { background-position: 200% 0; }
           100% { background-position: -200% 0; }
+        }
+        @keyframes access-spin {
+          to { transform: rotate(360deg); }
         }
         .access-card::before {
           content: "";
@@ -152,6 +175,59 @@ export default function AccessPage() {
           opacity: 0.6;
           cursor: not-allowed;
         }
+        .access-secondary-btn {
+          width: 100%;
+          border: 1px solid rgba(124,58,237,0.42);
+          border-radius: 8px;
+          padding: 0.78rem 1rem;
+          color: #c4b5fd;
+          background: rgba(124,58,237,0.08);
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.84rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .access-secondary-btn:hover {
+          background: rgba(124,58,237,0.16);
+          border-color: rgba(167,139,250,0.65);
+        }
+        .access-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 20;
+          display: grid;
+          place-items: center;
+          padding: 1.25rem;
+          background: rgba(3, 3, 10, 0.78);
+          backdrop-filter: blur(8px);
+        }
+        .access-modal {
+          width: min(100%, 410px);
+          position: relative;
+          border: 1px solid rgba(124,58,237,0.5);
+          border-radius: 16px;
+          padding: 1.5rem;
+          background: linear-gradient(180deg, #211c4d, #10101c);
+          box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(34,211,238,0.08);
+        }
+        .access-modal-input {
+          width: 100%;
+          box-sizing: border-box;
+          border-radius: 9px;
+          border: 1px solid rgba(124,58,237,0.5);
+          background: rgba(0,0,0,0.3);
+          color: #f4f4fb;
+          padding: 0.9rem 0.95rem;
+          outline: none;
+          font-family: monospace;
+          font-size: 0.82rem;
+          letter-spacing: 0.02em;
+        }
+        .access-modal-input:focus {
+          border-color: #22d3ee;
+          box-shadow: 0 0 0 3px rgba(34,211,238,0.12);
+        }
       `}</style>
 
       <motion.div
@@ -174,51 +250,10 @@ export default function AccessPage() {
           {redirecting ? "Redirecting…" : "Generate Key"}
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", margin: "1.25rem 0", color: "#636383", fontSize: "0.68rem", letterSpacing: "0.08em" }}>
-          <span style={{ height: 1, flex: 1, background: "rgba(255,255,255,0.1)" }} />
-          OR ENTER A KEY
-          <span style={{ height: 1, flex: 1, background: "rgba(255,255,255,0.1)" }} />
-        </div>
-
-        <form onSubmit={handleVerify} style={{ display: "grid", gap: "0.6rem" }}>
-          <input
-            value={key}
-            onChange={(event) => setKey(event.target.value.toUpperCase())}
-            placeholder="PWX-XXXXXX-XXXXXX-XXXXXX"
-            aria-label="Access key"
-            autoComplete="off"
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              borderRadius: 8,
-              border: "1px solid rgba(124,58,237,0.4)",
-              background: "rgba(0,0,0,0.25)",
-              color: "#f4f4fb",
-              padding: "0.8rem 0.9rem",
-              outline: "none",
-              fontFamily: "monospace",
-              fontSize: "0.78rem",
-            }}
-          />
-          {error && <p style={{ color: "#f87171", fontSize: "0.78rem", margin: 0 }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={checking || !key.trim()}
-            style={{
-              border: "1px solid rgba(34,211,238,0.35)",
-              borderRadius: 8,
-              padding: "0.7rem 1rem",
-              background: "rgba(34,211,238,0.1)",
-              color: "#67e8f9",
-              cursor: checking || !key.trim() ? "not-allowed" : "pointer",
-              opacity: checking || !key.trim() ? 0.55 : 1,
-              fontWeight: 600,
-            }}
-          >
-            {checking ? <Loader2 size={16} style={{ verticalAlign: "middle", marginRight: 6 }} /> : <CheckCircle2 size={16} style={{ verticalAlign: "middle", marginRight: 6 }} />}
-            Verify access key
-          </button>
-        </form>
+        <button className="access-secondary-btn" onClick={openKeyModal} type="button">
+          <CheckCircle2 size={16} style={{ verticalAlign: "middle", marginRight: 7 }} />
+          I already have an access key
+        </button>
 
         <div style={styles.note}>
           <Info size={15} color="#22d3ee" style={{ flexShrink: 0, marginTop: 2 }} />
@@ -228,6 +263,98 @@ export default function AccessPage() {
           </span>
         </div>
       </motion.div>
+
+      {showKeyModal && (
+        <motion.div
+          className="access-modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeKeyModal();
+          }}
+        >
+          <motion.div
+            className="access-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="access-key-modal-title"
+            initial={{ opacity: 0, y: 18, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <button
+              type="button"
+              aria-label="Close access key dialog"
+              onClick={closeKeyModal}
+              disabled={checking}
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                display: "grid",
+                placeItems: "center",
+                width: 32,
+                height: 32,
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 8,
+                color: "#a1a1c2",
+                background: "rgba(255,255,255,0.05)",
+                cursor: checking ? "not-allowed" : "pointer",
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 8 }}>
+              <div style={{ display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 11, color: "#22d3ee", background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.2)" }}>
+                <KeyRound size={19} />
+              </div>
+              <div>
+                <h3 id="access-key-modal-title" style={{ margin: 0, color: "#f4f4fb", fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.1rem" }}>
+                  Enter your access key
+                </h3>
+                <p style={{ margin: "3px 0 0", color: "#8f8fb8", fontSize: "0.78rem" }}>
+                  Paste the key you received from the admin.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleVerify} style={{ display: "grid", gap: "0.7rem", marginTop: "1.25rem" }}>
+              <label htmlFor="access-key-input" style={{ color: "#c4c4df", fontSize: "0.78rem", fontWeight: 600 }}>
+                Access key
+              </label>
+              <input
+                ref={keyInputRef}
+                id="access-key-input"
+                className="access-modal-input"
+                value={key}
+                onChange={(event) => {
+                  setKey(event.target.value.toUpperCase());
+                  if (error) setError("");
+                }}
+                placeholder="PWX-XXXXXX-XXXXXX-XXXXXX"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {error && (
+                <p style={{ margin: 0, color: "#f87171", fontSize: "0.78rem", lineHeight: 1.4 }}>
+                  {error}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={checking || !key.trim()}
+                className="access-btn"
+                style={{ marginTop: 3 }}
+              >
+                {checking ? <Loader2 size={16} style={{ animation: "access-spin 0.9s linear infinite" }} /> : <CheckCircle2 size={16} />}
+                {checking ? "Checking key…" : "Unlock platform"}
+              </button>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }
