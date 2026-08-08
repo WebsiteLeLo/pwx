@@ -60,7 +60,9 @@ export function NetworkPing({ accent = "#5a4bda" }: { accent?: string }) {
     const timeout = window.setTimeout(() => controller.abort(), 8000);
 
     try {
-      const response = await fetch(apiUrl("/api/healthz"), {
+      // apiUrl already includes the configured API base ("/api" in the
+      // proxied app), so adding "/api" here would request "/api/api/healthz".
+      const response = await fetch(apiUrl("/healthz"), {
         cache: "no-store",
         signal: controller.signal,
       });
