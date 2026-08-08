@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureTables } from "./lib/migrate";
+import { cleanupExpiredArolinkKeys } from "./routes/admin";
 
 const rawPort = process.env["PORT"];
 
@@ -18,6 +19,17 @@ if (Number.isNaN(port) || port <= 0) {
 
 // Auto-create tables on every startup (safe — uses CREATE TABLE IF NOT EXISTS)
 ensureTables().then(() => {
+  cleanupExpiredArolinkKeys().catch((err) => {
+    logger.warn({ err }, "Unable to clean up expired Arolinks keys");
+  });
+
+  const cleanupTimer = setInterval(() => {
+    cleanupExpiredArolinkKeys().catch((err) => {
+      logger.warn({ err }, "Unable to clean up expired Arolinks keys");
+    });
+  }, 15 * 60 * 1000);
+  cleanupTimer.unref();
+
   app.listen(port, (err) => {
     if (err) {
       logger.error({ err }, "Error listening on port");

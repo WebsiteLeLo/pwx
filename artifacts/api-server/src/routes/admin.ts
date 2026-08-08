@@ -4,6 +4,8 @@ import { db, pool, accessKeysTable, notificationsTable, siteSettingsTable } from
 import { eq, and, or, isNull, gt, desc } from "drizzle-orm";
 
 const router = Router();
+const AROLINKS_SOURCE = "arolinks";
+const AROLINKS_LABEL = "Arolinks generated key";
 
 // Simple admin auth middleware — checks X-Admin-Key header
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin-secret-2024";
@@ -24,6 +26,18 @@ function createAccessKey() {
 
 function createClaimToken() {
   return randomBytes(32).toString("base64url");
+}
+
+export async function cleanupExpiredArolinkKeys() {
+  const result = await pool.query(
+    `DELETE FROM access_keys
+     WHERE source = $1
+       AND expires_at IS NOT NULL
+       AND expires_at <= NOW()
+     RETURNING id`,
+    [AROLINKS_SOURCE],
+  );
+  return result.rowCount ?? 0;
 }
 
 // ─── Arolinks handoff ─────────────────────────────────────────────
@@ -72,10 +86,10 @@ router.post("/access/claim", async (req, res) => {
 
     const plainKey = createAccessKey();
     const inserted = await client.query(
-      `INSERT INTO access_keys (key_hash, label, active)
-       VALUES ($1, $2, true)
+       `INSERT INTO access_keys (key_hash, label, source, active, expires_at)
+        VALUES ($1, $2, $3, true, NOW() + INTERVAL '24 hours')
        RETURNING id`,
-      [hashAccessKey(plainKey), "Arolinks generated key"],
+       [hashAccessKey(plainKey), AROLINKS_LABEL, AROLINKS_SOURCE],
     );
     await client.query(
       `UPDATE access_claims SET claimed_at = NOW() WHERE id = $1`,
@@ -215,6 +229,8 @@ router.get("/settings/:key", async (req, res) => {
 // any public endpoint; the client stores it only to re-check access on reload.
 router.post("/access/verify", async (req, res) => {
   try {
+    await cleanupExpiredArolinkKeys();
+
     if (!(await isAccessGateEnabled())) {
       res.json({ ok: true, bypass: true });
       return;
@@ -230,7 +246,11 @@ router.post("/access/verify", async (req, res) => {
     const [row] = await db
       .select({ id: accessKeysTable.id })
       .from(accessKeysTable)
-      .where(and(eq(accessKeysTable.keyHash, hashAccessKey(key)), eq(accessKeysTable.active, true)));
+      .where(and(
+        eq(accessKeysTable.keyHash, hashAccessKey(key)),
+        eq(accessKeysTable.active, true),
+        or(isNull(accessKeysTable.expiresAt), gt(accessKeysTable.expiresAt, new Date())),
+      ));
 
     if (!row) {
       res.status(401).json({ ok: false, error: "Invalid or revoked access key" });
@@ -311,12 +331,15 @@ router.get("/admin/settings", adminAuth, async (_req, res) => {
 // generation, and is never recoverable from the server.
 router.get("/admin/access-keys", adminAuth, async (_req, res) => {
   try {
+    await cleanupExpiredArolinkKeys();
     const rows = await db
       .select({
         id: accessKeysTable.id,
         label: accessKeysTable.label,
+        source: accessKeysTable.source,
         active: accessKeysTable.active,
         createdAt: accessKeysTable.createdAt,
+        expiresAt: accessKeysTable.expiresAt,
         claimedAt: accessKeysTable.claimedAt,
         lastUsedAt: accessKeysTable.lastUsedAt,
       })
@@ -338,8 +361,10 @@ router.post("/admin/access-keys", adminAuth, async (req, res) => {
       .returning({
         id: accessKeysTable.id,
         label: accessKeysTable.label,
+        source: accessKeysTable.source,
         active: accessKeysTable.active,
         createdAt: accessKeysTable.createdAt,
+        expiresAt: accessKeysTable.expiresAt,
       });
     res.json({ ...row, key: plainKey });
   } catch (e) {

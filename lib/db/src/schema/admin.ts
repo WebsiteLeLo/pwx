@@ -34,8 +34,10 @@ export const accessKeysTable = pgTable("access_keys", {
   keyHash: text("key_hash").notNull().unique(),
   claimTokenHash: text("claim_token_hash").unique(),
   label: text("label"),
+  source: text("source").notNull().default("admin"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
   claimedAt: timestamp("claimed_at"),
   lastUsedAt: timestamp("last_used_at"),
 });

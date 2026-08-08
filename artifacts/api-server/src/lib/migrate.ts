@@ -28,8 +28,10 @@ export async function ensureTables() {
         key_hash TEXT NOT NULL UNIQUE,
         claim_token_hash TEXT UNIQUE,
         label TEXT,
+       source TEXT NOT NULL DEFAULT 'admin',
         active BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+       expires_at TIMESTAMP,
         claimed_at TIMESTAMP,
         last_used_at TIMESTAMP
       );
@@ -45,7 +47,21 @@ export async function ensureTables() {
       ALTER TABLE access_keys
         ADD COLUMN IF NOT EXISTS claim_token_hash TEXT UNIQUE;
       ALTER TABLE access_keys
+        ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'admin';
+      ALTER TABLE access_keys
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
+      ALTER TABLE access_keys
         ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP;
+
+      UPDATE access_keys
+      SET source = 'arolinks',
+          expires_at = created_at + INTERVAL '24 hours'
+      WHERE label = 'Arolinks generated key'
+        AND source = 'admin'
+        AND expires_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS access_keys_expires_at_idx
+        ON access_keys (expires_at);
 
       CREATE TABLE IF NOT EXISTS tg_sessions (
         session_id TEXT PRIMARY KEY,

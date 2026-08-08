@@ -14,3 +14,9 @@ The Arolinks generation flow uses a short-lived server-side handoff: the browser
 **Why:** Arolinks returns to `/verify` without the administrator key in the URL, so checking only an old localStorage key incorrectly showed “expired” after a successful redirect.
 
 **How to apply:** Keep the handoff token hashed in the database, expire it quickly, consume it transactionally, and never treat a bare `/verify` visit as a successful generation.
+
+The Arolinks-issued access key is a separate server-owned lifecycle: it is tagged as an Arolinks key, expires after 24 hours, is removed by periodic/startup/read-time cleanup, and is rejected after expiry.
+
+**Why:** Arolinks keys were accumulating indefinitely in the admin list and remained valid beyond the visitor's promised 24-hour access window.
+
+**How to apply:** Set the expiry at claim time, enforce it during verification, clean expired rows independently of browser state, and keep Arolinks/admin-issued keys visually separated in the admin panel.

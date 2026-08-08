@@ -4,7 +4,7 @@ import {
   Bell, Settings, Shield, LogOut, Plus, Trash2, Eye, EyeOff,
   Wrench, AlertTriangle, CheckCircle, Info, AlertCircle, Loader2,
   Send, ToggleLeft, ToggleRight, X, Save, RefreshCw,
-  KeyRound, Copy, Ban,
+  KeyRound, Copy, Ban, Clock3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -390,6 +390,57 @@ function SettingsTab() {
     }
   }
 
+  function renderAccessKey(accessKey: any) {
+    const isArolinksKey = accessKey.source === "arolinks";
+    return (
+      <div key={accessKey.id} className="flex items-center gap-3 rounded-lg bg-zinc-800/70 px-3 py-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-zinc-200 truncate">{accessKey.label || "Untitled key"}</p>
+            {isArolinksKey && (
+              <span className="text-[9px] uppercase tracking-wider font-bold rounded border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-orange-300">
+                Arolinks
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-500">
+            {new Date(accessKey.createdAt).toLocaleString()} ·{" "}
+            {accessKey.claimedAt ? "Assigned to one device" : "Available"}
+          </p>
+          {isArolinksKey && accessKey.expiresAt && (
+            <p className="text-xs text-orange-300/80 mt-0.5 flex items-center gap-1">
+              <Clock3 className="w-3 h-3" />
+              Auto-deletes {new Date(accessKey.expiresAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <Badge className={accessKey.active ? "bg-green-600/15 text-green-400 border-green-600/30" : "bg-zinc-700 text-zinc-400 border-zinc-600"}>
+          {accessKey.active ? "Active" : "Revoked"}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => toggleAccessKey.mutate({ id: accessKey.id, active: !accessKey.active })}
+          disabled={toggleAccessKey.isPending}
+          className={accessKey.active ? "text-red-400 hover:text-red-300" : "text-green-400 hover:text-green-300"}
+          title={accessKey.active ? "Revoke key" : "Reactivate key"}
+        >
+          {accessKey.active ? <Ban className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => permanentlyDeleteKey(accessKey)}
+          disabled={deleteAccessKey.isPending}
+          className="text-zinc-500 hover:text-red-400"
+          title="Permanently delete key"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -443,44 +494,36 @@ function SettingsTab() {
                   </div>
                 )}
 
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">Generated keys</p>
-                  {keysLoading ? <Loader2 className="w-4 h-4 animate-spin text-zinc-400" /> : (accessKeys as any[]).length === 0 ? (
-                    <p className="text-sm text-zinc-500">No keys generated yet.</p>
-                  ) : (accessKeys as any[]).map((accessKey) => (
-                    <div key={accessKey.id} className="flex items-center gap-3 rounded-lg bg-zinc-800/70 px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-zinc-200 truncate">{accessKey.label || "Untitled key"}</p>
-                        <p className="text-xs text-zinc-500">
-                          {new Date(accessKey.createdAt).toLocaleString()} ·{" "}
-                          {accessKey.claimedAt ? "Assigned to one device" : "Available"}
-                        </p>
+                <div className="mt-4 space-y-4">
+                  {keysLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.03] p-3 space-y-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-orange-300">Arolinks generated keys</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">Automatically and permanently deleted after 24 hours.</p>
+                        </div>
+                        {(accessKeys as any[]).filter((key) => key.source === "arolinks").length === 0 ? (
+                          <p className="text-sm text-zinc-500 py-2">No Arolinks keys generated yet.</p>
+                        ) : (
+                          (accessKeys as any[]).filter((key) => key.source === "arolinks").map(renderAccessKey)
+                        )}
                       </div>
-                      <Badge className={accessKey.active ? "bg-green-600/15 text-green-400 border-green-600/30" : "bg-zinc-700 text-zinc-400 border-zinc-600"}>
-                        {accessKey.active ? "Active" : "Revoked"}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleAccessKey.mutate({ id: accessKey.id, active: !accessKey.active })}
-                        disabled={toggleAccessKey.isPending}
-                        className={accessKey.active ? "text-red-400 hover:text-red-300" : "text-green-400 hover:text-green-300"}
-                        title={accessKey.active ? "Revoke key" : "Reactivate key"}
-                      >
-                        {accessKey.active ? <Ban className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => permanentlyDeleteKey(accessKey)}
-                        disabled={deleteAccessKey.isPending}
-                        className="text-zinc-500 hover:text-red-400"
-                        title="Permanently delete key"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+
+                      <div className="rounded-lg border border-zinc-700 bg-zinc-950/30 p-3 space-y-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-zinc-400">Admin generated keys</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">Keys created manually from this panel. These do not auto-expire.</p>
+                        </div>
+                        {(accessKeys as any[]).filter((key) => key.source !== "arolinks").length === 0 ? (
+                          <p className="text-sm text-zinc-500 py-2">No admin keys generated yet.</p>
+                        ) : (
+                          (accessKeys as any[]).filter((key) => key.source !== "arolinks").map(renderAccessKey)
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
