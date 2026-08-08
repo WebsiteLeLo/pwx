@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { NetworkPing } from "@/components/NetworkPing";
 
 const ACCENT = "#e53935";       // red accent for LIVE
@@ -144,6 +144,7 @@ export function LivePlayer({
   const [buffering, setBuffering]     = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
   const [seeking, setSeeking]         = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState("");
 
   // DVR / seekable range
   const [currentTime, setCurrentTime] = useState(0);
@@ -306,8 +307,12 @@ export function LivePlayer({
           const hls = new Hls({
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 10,
-            maxBufferLength: 60,
-            maxMaxBufferLength: 120,
+            maxBufferLength: 90,
+            maxMaxBufferLength: 180,
+            backBufferLength: 30,
+            maxBufferHole: 0.5,
+            startFragPrefetch: true,
+            capLevelToPlayerSize: true,
             enableWorker: false,           // keep requests on main thread so our loader runs
             lowLatencyMode: false,
             loader: SignedFetchLoader,     // intercepts ALL requests (playlists + segments)
@@ -374,12 +379,15 @@ export function LivePlayer({
 
         player.configure({
           streaming: {
-            bufferingGoal: 30,
-            rebufferingGoal: 2,
+            bufferingGoal: 60,
+            rebufferingGoal: 5,
+            bufferBehind: 30,
             safeSeekOffset: 3,
             stallEnabled: true,
+            stallThreshold: 2,
+            gapDetectionThreshold: 0.5,
             retryParameters: {
-              maxAttempts: 5,
+              maxAttempts: 6,
               baseDelay: 500,
               backoffFactor: 1.5,
               fuzzFactor: 0.5,
@@ -618,6 +626,11 @@ export function LivePlayer({
     const seekStart = v.seekable.start(0);
     v.currentTime = Math.max(seekStart, Math.min(v.currentTime + secs, seekEnd));
     resetHideTimer();
+  }
+
+  function handleDownload() {
+    setDownloadMessage("Live stream ko download nahi kiya ja sakta.");
+    window.setTimeout(() => setDownloadMessage(""), 3500);
   }
 
   function selectQuality(height: number | "auto") {
@@ -990,6 +1003,10 @@ export function LivePlayer({
 
               <NetworkPing accent={ACCENT} />
 
+              <Btn title="Download unavailable for live streams" onClick={(e) => { e.stopPropagation(); handleDownload(); }}>
+                <Download className="w-[19px] h-[19px]" />
+              </Btn>
+
               {/* Go to live edge */}
               {!isAtLive && hasDvr && (
                 <button
@@ -1095,6 +1112,14 @@ export function LivePlayer({
               </Btn>
             </div>
           </div>
+          {downloadMessage && (
+            <div
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-lg px-3 py-2 text-xs text-white whitespace-nowrap z-50"
+              style={{ background: "rgba(12,12,20,.94)", border: "1px solid rgba(255,255,255,.14)" }}
+            >
+              {downloadMessage}
+            </div>
+          )}
         </div>
       )}
     </div>

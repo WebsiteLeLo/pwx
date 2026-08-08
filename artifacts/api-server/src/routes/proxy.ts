@@ -167,6 +167,59 @@ proxyRouter.get("/akp-video-url", async (req, res) => {
   }
 });
 
+// ── Direct video download proxy ──────────────────────────────────────────────
+// Manifest/DRM URLs are intentionally not accepted here. The player only calls
+// this route when the upstream API exposes a real media file URL.
+proxyRouter.get("/video-download", async (req, res) => {
+  const rawUrl = req.query.url as string | undefined;
+  const requestedName = req.query.filename as string | undefined;
+  if (!rawUrl) {
+    res.status(400).json({ error: "Missing video URL" });
+    return;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    res.status(400).json({ error: "Invalid video URL" });
+    return;
+  }
+
+  if (!isAllowedCdnHost(parsed.hostname) || !/\.(mp4|webm|mov|m4v|mkv)$/i.test(parsed.pathname)) {
+    res.status(403).json({ error: "Only direct media files can be downloaded" });
+    return;
+  }
+
+  try {
+    let upstream: Response | null = null;
+    for (const headers of CDN_HEADER_VARIANTS) {
+      const response = await fetch(parsed, { headers });
+      if (response.status !== 403) {
+        upstream = response;
+        break;
+      }
+    }
+    if (!upstream || !upstream.ok || !upstream.body) {
+      res.status(upstream?.status || 502).json({ error: "Video download failed" });
+      return;
+    }
+
+    const safeName = (requestedName || "pwx-video.mp4")
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 120);
+    res.status(200);
+    res.setHeader("Content-Type", upstream.headers.get("content-type") || "application/octet-stream");
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    Readable.fromWeb(upstream.body as any).pipe(res);
+  } catch (err) {
+    req.log.error({ err }, "video download proxy failed");
+    if (!res.headersSent) res.status(502).json({ error: "Video download failed" });
+  }
+});
+
 // ── PW video metadata proxy (fetches from pwsecure with proper headers) ────────
 proxyRouter.get("/pw-video/:videoId", async (req, res) => {
   const { videoId } = req.params as { videoId: string };

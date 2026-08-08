@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
 
@@ -38,6 +38,16 @@ function hexToBase64url(hex: string): string {
 
 function isHex32(s: string) {
   return /^[0-9a-fA-F]{32}$/.test(s);
+}
+
+function isDirectMediaUrl(value: string | undefined): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return /\.(mp4|webm|mov|m4v|mkv)(?:$|[?#])/i.test(url.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function formatTime(secs: number): string {
@@ -132,6 +142,8 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
   const [seekTooltip, setSeekTooltip]   = useState<{ time: number; pct: number } | null>(null);
   const [buffering, setBuffering]       = useState(false);
   const [isMobile, setIsMobile]         = useState(false);
+  const [downloadUrl, setDownloadUrl]   = useState("");
+  const [downloadMessage, setDownloadMessage] = useState("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -194,6 +206,7 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         if (!baseUrl) throw new Error("No stream URL returned by API");
         const signedQs = d.signedUrl ?? ""; // starts with "?" or is empty
         const mpdUrl = signedQs ? `${baseUrl}${signedQs}` : baseUrl;
+        setDownloadUrl([d.directUrl, d.url].find(isDirectMediaUrl) ?? "");
 
         const clearKeys = d.clearKeys ?? {};
         if (!d.topic && d.topic !== "") {
@@ -231,21 +244,30 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
         await player.attach(video);
         playerRef.current = player;
 
-        // Buffering tuning — preload more, recover faster from stalls
+        // Keep a safety cushion for short network dips without retaining an
+        // unbounded amount of a long lecture behind the playhead.
         player.configure({
           streaming: {
-            bufferingGoal: 60,
-            rebufferingGoal: 2,
-            bufferBehind: 30,
+            bufferingGoal: 75,
+            rebufferingGoal: 6,
+            bufferBehind: 45,
             safeSeekOffset: 3,
-            stallEnabled: false,
+            stallEnabled: true,
+            stallThreshold: 2,
+            gapDetectionThreshold: 0.5,
             retryParameters: {
-              maxAttempts: 4,
-              baseDelay: 100,
+              maxAttempts: 6,
+              baseDelay: 500,
               backoffFactor: 1.5,
               fuzzFactor: 0.5,
-              timeout: 30000,
+              timeout: 20000,
             },
+          },
+          abr: {
+            enabled: true,
+            switchInterval: 8,
+            bandwidthDowngradeTarget: 0.95,
+            bandwidthUpgradeTarget: 0.85,
           },
         });
 
@@ -486,6 +508,29 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
     setSpeed(s);
     setSettingsPanel("main");
     setShowSettings(false);
+  }
+
+  function handleDownload() {
+    if (!downloadUrl) {
+      setDownloadMessage("Is protected stream ke liye downloadable file available nahi hai.");
+      window.setTimeout(() => setDownloadMessage(""), 4200);
+      return;
+    }
+
+    const filename = `${(videoTitle || title || "pwx-video")
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 80) || "pwx-video"}.mp4`;
+    const link = document.createElement("a");
+    link.href = `${PROXY_BASE}/video-download?url=${encodeURIComponent(downloadUrl)}&filename=${encodeURIComponent(filename)}`;
+    link.download = filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setDownloadMessage("Download start ho gaya.");
+    window.setTimeout(() => setDownloadMessage(""), 3000);
   }
 
   function selectQuality(height: number | "auto") {
@@ -882,6 +927,14 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
 
               <NetworkPing accent={ACCENT} />
 
+              <Btn
+                title="Download video"
+                onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+                className={!downloadUrl ? "opacity-75" : ""}
+              >
+                <Download className="w-[19px] h-[19px]" />
+              </Btn>
+
               {/* Settings */}
               <div className="relative">
                 <Btn
@@ -990,6 +1043,14 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
               </Btn>
             </div>
           </div>
+          {downloadMessage && (
+            <div
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-lg px-3 py-2 text-xs text-white whitespace-nowrap z-50"
+              style={{ background: "rgba(12,12,20,.94)", border: "1px solid rgba(255,255,255,.14)" }}
+            >
+              {downloadMessage}
+            </div>
+          )}
         </div>
       )}
     </div>
