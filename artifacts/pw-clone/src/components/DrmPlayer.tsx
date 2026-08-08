@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { apiUrl } from "@/lib/apiUrl";
+import { NetworkPing } from "@/components/NetworkPing";
 
 const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PROXY_BASE = apiUrl("/api");
@@ -123,6 +124,9 @@ export function DrmPlayer({
   const lastTapRef    = useRef<{ time: number; x: number } | null>(null);
   const touchSeekRef  = useRef(false);
   const menuRef       = useRef<HTMLDivElement>(null);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveryAttemptsRef = useRef(0);
 
   const [status, setStatus]         = useState<Status>("loading");
   const [statusMsg, setStatusMsg]   = useState("Initializing…");
@@ -159,6 +163,22 @@ export function DrmPlayer({
     setShowControls(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => setShowControls(false), 4000);
+  }, []);
+
+  const scheduleRecovery = useCallback((message: string) => {
+    if (reconnectTimerRef.current || recoveryAttemptsRef.current >= 4 || !navigator.onLine) {
+      setStatus("error");
+      setError(message);
+      return;
+    }
+    const delay = Math.min(1500 * (recoveryAttemptsRef.current + 1), 6000);
+    recoveryAttemptsRef.current += 1;
+    setStatusMsg(`Connection interrupted — reconnecting in ${Math.ceil(delay / 1000)}s…`);
+    setStatus("loading");
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      setAttempt((current) => current + 1);
+    }, delay);
   }, []);
 
   useEffect(() => {
@@ -265,8 +285,18 @@ export function DrmPlayer({
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;
           const detail = (event as any).detail ?? event;
-          setStatus("error");
-          setError(detail?.message || `Playback error (code ${detail?.code ?? "?"})`);
+          const code = Number(detail?.code ?? 0);
+          const message = detail?.message || `Playback error (code ${code || "?"})`;
+          const transient =
+            (code >= 7000 && code < 8000) ||
+            code === 1001 ||
+            code === 1002 ||
+            /network|timeout|fetch|load|connection/i.test(message);
+          if (transient) scheduleRecovery(message);
+          else {
+            setStatus("error");
+            setError(message);
+          }
         });
 
         player.addEventListener("streaming", () => {
@@ -288,6 +318,7 @@ export function DrmPlayer({
         await player.load(`${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`);
 
         if (!cancelled) {
+          recoveryAttemptsRef.current = 0;
           setStatus("ready");
           try {
             const saved = parseFloat(localStorage.getItem(RESUME_KEY(childId)) || "0");
@@ -300,8 +331,12 @@ export function DrmPlayer({
       } catch (err: unknown) {
         if (!cancelled) {
           const e = err as any;
-          setStatus("error");
-          setError(e instanceof Error ? e.message : e?.message ? String(e.message) : "Unknown error");
+          const message = e instanceof Error ? e.message : e?.message ? String(e.message) : "Unknown error";
+          if (/network|timeout|fetch|load|connection|failed/i.test(message)) scheduleRecovery(message);
+          else {
+            setStatus("error");
+            setError(message);
+          }
         }
       }
     }
@@ -309,6 +344,8 @@ export function DrmPlayer({
     setup();
     return () => {
       cancelled = true;
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (playerRef.current) {
         playerRef.current.destroy().catch(() => {});
         playerRef.current = null;
@@ -327,8 +364,23 @@ export function DrmPlayer({
     const onProgress = () => {
       if (video.buffered.length > 0) setBuffered(video.buffered.end(video.buffered.length - 1));
     };
-    const onWait     = () => setBuffering(true);
-    const onCanPlay  = () => setBuffering(false);
+     const onWait     = () => {
+       setBuffering(true);
+       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+       const wasPlaying = !video.paused;
+       stallTimerRef.current = setTimeout(() => {
+         stallTimerRef.current = null;
+         if (wasPlaying && !video.paused && video.readyState < 3) {
+           try { localStorage.setItem(RESUME_KEY(childId), String(video.currentTime)); } catch {}
+           scheduleRecovery("Video is taking too long to buffer.");
+         }
+       }, 8000);
+     };
+     const onCanPlay  = () => {
+       setBuffering(false);
+       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+       stallTimerRef.current = null;
+     };
     video.addEventListener("timeupdate", onTime);
     video.addEventListener("durationchange", onDur);
     video.addEventListener("loadedmetadata", onDur);
@@ -349,7 +401,7 @@ export function DrmPlayer({
       video.removeEventListener("waiting", onWait);
       video.removeEventListener("canplay", onCanPlay);
     };
-  }, [status]);
+  }, [status, childId, scheduleRecovery]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -770,6 +822,8 @@ export function DrmPlayer({
               </div>
 
               <div className="flex-1" />
+
+              <NetworkPing accent={ACCENT} />
 
               {/* Timeline (desktop) */}
               {onOpenTimeline && (

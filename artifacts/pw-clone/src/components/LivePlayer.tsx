@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
+import { NetworkPing } from "@/components/NetworkPing";
 
 const ACCENT = "#e53935";       // red accent for LIVE
 const ACCENT_PURPLE = "#5a4bda";
@@ -128,6 +129,7 @@ export function LivePlayer({
   const lastTapRef    = useRef<{ time: number; x: number } | null>(null);
   const reconnectRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectCountRef = useRef(0);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [status, setStatus]           = useState<Status>("idle");
   const [statusMsg, setStatusMsg]     = useState("Initializing…");
@@ -434,6 +436,7 @@ export function LivePlayer({
     return () => {
       cancelled = true;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       if (playerRef.current) {
         playerRef.current.destroy().catch(() => {});
         playerRef.current = null;
@@ -465,8 +468,22 @@ export function LivePlayer({
     const onPlay    = () => { setPlaying(true); setBuffering(false); };
     const onPause   = () => setPlaying(false);
     const onVol     = () => { setVolume(video.volume); setMuted(video.muted); };
-    const onWait    = () => setBuffering(true);
-    const onCanPlay = () => { setBuffering(false); };
+    const onWait    = () => {
+      setBuffering(true);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      const wasPlaying = !video.paused;
+      stallTimerRef.current = setTimeout(() => {
+        stallTimerRef.current = null;
+        if (wasPlaying && !video.paused && video.readyState < 3) {
+          scheduleReconnect();
+        }
+      }, 8000);
+    };
+    const onCanPlay = () => {
+      setBuffering(false);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    };
     const onTime    = () => {
       const ct = video.currentTime;
       setCurrentTime(ct);
@@ -970,6 +987,8 @@ export function LivePlayer({
               )}
 
               <div className="flex-1" />
+
+              <NetworkPing accent={ACCENT} />
 
               {/* Go to live edge */}
               {!isAtLive && hasDvr && (
