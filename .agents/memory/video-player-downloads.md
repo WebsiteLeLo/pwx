@@ -7,4 +7,4 @@ Protected DASH/HLS manifests should never be exposed as downloadable files. The 
 
 **Why:** Browsers cannot reliably download segmented or DRM-protected playback as one video file, and exposing arbitrary proxy URLs creates a security risk.
 
-**How to apply:** Keep HLS and Shaka buffering/retry settings tuned independently, preserve adaptive bitrate selection, and validate download URLs by host and media-file extension on the server.
+**How to apply:** Keep HLS and Shaka buffering/retry settings tuned independently, preserve adaptive bitrate selection, and validate download URLs by host and media-file extension on the server. For signed live HLS, extend HLS.js's built-in loader rather than replacing it with a shared fetch/AbortController implementation; playlist and fragment requests must keep independent cancellation and retry state.

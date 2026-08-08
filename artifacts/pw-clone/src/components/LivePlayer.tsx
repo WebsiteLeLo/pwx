@@ -237,9 +237,10 @@ export function LivePlayer({
           // ── Signature re-attachment ────────────────────────────────────
           // HLS.js resolves variant playlists / segments relative to the master
           // manifest URL and strips query params (CloudFront signature) → 403.
-          // We extract the signature from the original streamUrl and build a
-          // fully self-contained fetch-based loader (no Hls.DefaultConfig.loader
-          // dependency) that re-attaches the signature to every request.
+          // We extract the signature from the original streamUrl and re-attach
+          // it to every request. Keep HLS.js's own loader underneath this
+          // wrapper: it has a separate AbortController and retry state for
+          // every playlist/segment request.
           let sigParams = "";
           let sigHost   = "";
           try {
@@ -255,67 +256,33 @@ export function LivePlayer({
             return url.includes("?") ? `${url}&${sigParams}` : `${url}?${sigParams}`;
           }
 
-          // Standalone fetch-based loader — intercepts every HLS.js network
-          // request (playlists + fragments) and adds the signature before fetching.
-          class SignedFetchLoader {
-            stats = {
-              aborted: false, loaded: 0, retry: 0, total: 0, chunkCount: 0, bwEstimate: 0,
-              loading: { start: 0, first: 0, end: 0 },
-              parsing:  { start: 0, end: 0 },
-              buffering: { start: 0, first: 0, end: 0 },
-            };
-            private _ctrl: AbortController | null = null;
-            constructor(_cfg: any) {}
-            destroy() { this.abort(); }
-            abort()   { this._ctrl?.abort(); this._ctrl = null; }
-            load(context: any, _cfg: any, callbacks: any) {
-              const url = addSig(context.url ?? "");
-              context.url = url; // keep context in sync
-              this._ctrl = new AbortController();
-              const t0 = performance.now();
-              this.stats.loading.start = t0;
-              fetch(url, { signal: this._ctrl.signal })
-                .then(async (res) => {
-                  if (!res.ok) {
-                    callbacks.onError(
-                      { code: res.status, text: res.statusText },
-                      context, res, this.stats,
-                    );
-                    return;
-                  }
-                  this.stats.loading.first = performance.now();
-                  const isText = (context.responseType ?? "text") !== "arraybuffer";
-                  const data: string | ArrayBuffer = isText
-                    ? await res.text()
-                    : await res.arrayBuffer();
-                  const t2 = performance.now();
-                  this.stats.loading.end   = t2;
-                  this.stats.loaded = typeof data === "string" ? data.length : data.byteLength;
-                  this.stats.total  = this.stats.loaded;
-                  callbacks.onSuccess(
-                    { url: res.url, data, redirected: res.redirected },
-                    this.stats, context, res,
-                  );
-                })
-                .catch((err: any) => {
-                  if (err?.name === "AbortError") { this.stats.aborted = true; return; }
-                  callbacks.onError({ code: 0, text: err?.message ?? "fetch error" }, context, null, this.stats);
-                });
+          const BaseLoader = Hls.DefaultConfig.loader;
+          class SignedLoader extends BaseLoader {
+            load(context: any, config: any, callbacks: any) {
+              context.url = addSig(context.url ?? "");
+              return super.load(context, config, callbacks);
             }
           }
 
           const hls = new Hls({
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 10,
-            maxBufferLength: 90,
-            maxMaxBufferLength: 180,
-            backBufferLength: 30,
+            liveSyncDurationCount: 4,
+            liveMaxLatencyDurationCount: 12,
+            liveDurationInfinity: true,
+            maxBufferLength: 60,
+            maxMaxBufferLength: 120,
+            backBufferLength: 20,
             maxBufferHole: 0.5,
             startFragPrefetch: true,
             capLevelToPlayerSize: true,
-            enableWorker: false,           // keep requests on main thread so our loader runs
+            enableWorker: true,
             lowLatencyMode: false,
-            loader: SignedFetchLoader,     // intercepts ALL requests (playlists + segments)
+            manifestLoadingMaxRetry: 6,
+            levelLoadingMaxRetry: 6,
+            fragLoadingMaxRetry: 8,
+            manifestLoadingRetryDelay: 1000,
+            levelLoadingRetryDelay: 1000,
+            fragLoadingRetryDelay: 1000,
+            loader: SignedLoader,
           });
           hlsRef.current = hls;
 
