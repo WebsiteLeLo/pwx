@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Brain, BarChart2 } from "lucide-react";
+import { ChevronRight, PlaySquare, Layers, Home, Sun, Moon, Brain, BarChart2, KeyRound } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { InstallBanner } from "@/components/install-banner";
 import { OfflineBanner } from "@/components/offline-banner";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
+import { clearStoredAccessKey } from "@/lib/access-key";
 
 export interface BreadcrumbItem {
   label: string;
@@ -78,7 +79,16 @@ function BottomNav() {
 
 export function Layout({ children, breadcrumbs }: LayoutProps) {
   const { isDark, toggleTheme } = useTheme();
-  const [pathname] = useLocation();
+  const [pathname, setLocation] = useLocation();
+
+  function clearAccessKey() {
+    const confirmed = window.confirm(
+      "Clear your saved access key and return to the access screen to generate a new one?"
+    );
+    if (!confirmed) return;
+    clearStoredAccessKey();
+    setLocation("/access");
+  }
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background selection:bg-primary selection:text-primary-foreground overflow-x-hidden">
@@ -126,6 +136,16 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
               {isDark
                 ? <Sun className="w-4 h-4" />
                 : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* Clear the saved access key so the user can generate a new one */}
+            <button
+              onClick={clearAccessKey}
+              title="Clear access key and generate a new one"
+              aria-label="Clear access key and generate a new one"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <KeyRound className="w-4 h-4" />
             </button>
 
             {/* Revision badge */}

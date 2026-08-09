@@ -23,6 +23,7 @@ export function storeAccessKey(key: string) {
 export function clearStoredAccessKey() {
   localStorage.removeItem(ACCESS_KEY_STORAGE);
   localStorage.removeItem(CLAIM_TOKEN_STORAGE);
+  localStorage.removeItem(PENDING_GENERATION_STORAGE);
 }
 
 export function storePendingGeneration(token: string) {
