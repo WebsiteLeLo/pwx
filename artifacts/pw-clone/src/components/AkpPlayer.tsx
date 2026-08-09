@@ -974,9 +974,6 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
                   className={resourcePanel ? "bg-white/15 hover:bg-white/15" : ""}
                 >
                   <Layers className="w-[19px] h-[19px]" />
-                  <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-amber-400 text-[9px] leading-3.5 font-bold text-black">
-                    {slides.length + attachments.length > 99 ? "99+" : slides.length + attachments.length}
-                  </span>
                 </Btn>
               )}
 
