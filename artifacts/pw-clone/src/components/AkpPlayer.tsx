@@ -122,6 +122,7 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
   const resumeSaveRef= useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTapRef   = useRef<{ time: number; x: number } | null>(null);
   const touchSeekRef = useRef(false);
+  const slideItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryAttemptsRef = useRef(0);
@@ -151,6 +152,7 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
   const [slides, setSlides]             = useState<SlideItem[]>([]);
   const [attachments, setAttachments]   = useState<VideoAttachment[]>([]);
   const [resourcePanel, setResourcePanel] = useState<"slides" | "attachments" | null>(null);
+  const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [isMobile, setIsMobile]         = useState(false);
 
   useEffect(() => {
@@ -681,7 +683,23 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
   const activeSlide = slides.reduce<SlideItem | null>((current, slide) => (
     slide.timestamp <= currentTime ? slide : current
   ), null);
+  const highlightedSlideId = selectedSlideId ?? activeSlide?.id ?? null;
   const hasResources = slides.length > 0 || attachments.length > 0;
+
+  useEffect(() => {
+    setSelectedSlideId(activeSlide?.id ?? null);
+  }, [activeSlide?.id]);
+
+  useEffect(() => {
+    if (resourcePanel !== "slides" || !highlightedSlideId) return;
+    const frame = window.requestAnimationFrame(() => {
+      slideItemRefs.current[highlightedSlideId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [resourcePanel, highlightedSlideId]);
 
   return (
     <div
@@ -1085,7 +1103,9 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-violet-300" />
-                  <span className="text-white text-sm font-semibold">Lecture resources</span>
+                  <span className="text-white text-base font-semibold">
+                    {resourcePanel === "slides" ? "Timeline" : "Lecture resources"}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -1096,7 +1116,8 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex items-center gap-1 px-3 pt-2 flex-shrink-0">
+              {slides.length > 0 && attachments.length > 0 && (
+                <div className="flex items-center gap-1 px-3 pt-2 flex-shrink-0">
                 {slides.length > 0 && (
                   <button
                     type="button"
@@ -1115,23 +1136,17 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
                     Attachments ({attachments.length})
                   </button>
                 )}
-              </div>
+                </div>
+              )}
               {resourcePanel === "slides" && (
-                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-                  {activeSlide && (
-                    <div className="rounded-xl overflow-hidden border border-violet-400/30 bg-black/30 mb-3">
-                      <img src={activeSlide.imageUrl} alt={activeSlide.name} className="w-full max-h-44 object-contain bg-black" />
-                      <div className="flex items-center justify-between gap-2 px-3 py-2">
-                        <span className="text-white/85 text-xs truncate">{activeSlide.name}</span>
-                        <span className="text-violet-200 text-[11px] font-mono">{formatTime(activeSlide.timestamp)}</span>
-                      </div>
-                    </div>
-                  )}
-                  {slides.map((slide) => (
+                <div className="flex-1 min-h-0 overflow-y-auto bg-black p-2 space-y-3">
+                  {slides.map((slide, index) => (
                     <button
                       type="button"
                       key={slide.id}
+                      ref={(element) => { slideItemRefs.current[slide.id] = element; }}
                       onClick={() => {
+                        setSelectedSlideId(slide.id);
                         const video = videoRef.current;
                         if (video) {
                           video.currentTime = Math.min(slide.timestamp, video.duration || slide.timestamp);
@@ -1139,12 +1154,20 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
                         }
                         resetHideTimer();
                       }}
-                      className={`w-full flex items-center gap-2 p-2 rounded-xl border cursor-pointer text-left ${activeSlide?.id === slide.id ? "border-violet-400/60 bg-violet-500/15" : "border-white/8 bg-white/[.03] hover:bg-white/[.08]"}`}
+                      aria-label={`Open slide ${slide.serialNumber || index + 1}`}
+                      className={`relative block w-full overflow-hidden rounded-lg border-2 cursor-pointer text-left transition-all duration-200 ${
+                        highlightedSlideId === slide.id
+                          ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_2px_rgba(139,92,246,.25)]"
+                          : "border-transparent bg-black hover:border-white/30"
+                      }`}
                     >
-                      <img src={slide.imageUrl} alt="" className="w-16 h-10 rounded-md object-cover bg-black flex-shrink-0" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-white/80 text-xs truncate">{slide.name}</span>
-                        <span className="block text-white/40 text-[10px] font-mono mt-0.5">{formatTime(slide.timestamp)}</span>
+                      <img
+                        src={slide.imageUrl}
+                        alt={slide.name || `Slide ${slide.serialNumber || index + 1}`}
+                        className="block w-full aspect-video object-contain bg-black"
+                      />
+                      <span className="absolute bottom-2 left-0 rounded-r-md bg-violet-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-lg">
+                        Slide No. {slide.serialNumber || index + 1}
                       </span>
                     </button>
                   ))}
