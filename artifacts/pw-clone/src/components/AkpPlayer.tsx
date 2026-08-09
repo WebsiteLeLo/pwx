@@ -678,6 +678,9 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
     (muted || volume === 0) ? "off" : volume < 0.5 ? "low" : "high";
 
   const displayTitle = videoTitle || title || "";
+  const activeSlide = slides.reduce<SlideItem | null>((current, slide) => (
+    slide.timestamp <= currentTime ? slide : current
+  ), null);
   const hasResources = slides.length > 0 || attachments.length > 0;
 
   return (
