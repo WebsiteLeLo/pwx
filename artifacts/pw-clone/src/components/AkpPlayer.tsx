@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, Layers, RefreshCw, X } from "lucide-react";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
 
@@ -56,8 +56,25 @@ const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 interface QualityTrack { height: number; bandwidth: number; raw: any; }
 
+interface SlideItem {
+  id: string;
+  name: string;
+  serialNumber: number;
+  timestamp: number;
+  imageUrl: string;
+}
+
+interface VideoAttachment {
+  id: string;
+  title: string;
+  name: string;
+  url: string;
+}
+
 export interface AkpPlayerProps {
   batchId: string;
+  subjectId?: string;
+  scheduleId?: string;
   childId: string;
   poster?: string;
   title?: string;
@@ -96,7 +113,7 @@ function Btn({ onClick, title, children, className = "" }: { onClick?: (e: React
   );
 }
 
-export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
+export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster, title }: AkpPlayerProps) {
   const videoRef     = useRef<HTMLVideoElement>(null);
   const playerRef    = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +148,9 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
   const [activeQuality, setActiveQuality] = useState<number | "auto">("auto");
   const [seekTooltip, setSeekTooltip]   = useState<{ time: number; pct: number } | null>(null);
   const [buffering, setBuffering]       = useState(false);
+  const [slides, setSlides]             = useState<SlideItem[]>([]);
+  const [attachments, setAttachments]   = useState<VideoAttachment[]>([]);
+  const [resourcePanel, setResourcePanel] = useState<"slides" | "attachments" | null>(null);
   const [isMobile, setIsMobile]         = useState(false);
 
   useEffect(() => {
@@ -161,6 +181,37 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
       setAttempt((current) => current + 1);
     }, delay);
   }, []);
+
+  // Load slide timestamps and lecture attachments independently of playback so
+  // a slow resources API never delays the video from starting.
+  useEffect(() => {
+    if (!batchId || !subjectId || !(scheduleId || childId)) {
+      setSlides([]);
+      setAttachments([]);
+      return;
+    }
+    let cancelled = false;
+    const params = new URLSearchParams({
+      batchId,
+      subjectId,
+      scheduleId: scheduleId || childId,
+    });
+    fetch(`${PROXY_BASE}/pw-schedule-assets?${params.toString()}`)
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Resources unavailable")))
+      .then((json) => {
+        if (cancelled) return;
+        const data = json?.data ?? {};
+        setSlides(Array.isArray(data.slides) ? data.slides : []);
+        setAttachments(Array.isArray(data.attachments) ? data.attachments : []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSlides([]);
+          setAttachments([]);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [batchId, subjectId, scheduleId, childId]);
 
   // ── Core setup ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -627,6 +678,7 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
     (muted || volume === 0) ? "off" : volume < 0.5 ? "low" : "high";
 
   const displayTitle = videoTitle || title || "";
+  const hasResources = slides.length > 0 || attachments.length > 0;
 
   return (
     <div
@@ -675,6 +727,7 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
                 <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "11px solid #fff", marginLeft: 2 }} />
               </div>
             </div>
+
           </div>
           {/* Logo + text */}
           <div className="flex flex-col items-center gap-2 mt-2">
@@ -890,6 +943,22 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
 
               <NetworkPing accent={ACCENT} />
 
+              {hasResources && (
+                <Btn
+                  title="Slides and attachments"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setResourcePanel((panel) => panel ? null : (slides.length > 0 ? "slides" : "attachments"));
+                  }}
+                  className={resourcePanel ? "bg-white/15 hover:bg-white/15" : ""}
+                >
+                  <Layers className="w-[19px] h-[19px]" />
+                  <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-amber-400 text-[9px] leading-3.5 font-bold text-black">
+                    {slides.length + attachments.length > 99 ? "99+" : slides.length + attachments.length}
+                  </span>
+                </Btn>
+              )}
+
               {/* Settings */}
               <div className="relative">
                 <Btn
@@ -998,6 +1067,108 @@ export function AkpPlayer({ batchId, childId, poster, title }: AkpPlayerProps) {
               </Btn>
             </div>
           </div>
+
+          {resourcePanel && (
+            <div
+              className="absolute right-3 top-[58px] bottom-[82px] w-[min(320px,calc(100%-24px))] rounded-2xl overflow-hidden z-30 flex flex-col"
+              style={{
+                background: "rgba(12,12,20,.97)",
+                border: "1px solid rgba(255,255,255,.13)",
+                boxShadow: "0 12px 45px rgba(0,0,0,.65)",
+                backdropFilter: "blur(14px)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-violet-300" />
+                  <span className="text-white text-sm font-semibold">Lecture resources</span>
+                </div>
+                <button
+                  type="button"
+                  title="Close resources"
+                  onClick={() => setResourcePanel(null)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full border-none bg-transparent text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-1 px-3 pt-2 flex-shrink-0">
+                {slides.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setResourcePanel("slides")}
+                    className={`flex-1 rounded-lg px-2 py-2 border-none cursor-pointer text-xs font-semibold ${resourcePanel === "slides" ? "bg-violet-500/25 text-violet-200" : "bg-transparent text-white/55 hover:bg-white/5"}`}
+                  >
+                    Slides ({slides.length})
+                  </button>
+                )}
+                {attachments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setResourcePanel("attachments")}
+                    className={`flex-1 rounded-lg px-2 py-2 border-none cursor-pointer text-xs font-semibold ${resourcePanel === "attachments" ? "bg-violet-500/25 text-violet-200" : "bg-transparent text-white/55 hover:bg-white/5"}`}
+                  >
+                    Attachments ({attachments.length})
+                  </button>
+                )}
+              </div>
+              {resourcePanel === "slides" && (
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                  {activeSlide && (
+                    <div className="rounded-xl overflow-hidden border border-violet-400/30 bg-black/30 mb-3">
+                      <img src={activeSlide.imageUrl} alt={activeSlide.name} className="w-full max-h-44 object-contain bg-black" />
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-white/85 text-xs truncate">{activeSlide.name}</span>
+                        <span className="text-violet-200 text-[11px] font-mono">{formatTime(activeSlide.timestamp)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {slides.map((slide) => (
+                    <button
+                      type="button"
+                      key={slide.id}
+                      onClick={() => {
+                        const video = videoRef.current;
+                        if (video) {
+                          video.currentTime = Math.min(slide.timestamp, video.duration || slide.timestamp);
+                          video.play().catch(() => {});
+                        }
+                        resetHideTimer();
+                      }}
+                      className={`w-full flex items-center gap-2 p-2 rounded-xl border cursor-pointer text-left ${activeSlide?.id === slide.id ? "border-violet-400/60 bg-violet-500/15" : "border-white/8 bg-white/[.03] hover:bg-white/[.08]"}`}
+                    >
+                      <img src={slide.imageUrl} alt="" className="w-16 h-10 rounded-md object-cover bg-black flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-white/80 text-xs truncate">{slide.name}</span>
+                        <span className="block text-white/40 text-[10px] font-mono mt-0.5">{formatTime(slide.timestamp)}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {resourcePanel === "attachments" && (
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                  {attachments.map((attachment) => (
+                    <a
+                      key={attachment.id}
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 rounded-xl border border-white/8 bg-white/[.03] hover:bg-white/[.08] no-underline"
+                    >
+                      <FileText className="w-4 h-4 text-amber-300 flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-white/85 text-xs font-medium truncate">{attachment.title}</span>
+                        <span className="block text-white/45 text-[11px] truncate mt-0.5">{attachment.name}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-white/45 flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

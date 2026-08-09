@@ -167,6 +167,112 @@ proxyRouter.get("/akp-video-url", async (req, res) => {
   }
 });
 
+// ── PW lecture slides + attachments ─────────────────────────────────────────
+// Keeps the browser independent of the upstream API's CORS and normalizes the
+// two schedule endpoints into the small shape the video player needs.
+const PW_API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw/v1";
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+
+function pwAssetUrl(asset: any, fallback?: string): string {
+  if (asset?.baseUrl && asset?.key) return `${asset.baseUrl}${asset.key}`;
+  if (asset?.url && /^https?:\/\//i.test(asset.url)) return asset.url;
+  if (fallback && /^https?:\/\//i.test(fallback)) return fallback;
+  if (fallback) return `https://static.pw.live/${fallback.replace(/^\/+/, "")}`;
+  return "";
+}
+
+function normalizeSlide(slide: any) {
+  const timestamp = Number.parseFloat(String(slide?.timeStamp ?? slide?.timestamp ?? ""));
+  const imageUrl = pwAssetUrl(slide?.img, slide?.imageUrl);
+  if (!Number.isFinite(timestamp) || !imageUrl) return null;
+  return {
+    id: String(slide?._id ?? `${slide?.serialNumber ?? "slide"}-${timestamp}`),
+    name: String(slide?.name ?? `Slide ${slide?.serialNumber ?? ""}`).trim(),
+    serialNumber: Number(slide?.serialNumber ?? 0),
+    timestamp,
+    imageUrl,
+  };
+}
+
+function normalizeAttachments(schedule: any) {
+  const homework = [
+    ...(Array.isArray(schedule?.homeworkIds) ? schedule.homeworkIds : []),
+    ...(Array.isArray(schedule?.dpp?.homeworkIds) ? schedule.dpp.homeworkIds : []),
+  ];
+  const seen = new Set<string>();
+  const attachments: Array<{ id: string; title: string; name: string; url: string }> = [];
+
+  for (const item of homework) {
+    // Some responses only contain homework ids. There is no usable file URL
+    // in that form, so skip those entries rather than rendering dead links.
+    if (!item || typeof item !== "object") continue;
+    for (const attachment of Array.isArray(item.attachmentIds) ? item.attachmentIds : []) {
+      const url = pwAssetUrl(attachment);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      attachments.push({
+        id: String(attachment?._id ?? url),
+        title: String(item.topic ?? item.note ?? attachment?.name ?? "Attachment").trim(),
+        name: String(attachment?.name ?? item.note ?? "Open attachment").trim(),
+        url,
+      });
+    }
+  }
+  return attachments;
+}
+
+proxyRouter.options("/pw-schedule-assets", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.status(204).end();
+});
+
+proxyRouter.get("/pw-schedule-assets", async (req, res) => {
+  const { batchId, subjectId, scheduleId } = req.query as Record<string, string>;
+  if (!OBJECT_ID.test(batchId ?? "") || !OBJECT_ID.test(subjectId ?? "") || !OBJECT_ID.test(scheduleId ?? "")) {
+    res.status(400).json({ success: false, error: "Invalid batch, subject, or schedule id" });
+    return;
+  }
+
+  const base = `${PW_API_BASE}/batches/${batchId}/subject/${subjectId}/schedule/${scheduleId}`;
+  try {
+    const [slidesResponse, detailsResponse] = await Promise.all([
+      fetch(`${base}/slides`, { headers: { Accept: "application/json" } }),
+      fetch(`${base}/schedule-details`, { headers: { Accept: "application/json" } }),
+    ]);
+    if (!slidesResponse.ok || !detailsResponse.ok) {
+      res.status(502).json({ success: false, error: "Lecture resources are unavailable" });
+      return;
+    }
+
+    const [slidesJson, detailsJson] = await Promise.all([
+      slidesResponse.json() as Promise<any>,
+      detailsResponse.json() as Promise<any>,
+    ]);
+    const slideSource = slidesJson?.data?.slides ?? slidesJson?.slides ?? [];
+    const slides = (Array.isArray(slideSource) ? slideSource : [])
+      .filter((slide: any) => slide?.slideForTimeline !== false)
+      .map(normalizeSlide)
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.timestamp - b.timestamp);
+    const schedule = detailsJson?.data ?? detailsJson;
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json({
+      success: true,
+      data: {
+        slides,
+        attachments: normalizeAttachments(schedule),
+        topic: schedule?.topic ?? "",
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "PW schedule assets proxy failed");
+    res.status(502).json({ success: false, error: "Failed to load lecture resources" });
+  }
+});
+
 // ── Direct video download proxy ──────────────────────────────────────────────
 // Manifest/DRM URLs are intentionally not accepted here. The player only calls
 // this route when the upstream API exposes a real media file URL.

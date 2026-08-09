@@ -5,6 +5,7 @@ import { AkpPlayer } from "@/components/AkpPlayer";
 export default function Watch() {
   const [params, setParams] = useState<{
     batchId: string;
+    subjectId: string;
     childId: string;
     title: string;
   } | null>(null);
@@ -32,7 +33,7 @@ export default function Watch() {
     }
 
     if (batchId && childId) {
-      setParams({ batchId, childId, title });
+      setParams({ batchId, subjectId, childId, title });
     }
   }, []);
 
@@ -56,6 +57,8 @@ export default function Watch() {
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
       <AkpPlayer
         batchId={params.batchId}
+        subjectId={params.subjectId}
+        scheduleId={params.childId}
         childId={params.childId}
         title={params.title}
       />
