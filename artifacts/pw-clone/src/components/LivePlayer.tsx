@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Download, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { NetworkPing } from "@/components/NetworkPing";
 
 const ACCENT = "#e53935";       // red accent for LIVE
@@ -144,7 +144,6 @@ export function LivePlayer({
   const [buffering, setBuffering]     = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
   const [seeking, setSeeking]         = useState(false);
-  const [downloadMessage, setDownloadMessage] = useState("");
 
   // DVR / seekable range
   const [currentTime, setCurrentTime] = useState(0);
@@ -595,11 +594,6 @@ export function LivePlayer({
     resetHideTimer();
   }
 
-  function handleDownload() {
-    setDownloadMessage("Live stream ko download nahi kiya ja sakta.");
-    window.setTimeout(() => setDownloadMessage(""), 3500);
-  }
-
   function selectQuality(height: number | "auto") {
     if (hlsRef.current) {
       if (height === "auto") {
@@ -970,10 +964,6 @@ export function LivePlayer({
 
               <NetworkPing accent={ACCENT} />
 
-              <Btn title="Download unavailable for live streams" onClick={(e) => { e.stopPropagation(); handleDownload(); }}>
-                <Download className="w-[19px] h-[19px]" />
-              </Btn>
-
               {/* Go to live edge */}
               {!isAtLive && hasDvr && (
                 <button
@@ -1079,14 +1069,6 @@ export function LivePlayer({
               </Btn>
             </div>
           </div>
-          {downloadMessage && (
-            <div
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-lg px-3 py-2 text-xs text-white whitespace-nowrap z-50"
-              style={{ background: "rgba(12,12,20,.94)", border: "1px solid rgba(255,255,255,.14)" }}
-            >
-              {downloadMessage}
-            </div>
-          )}
         </div>
       )}
     </div>
