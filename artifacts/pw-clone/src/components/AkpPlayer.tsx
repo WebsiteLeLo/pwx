@@ -4,6 +4,7 @@ import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
 
 const PROXY_BASE = apiUrl("");
+const PW_API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw/v1";
 const ACCENT = "#5a4bda";
 
 interface VideoUrlData {
@@ -47,6 +48,52 @@ function formatTime(secs: number): string {
   const s = Math.floor(secs % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function pwAssetUrl(asset: any, fallback?: string): string {
+  if (asset?.baseUrl && asset?.key) return `${asset.baseUrl}${asset.key}`;
+  if (asset?.url && /^https?:\/\//i.test(asset.url)) return asset.url;
+  if (fallback && /^https?:\/\//i.test(fallback)) return fallback;
+  if (fallback) return `https://static.pw.live/${fallback.replace(/^\/+/, "")}`;
+  return "";
+}
+
+function normalizeSlide(slide: any): SlideItem | null {
+  const timestamp = Number.parseFloat(String(slide?.timeStamp ?? slide?.timestamp ?? ""));
+  const imageUrl = pwAssetUrl(slide?.img, slide?.imageUrl);
+  if (!Number.isFinite(timestamp) || !imageUrl) return null;
+  return {
+    id: String(slide?._id ?? `${slide?.serialNumber ?? "slide"}-${timestamp}`),
+    name: String(slide?.name ?? `Slide ${slide?.serialNumber ?? ""}`).trim(),
+    serialNumber: Number(slide?.serialNumber ?? 0),
+    timestamp,
+    imageUrl,
+  };
+}
+
+function normalizeAttachments(schedule: any): VideoAttachment[] {
+  const homework = [
+    ...(Array.isArray(schedule?.homeworkIds) ? schedule.homeworkIds : []),
+    ...(Array.isArray(schedule?.dpp?.homeworkIds) ? schedule.dpp.homeworkIds : []),
+  ];
+  const seen = new Set<string>();
+  const attachments: VideoAttachment[] = [];
+
+  for (const item of homework) {
+    if (!item || typeof item !== "object") continue;
+    for (const attachment of Array.isArray(item.attachmentIds) ? item.attachmentIds : []) {
+      const url = pwAssetUrl(attachment);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      attachments.push({
+        id: String(attachment?._id ?? url),
+        title: String(item.topic ?? item.note ?? attachment?.name ?? "Attachment").trim(),
+        name: String(attachment?.name ?? item.note ?? "Open attachment").trim(),
+        url,
+      });
+    }
+  }
+  return attachments;
 }
 
 const RESUME_KEY = (id: string) => `akp-resume-${id}`;
@@ -193,18 +240,29 @@ export function AkpPlayer({ batchId, subjectId = "", scheduleId, childId, poster
       return;
     }
     let cancelled = false;
-    const params = new URLSearchParams({
-      batchId,
-      subjectId,
-      scheduleId: scheduleId || childId,
-    });
-    fetch(`${PROXY_BASE}/pw-schedule-assets?${params.toString()}`)
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Resources unavailable")))
-      .then((json) => {
+    const resolvedScheduleId = scheduleId || childId;
+    const resourceBase = `${PW_API_BASE}/batches/${encodeURIComponent(batchId)}/subject/${encodeURIComponent(subjectId)}/schedule/${encodeURIComponent(resolvedScheduleId)}`;
+    Promise.all([
+      fetch(`${resourceBase}/slides`, { headers: { Accept: "application/json" } }),
+      fetch(`${resourceBase}/schedule-details`, { headers: { Accept: "application/json" } }),
+    ])
+      .then(async ([slidesResponse, detailsResponse]) => {
+        if (!slidesResponse.ok || !detailsResponse.ok) {
+          throw new Error("Resources unavailable");
+        }
+        return Promise.all([slidesResponse.json(), detailsResponse.json()]);
+      })
+      .then(([slidesJson, detailsJson]) => {
         if (cancelled) return;
-        const data = json?.data ?? {};
-        setSlides(Array.isArray(data.slides) ? data.slides : []);
-        setAttachments(Array.isArray(data.attachments) ? data.attachments : []);
+        const slideSource = slidesJson?.data?.slides ?? slidesJson?.data ?? slidesJson?.slides ?? [];
+        const slides = (Array.isArray(slideSource) ? slideSource : [])
+          .filter((slide: any) => slide?.slideForTimeline !== false)
+          .map(normalizeSlide)
+          .filter((slide: SlideItem | null): slide is SlideItem => slide !== null)
+          .sort((a: SlideItem, b: SlideItem) => a.timestamp - b.timestamp);
+        const schedule = detailsJson?.data ?? detailsJson;
+        setSlides(slides);
+        setAttachments(normalizeAttachments(schedule));
       })
       .catch(() => {
         if (!cancelled) {
