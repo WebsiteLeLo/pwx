@@ -61,6 +61,7 @@ const INFINITE_PRACTICE_BATCH: Batch = {
   feeTotal: 0,
   type: "practice",
   slug: "infinite-practice",
+  previewImage: "/infinite-practice-thumbnail.png",
 };
 
 type Tab = "all" | "enrolled";
@@ -417,9 +418,13 @@ function BatchCard({
       {/* Thumbnail */}
       <Link href={isInfinitePractice ? "/batch/infinite-practice" : `/batch/${batch._id}`} className="block">
         <div className="relative aspect-video bg-muted overflow-hidden">
-          {batch.previewImage ? (
+          {isInfinitePractice || batch.previewImage ? (
             <LazyImage
-              src={typeof batch.previewImage === "string" ? batch.previewImage : `${batch.previewImage.baseUrl}${batch.previewImage.key}`}
+              src={isInfinitePractice
+                ? "/infinite-practice-thumbnail.png"
+                : typeof batch.previewImage === "string"
+                  ? batch.previewImage
+                  : `${batch.previewImage!.baseUrl}${batch.previewImage!.key}`}
               alt={batch.name}
               fallbackText={batch.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
