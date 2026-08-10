@@ -629,32 +629,51 @@ function QuestionRoom({
     setSubmitError("");
   }, [answers, index, session.questions]);
 
-  const makeAnswer = (): SubmitInfinitePracticeInput | null => {
-    if (!question || selected.length === 0) return null;
+  const makeAnswer = (
+    status: SubmitInfinitePracticeInput["status"] = "ATTEMPTED",
+  ): SubmitInfinitePracticeInput | null => {
+    if (!question) return null;
+    if (status === "ATTEMPTED" && selected.length === 0) return null;
     return {
       questionId: question.questionId,
-      status: "ATTEMPTED",
+      status,
       timeTaken: Math.max(1000, Date.now() - startedAt.current),
       chapterId: question.chapterId,
       questionNumber: index + 1,
-      markedSolutions: selected,
+      markedSolutions: status === "SKIPPED" ? [] : selected,
       difficulty: question.difficulty,
       type: question.type,
     };
   };
 
-  const saveAnswer = () => {
-    const answer = makeAnswer();
-    if (!answer || submitTest.isPending || loadSolution.isPending) {
-      if (!answer) setSubmitError("Please select at least one option.");
-      return;
-    }
+  const completeAnswers = (currentAnswers: Record<string, SubmitInfinitePracticeInput>) =>
+    session.questions.map((item, itemIndex) => (
+      currentAnswers[item.questionId] ?? {
+        questionId: item.questionId,
+        status: "SKIPPED" as const,
+        timeTaken: 0,
+        chapterId: item.chapterId,
+        questionNumber: itemIndex + 1,
+        markedSolutions: [],
+        difficulty: item.difficulty,
+        type: item.type,
+      }
+    ));
+
+  const submitCurrentTest = async (currentAnswers: Record<string, SubmitInfinitePracticeInput>) => {
+    if (submitTest.isPending || loadSolution.isPending) return;
     setSubmitError("");
-    return answer;
+    try {
+      await submitTest.mutateAsync({ questionsResponse: completeAnswers(currentAnswers) });
+      const result = await loadSolution.mutateAsync();
+      onComplete(result);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not submit this test.");
+    }
   };
 
   const next = async () => {
-    const answer = saveAnswer();
+    const answer = makeAnswer();
     if (!answer) return;
     const nextAnswers = { ...answers, [answer.questionId]: answer };
     setAnswers(nextAnswers);
@@ -662,15 +681,35 @@ function QuestionRoom({
       setIndex((value) => value + 1);
       return;
     }
+    await submitCurrentTest(nextAnswers);
+  };
 
-    setSubmitError("");
-    try {
-      await submitTest.mutateAsync({ questionsResponse: Object.values(nextAnswers) });
-      const result = await loadSolution.mutateAsync();
-      onComplete(result);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not submit this test.");
+  const previous = () => {
+    if (index === 0 || submitTest.isPending || loadSolution.isPending) return;
+    const answer = makeAnswer();
+    if (answer) setAnswers((current) => ({ ...current, [answer.questionId]: answer }));
+    setIndex((value) => value - 1);
+  };
+
+  const skip = async () => {
+    const answer = makeAnswer("SKIPPED");
+    if (!answer) return;
+    const nextAnswers = { ...answers, [answer.questionId]: answer };
+    setAnswers(nextAnswers);
+    if (index < session.questions.length - 1) {
+      setIndex((value) => value + 1);
+      return;
     }
+    await submitCurrentTest(nextAnswers);
+  };
+
+  const submit = async () => {
+    const answer = makeAnswer(selected.length > 0 ? "ATTEMPTED" : "SKIPPED");
+    const nextAnswers = answer
+      ? { ...answers, [answer.questionId]: answer }
+      : answers;
+    setAnswers(nextAnswers);
+    await submitCurrentTest(nextAnswers);
   };
 
   if (!question) return null;
@@ -698,9 +737,21 @@ function QuestionRoom({
             </p>
           </div>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600">
-          <Target className="h-3.5 w-3.5 text-indigo-600" /> {question.subjectName || "JEE 2026"}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="hidden items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 sm:inline-flex">
+            <Target className="h-3.5 w-3.5 text-indigo-600" /> {question.subjectName || "JEE 2026"}
+          </span>
+          <button
+            data-testid="button-submit-test"
+            disabled={submitTest.isPending || loadSolution.isPending}
+            onClick={submit}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitTest.isPending || loadSolution.isPending
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting...</>
+              : "Submit test"}
+          </button>
+        </div>
       </div>
       <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-slate-200">
         <motion.div animate={{ width: `${progress}%` }} className="h-full rounded-full bg-indigo-600" />
@@ -761,26 +812,45 @@ function QuestionRoom({
             })}
           </div>
 
-          {submitError && (
-            <div className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700" data-testid="status-practice-submit-error">
-              {submitError}
+          <div className="mt-7 flex flex-col gap-4 border-t border-slate-100 pt-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-400">
+                {question.type === 2 ? "Select one or more options" : "Select an option"}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  data-testid="button-previous-question"
+                  disabled={index === 0 || submitTest.isPending || loadSolution.isPending}
+                  onClick={previous}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Previous
+                </button>
+                <button
+                  data-testid="button-skip-question"
+                  disabled={submitTest.isPending || loadSolution.isPending}
+                  onClick={skip}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Skip question
+                </button>
+                <button
+                  data-testid={index === session.questions.length - 1 ? "button-submit-test-final" : "button-next-question"}
+                  disabled={selected.length === 0 || submitTest.isPending || loadSolution.isPending}
+                  onClick={next}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  {submitTest.isPending || loadSolution.isPending
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting...</>
+                    : <>{index === session.questions.length - 1 ? "Submit & finish" : "Next question"} <ArrowRight className="h-3.5 w-3.5" /></>}
+                </button>
+              </div>
             </div>
-          )}
-
-          <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-400">
-              {question.type === 2 ? "Select one or more options" : "Select an option"}
-            </p>
-            <button
-              data-testid={index === session.questions.length - 1 ? "button-submit-test" : "button-next-question"}
-              disabled={selected.length === 0 || submitTest.isPending || loadSolution.isPending}
-              onClick={next}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              {submitTest.isPending || loadSolution.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting test...</>
-                : <>{index === session.questions.length - 1 ? "Submit test" : "Next question"} <ArrowRight className="h-4 w-4" /></>}
-            </button>
+            {submitError && (
+              <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700" data-testid="status-practice-submit-error">
+                {submitError}
+              </div>
+            )}
           </div>
         </motion.article>
       </AnimatePresence>
