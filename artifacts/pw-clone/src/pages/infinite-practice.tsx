@@ -638,8 +638,8 @@ export default function InfinitePractice() {
   const batchName = batchData?.data?.name || "Arjuna JEE 2026";
 
   usePageMeta({
-    title: "Infinite Practice | Arjuna JEE 2026",
-    description: "Choose a subject and chapter to practise JEE questions from the Arjuna JEE 2026 batch.",
+    title: `Infinite Practice | ${batchName}`,
+    description: `Choose a subject and chapter to practise JEE questions from the ${batchName} batch.`,
     canonical: `/batch/${batchId}/infinite-practice`,
   });
 
@@ -650,7 +650,7 @@ export default function InfinitePractice() {
           <CircleHelp className="mb-4 h-10 w-10 text-slate-300" />
           <h1 className="text-xl font-bold text-slate-900">Practice is not available in this batch</h1>
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Infinite Practice is currently available for the Arjuna JEE 2026 batch only.
+            Infinite Practice is currently available for supported Arjuna JEE batches only.
           </p>
           <Link
             data-testid="link-practice-back-unavailable"

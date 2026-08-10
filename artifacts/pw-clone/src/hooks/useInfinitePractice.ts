@@ -2,12 +2,17 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
+const PRACTICE_BATCH_IDS = [
+  PRACTICE_BATCH_ID,
+  "698ad3519549b300a5e1cc6a",
+];
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
 const SOLUTION_SERVICE_ID = "6a7926f671df072ea045fe87";
 const MINUTE = 60_000;
 
 export function isInfinitePracticeBatch(batchId?: string) {
-  return batchId?.trim().toLowerCase() === PRACTICE_BATCH_ID;
+  const normalizedBatchId = batchId?.trim().toLowerCase();
+  return Boolean(normalizedBatchId && PRACTICE_BATCH_IDS.includes(normalizedBatchId));
 }
 
 export interface InfinitePracticeSubject {
