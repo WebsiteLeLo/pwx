@@ -29,7 +29,6 @@ import {
   useInfinitePracticeSolution,
   useStartInfinitePractice,
   useSubmitInfinitePractice,
-  isInfinitePracticeBatch,
   type InfinitePracticeChapter,
   type InfinitePracticeQuestion,
   type InfinitePracticeTestSolution,
@@ -339,7 +338,7 @@ function SelectionPanel({
   batchName: string;
   onStarted: (session: { testId: string; questions: InfinitePracticeQuestion[] }) => void;
 }) {
-  const subjectsQuery = useInfinitePracticeSubjects();
+  const subjectsQuery = useInfinitePracticeSubjects(batchId);
   const startPractice = useStartInfinitePractice(batchId);
   const subjects = subjectsQuery.data?.data.subjects ?? [];
   const [subjectId, setSubjectId] = useState("");
@@ -392,6 +391,10 @@ function SelectionPanel({
       { onSuccess: onStarted },
     );
   };
+
+  const noFreeSessions =
+    startPractice.error instanceof Error &&
+    /no free sessions left/i.test(startPractice.error.message);
 
   if (subjectsQuery.isLoading) {
     return (
@@ -572,19 +575,26 @@ function SelectionPanel({
             </fieldset>
             <button
               data-testid="button-start-practice"
-              disabled={!subjectId || chapterIds.length === 0 || startPractice.isPending}
+               disabled={!subjectId || chapterIds.length === 0 || startPractice.isPending || noFreeSessions}
               onClick={start}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {startPractice.isPending ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Building your set</>
               ) : (
-                <>Start practising <ArrowRight className="h-4 w-4" /></>
+                <>{noFreeSessions ? "Sessions unavailable" : "Start practising"} <ArrowRight className="h-4 w-4" /></>
               )}
             </button>
             {startPractice.isError && (
-              <p className="text-xs font-medium leading-5 text-rose-700" data-testid="status-practice-start-error">
-                {startPractice.error.message}
+              <p
+                className={`text-xs font-medium leading-5 ${
+                  noFreeSessions ? "text-amber-800" : "text-rose-700"
+                }`}
+                data-testid="status-practice-start-error"
+              >
+                {noFreeSessions
+                  ? `Is batch (${batchName}) ke free Infinite Practice sessions ab available nahi hain. Kisi doosre supported batch ya baad mein dobara try karein.`
+                  : startPractice.error.message}
               </p>
             )}
           </div>
@@ -855,34 +865,13 @@ export default function InfinitePractice() {
   const [roomState, setRoomState] = useState<RoomState>("selection");
   const [session, setSession] = useState<{ testId: string; questions: InfinitePracticeQuestion[] } | null>(null);
   const [testResult, setTestResult] = useState<InfinitePracticeTestSolution | null>(null);
-  const batchName = batchData?.data?.name || "Arjuna JEE 2026";
+  const batchName = batchData?.data?.name || "Infinite Practice";
 
   usePageMeta({
     title: `Infinite Practice | ${batchName}`,
     description: `Choose a subject and chapter to practise JEE questions from the ${batchName} batch.`,
     canonical: `/batch/${batchId}/infinite-practice`,
   });
-
-  if (!isInfinitePracticeBatch(batchId)) {
-    return (
-      <div className="min-h-screen w-full bg-white px-4 py-10 text-slate-900">
-        <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-2xl flex-col items-center justify-center rounded-3xl border border-slate-200 px-6 text-center">
-          <CircleHelp className="mb-4 h-10 w-10 text-slate-300" />
-          <h1 className="text-xl font-bold text-slate-900">Practice is not available in this batch</h1>
-          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Infinite Practice is currently available for supported Arjuna JEE batches only.
-          </p>
-          <Link
-            data-testid="link-practice-back-unavailable"
-            href={`/batch/${batchId}`}
-            className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to batch
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const startQuestionRoom = (nextSession: { testId: string; questions: InfinitePracticeQuestion[] }) => {
     setSession(nextSession);

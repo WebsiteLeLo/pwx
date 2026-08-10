@@ -34,6 +34,7 @@ import {
   BarChart2,
   ChevronRight,
   Flame,
+  Target,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -47,8 +48,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { Batch } from "@/hooks/usePWApi";
+import { INFINITE_PRACTICE_BATCH_ID } from "@/hooks/useInfinitePractice";
 
 const PAGE_SIZE = 8;
+const INFINITE_PRACTICE_BATCH: Batch = {
+  _id: INFINITE_PRACTICE_BATCH_ID,
+  name: "Infinite Practice",
+  byName: "JEE & NEET Question Practice",
+  language: "English",
+  startDate: "",
+  endDate: "",
+  feeTotal: 0,
+  type: "practice",
+  slug: "infinite-practice",
+};
 
 type Tab = "all" | "enrolled";
 
@@ -390,6 +403,8 @@ function BatchCard({
   onEnroll: (b: Batch) => void;
   onUnenroll: (id: string) => void;
 }) {
+  const isInfinitePractice = batch._id === INFINITE_PRACTICE_BATCH_ID;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -400,7 +415,7 @@ function BatchCard({
       data-testid={`card-batch-${batch._id}`}
     >
       {/* Thumbnail */}
-      <Link href={`/batch/${batch._id}`} className="block">
+      <Link href={isInfinitePractice ? "/batch/infinite-practice" : `/batch/${batch._id}`} className="block">
         <div className="relative aspect-video bg-muted overflow-hidden">
           {batch.previewImage ? (
             <LazyImage
@@ -426,7 +441,7 @@ function BatchCard({
 
       {/* Body */}
       <div className="p-4 flex flex-col flex-1">
-        <Link href={`/batch/${batch._id}`}>
+        <Link href={isInfinitePractice ? "/batch/infinite-practice" : `/batch/${batch._id}`}>
           <h3 className="font-bold text-base leading-snug line-clamp-2 hover:text-primary transition-colors mb-2">
             {batch.name}
           </h3>
@@ -439,7 +454,14 @@ function BatchCard({
 
         {/* Enroll / Unenroll button */}
         <div className="mt-auto pt-3">
-          {enrolled ? (
+          {isInfinitePractice ? (
+            <Link href="/batch/infinite-practice">
+              <Button size="sm" className="w-full">
+                <Target className="mr-1 h-4 w-4" />
+                Open Practice
+              </Button>
+            </Link>
+          ) : enrolled ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -569,7 +591,10 @@ export default function Home() {
   const searchRef = useRef<HTMLDivElement>(null);
   const loadingMoreRef = useRef(false);
 
-  const allBatches = data?.batches ?? [];
+  const allBatches = useMemo(
+    () => [INFINITE_PRACTICE_BATCH, ...(data?.batches ?? [])],
+    [data?.batches],
+  );
 
   const sourceBatches: Batch[] = tab === "enrolled" ? enrolled : allBatches;
 

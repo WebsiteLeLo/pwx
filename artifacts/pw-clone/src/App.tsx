@@ -34,6 +34,7 @@ import AdminPanel from "@/pages/admin";
 import AccessPage from "@/pages/access";
 import VerifyPage from "@/pages/verify";
 import InfinitePractice from "@/pages/infinite-practice";
+import InfinitePracticeHub from "@/pages/infinite-practice-hub";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,6 +111,7 @@ function Router() {
                   <Route path="/access" component={AccessPage} />
                   <Route path="/verify" component={VerifyPage} />
                   <Route path="/pw" component={Home} />
+                  <Route path="/batch/infinite-practice" component={InfinitePracticeHub} />
                   <Route path="/batch/:batchId" component={Batch} />
                   <Route path="/batch/:batchId/infinite-practice" component={InfinitePractice} />
                   <Route path="/batch/:batchId/subject/:subjectId" component={Subject} />

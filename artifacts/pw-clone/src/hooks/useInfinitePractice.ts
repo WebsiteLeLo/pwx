@@ -2,14 +2,17 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
-const SUBJECTS_BATCH_ID = "698ad3519549b300a5e1cc6a";
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
 const MINUTE = 60_000;
 
-export function isInfinitePracticeBatch(batchId?: string) {
-  const normalizedBatchId = batchId?.trim().toLowerCase();
-  return normalizedBatchId === PRACTICE_BATCH_ID;
-}
+export const INFINITE_PRACTICE_BATCH_ID = "infinite-practice";
+
+export const INFINITE_PRACTICE_BATCHES = [
+  { id: "676e4dee1ec923bc192f38c9", name: "11th JEE", detail: "Practice for Class 11 JEE" },
+  { id: "65dc6fbabb55350018d555b7", name: "12th JEE", detail: "Practice for Class 12 JEE" },
+  { id: "676e5677418e84037bd6247c", name: "11th NEET", detail: "Practice for Class 11 NEET" },
+  { id: "65dc6fbaf5bcd500180102cd", name: "12th NEET", detail: "Practice for Class 12 NEET" },
+] as const;
 
 export interface InfinitePracticeSubject {
   subjectId: string;
@@ -133,12 +136,12 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
   return payload as T;
 }
 
-export function useInfinitePracticeSubjects() {
+export function useInfinitePracticeSubjects(batchId: string) {
   return useQuery({
-    queryKey: ["infinitePracticeSubjects", SUBJECTS_BATCH_ID],
+    queryKey: ["infinitePracticeSubjects", batchId],
     queryFn: async () => {
       const response = await fetch(
-        `${API_BASE}/v3/batches/${SUBJECTS_BATCH_ID}/infinitePractice/subjects`,
+        `${API_BASE}/v3/batches/${batchId}/infinitePractice/subjects`,
       );
       return readJson<{
         success: boolean;
@@ -149,7 +152,7 @@ export function useInfinitePracticeSubjects() {
         };
       }>(response, "Could not load practice subjects.");
     },
-    enabled: true,
+    enabled: Boolean(batchId?.trim()),
     staleTime: MINUTE * 30,
     gcTime: MINUTE * 120,
   });
@@ -170,7 +173,7 @@ export function useInfinitePracticeChapters(
         data: InfinitePracticeChapter[];
       }>(response, "Could not load chapters for this subject.");
     },
-    enabled: isInfinitePracticeBatch(batchId) && Boolean(subjectId),
+    enabled: Boolean(batchId?.trim()) && Boolean(subjectId),
     staleTime: MINUTE * 30,
     gcTime: MINUTE * 120,
   });
