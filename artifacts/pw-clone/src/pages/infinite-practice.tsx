@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import renderMathInElement from "katex/contrib/auto-render";
@@ -206,9 +206,12 @@ function HtmlContent({
   const contentRef = useRef<HTMLDivElement>(null);
   const normalizedHtml = useMemo(() => normalizeMathContent(html), [html]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!contentRef.current) return;
 
+    // KaTeX replaces text nodes in-place. Keep React from reconciling the
+    // mutated HTML on unrelated parent updates (for example, option select).
+    contentRef.current.innerHTML = normalizedHtml;
     renderMathInElement(contentRef.current, {
       delimiters: [
         { left: "$$", right: "$$", display: true },
@@ -228,7 +231,6 @@ function HtmlContent({
       ref={contentRef}
       className={`practice-html [&_img]:mx-auto [&_img]:max-w-full [&_img]:object-contain [&_p]:mb-2 [&_table]:max-w-full [&_table]:overflow-auto ${className}`}
       data-testid={testId}
-      dangerouslySetInnerHTML={{ __html: normalizedHtml }}
     />
   );
 }
