@@ -18,7 +18,6 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
-import { Layout } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBatchDetails } from "@/hooks/usePWApi";
 import { usePageMeta } from "@/hooks/usePageMeta";
@@ -150,7 +149,7 @@ function SelectionPanel({
   batchName: string;
   onStarted: (session: { testId: string; questions: InfinitePracticeQuestion[] }) => void;
 }) {
-  const subjectsQuery = useInfinitePracticeSubjects(batchId);
+  const subjectsQuery = useInfinitePracticeSubjects();
   const startPractice = useStartInfinitePractice(batchId);
   const subjects = subjectsQuery.data?.data.subjects ?? [];
   const [subjectId, setSubjectId] = useState("");
@@ -645,8 +644,8 @@ export default function InfinitePractice() {
 
   if (!isInfinitePracticeBatch(batchId)) {
     return (
-      <Layout breadcrumbs={[{ label: "Batch", href: `/batch/${batchId}` }, { label: "Infinite Practice" }]}>
-        <div className="flex min-h-[360px] flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white px-6 text-center">
+      <div className="min-h-screen w-full bg-white px-4 py-10 text-slate-900">
+        <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-2xl flex-col items-center justify-center rounded-3xl border border-slate-200 px-6 text-center">
           <CircleHelp className="mb-4 h-10 w-10 text-slate-300" />
           <h1 className="text-xl font-bold text-slate-900">Practice is not available in this batch</h1>
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
@@ -660,7 +659,7 @@ export default function InfinitePractice() {
             <ArrowLeft className="h-4 w-4" /> Back to batch
           </Link>
         </div>
-      </Layout>
+      </div>
     );
   }
 
@@ -671,8 +670,8 @@ export default function InfinitePractice() {
   };
 
   return (
-    <Layout breadcrumbs={[{ label: batchName, href: `/batch/${batchId}` }, { label: "Infinite Practice" }]}>
-      <div className="min-h-[calc(100dvh-10rem)] bg-white pb-8" data-testid="page-infinite-practice">
+    <div className="min-h-screen w-full bg-white text-slate-900" data-testid="page-infinite-practice">
+      <main className="mx-auto min-h-screen max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {roomState === "selection" && (
           <div className="mx-auto max-w-6xl">
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -716,7 +715,7 @@ export default function InfinitePractice() {
             }}
           />
         )}
-      </div>
-    </Layout>
+      </main>
+    </div>
   );
 }

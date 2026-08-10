@@ -2,17 +2,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
-const PRACTICE_BATCH_IDS = [
-  PRACTICE_BATCH_ID,
-  "698ad3519549b300a5e1cc6a",
-];
+const SUBJECTS_BATCH_ID = "698ad3519549b300a5e1cc6a";
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
 const SOLUTION_SERVICE_ID = "6a7926f671df072ea045fe87";
 const MINUTE = 60_000;
 
 export function isInfinitePracticeBatch(batchId?: string) {
   const normalizedBatchId = batchId?.trim().toLowerCase();
-  return Boolean(normalizedBatchId && PRACTICE_BATCH_IDS.includes(normalizedBatchId));
+  return normalizedBatchId === PRACTICE_BATCH_ID;
 }
 
 export interface InfinitePracticeSubject {
@@ -94,12 +91,12 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
   return payload as T;
 }
 
-export function useInfinitePracticeSubjects(batchId = PRACTICE_BATCH_ID) {
+export function useInfinitePracticeSubjects() {
   return useQuery({
-    queryKey: ["infinitePracticeSubjects", batchId],
+    queryKey: ["infinitePracticeSubjects", SUBJECTS_BATCH_ID],
     queryFn: async () => {
       const response = await fetch(
-        `${API_BASE}/v3/batches/${batchId}/infinitePractice/subjects`,
+        `${API_BASE}/v3/batches/${SUBJECTS_BATCH_ID}/infinitePractice/subjects`,
       );
       return readJson<{
         success: boolean;
@@ -110,7 +107,7 @@ export function useInfinitePracticeSubjects(batchId = PRACTICE_BATCH_ID) {
         };
       }>(response, "Could not load practice subjects.");
     },
-    enabled: isInfinitePracticeBatch(batchId),
+    enabled: true,
     staleTime: MINUTE * 30,
     gcTime: MINUTE * 120,
   });

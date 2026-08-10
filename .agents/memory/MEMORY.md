@@ -4,3 +4,4 @@
 - [Sitemap domain alignment](sitemap-domain-alignment.md) — sitemap URLs, robots.txt, canonical tags, and the published host must all use the same domain.
 - [External batch API failures](external-batch-api-failures.md) — third-party batch responses can be rate-limited or incomplete; always normalize them before rendering.
 - [Video player buffering and downloads](video-player-downloads.md) — protected manifests are not downloadable files; allow only validated direct media URLs through the server proxy.
+- [Infinite Practice API IDs](infinite-practice-api-ids.md) — subjects may use the catalog batch while chapters/start and solution use separate IDs; keep each endpoint contract explicit.
