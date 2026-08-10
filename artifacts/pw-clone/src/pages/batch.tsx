@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText, ChevronLeft, ChevronRight, ClipboardList, Trophy, Timer, HelpCircle, Target } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
+import { isInfinitePracticeBatch } from "@/hooks/useInfinitePractice";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function getLectureStatus(item: ScheduleItem): "live" | "upcoming" | "completed" {
@@ -884,6 +885,18 @@ export default function Batch() {
             <CalendarDays className="w-4 h-4" />
             <span className="hidden sm:inline">Calendar</span>
           </Link>
+
+          {isInfinitePracticeBatch(batchId) && (
+            <Link
+              href={`/batch/${batchId}/infinite-practice`}
+              data-testid="link-infinite-practice"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 text-sm font-semibold transition-all"
+              title="Open Infinite Practice"
+            >
+              <Target className="w-4 h-4" />
+              <span>Infinite Practice</span>
+            </Link>
+          )}
 
           {/* Share */}
           <Button

@@ -228,6 +228,12 @@
   }
 }
 
+/* Infinite Practice keeps the question canvas quiet and image-friendly. */
+.practice-question-canvas {
+  background: #fff;
+  color: #172033;
+}
+
 @keyframes fade-out {
   0%   { opacity: 1; transform: scale(1); }
   70%  { opacity: 1; transform: scale(1.1); }
