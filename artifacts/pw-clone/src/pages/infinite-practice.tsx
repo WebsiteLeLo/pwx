@@ -174,6 +174,20 @@ function mathmlNodeToTex(node: Node): string {
   }
 }
 
+function normalizeEscapedLatexText(value: string) {
+  let normalized = value;
+  // Some records arrive JSON/string escaped twice, so KaTeX receives
+  // "\\(" and "\\frac" instead of the usable "\(" and "\frac".
+  // Only collapse pairs that introduce a LaTeX delimiter or command; keep
+  // ordinary LaTeX line breaks (`\\`) and unrelated backslashes untouched.
+  let previous = "";
+  while (normalized !== previous) {
+    previous = normalized;
+    normalized = normalized.replace(/\\\\(?=[A-Za-z()[\]$])/g, "\\");
+  }
+  return normalized;
+}
+
 function normalizeMathContent(html?: string) {
   if (!html || typeof DOMParser === "undefined") return html || "";
 
@@ -190,6 +204,15 @@ function normalizeMathContent(html?: string) {
     const right = display ? "\\]" : "\\)";
     math.replaceWith(parsed.createTextNode(`${left}${tex}${right}`));
   });
+
+  const normalizeTextNodes = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      node.textContent = normalizeEscapedLatexText(node.textContent || "");
+      return;
+    }
+    Array.from(node.childNodes).forEach(normalizeTextNodes);
+  };
+  normalizeTextNodes(container);
 
   return container.innerHTML;
 }
