@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
+import renderMathInElement from "katex/contrib/auto-render";
+import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,6 +54,146 @@ function stripUnsafeHtml(html: string) {
     .replace(/\son[a-z]+\s*=\s*(['"]).*?\1/gi, "");
 }
 
+function mathmlTextToTex(value: string) {
+  return value
+    .replace(/−/g, "-")
+    .replace(/×/g, "\\times ")
+    .replace(/⋅/g, "\\cdot ")
+    .replace(/≤/g, "\\le ")
+    .replace(/≥/g, "\\ge ")
+    .replace(/≠/g, "\\ne ")
+    .replace(/∞/g, "\\infty ")
+    .replace(/π/g, "\\pi ")
+    .replace(/θ/g, "\\theta ")
+    .replace(/α/g, "\\alpha ")
+    .replace(/β/g, "\\beta ")
+    .replace(/γ/g, "\\gamma ")
+    .replace(/Δ/g, "\\Delta ")
+    .replace(/∑/g, "\\sum ")
+    .replace(/∏/g, "\\prod ")
+    .replace(/∈/g, "\\in ")
+    .replace(/∉/g, "\\notin ")
+    .replace(/∴/g, "\\therefore ");
+}
+
+function mathmlNodeToTex(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return mathmlTextToTex(node.textContent || "");
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  const element = node as Element;
+  const tag = element.localName.toLowerCase();
+  const children = Array.from(element.childNodes);
+  const meaningfulChildren = children.filter((child) => {
+    if (child.nodeType !== Node.ELEMENT_NODE) return child.textContent?.trim();
+    const childTag = (child as Element).localName.toLowerCase();
+    return childTag !== "none" && childTag !== "mprescripts";
+  });
+  const childTex = (index: number) => mathmlNodeToTex(meaningfulChildren[index]);
+  const allTex = meaningfulChildren.map((child) => mathmlNodeToTex(child)).join("");
+
+  switch (tag) {
+    case "math":
+    case "mrow":
+    case "mstyle":
+    case "semantics":
+    case "mphantom":
+    case "menclose":
+      return allTex;
+    case "annotation":
+    case "annotation-xml":
+      return "";
+    case "mi":
+    case "mn":
+    case "mtext":
+    case "mo":
+      return mathmlTextToTex(element.textContent || "");
+    case "mfrac":
+      return `\\frac{${childTex(0)}}{${childTex(1)}}`;
+    case "msup":
+      return `${childTex(0)}^{${childTex(1)}}`;
+    case "msub":
+      return `${childTex(0)}_{${childTex(1)}}`;
+    case "msubsup":
+      return `${childTex(0)}_{${childTex(1)}}^{${childTex(2)}}`;
+    case "msqrt":
+      return `\\sqrt{${allTex}}`;
+    case "mroot":
+      return `\\sqrt[${childTex(1)}]{${childTex(0)}}`;
+    case "mfenced": {
+      const open = element.getAttribute("open") ?? "(";
+      const close = element.getAttribute("close") ?? ")";
+      const separator = element.getAttribute("separators")?.[0] ?? ",";
+      const body = meaningfulChildren
+        .map((child) => mathmlNodeToTex(child))
+        .join(separator);
+      return `\\left${open}${body}\\right${close}`;
+    }
+    case "mover":
+      return `\\overset{${childTex(1)}}{${childTex(0)}}`;
+    case "munder":
+      return `\\underset{${childTex(1)}}{${childTex(0)}}`;
+    case "munderover":
+      return `\\underset{${childTex(1)}}{\\overset{${childTex(2)}}{${childTex(0)}}}`;
+    case "mspace":
+      return "\\ ";
+    case "mtable":
+      return `\\begin{matrix}${Array.from(element.children)
+        .map((row) => mathmlNodeToTex(row))
+        .join("\\\\") }\\end{matrix}`;
+    case "mtr":
+      return Array.from(element.children).map((cell) => mathmlNodeToTex(cell)).join(" & ");
+    case "mtd":
+      return allTex;
+    case "mmultiscripts": {
+      const base = mathmlNodeToTex(children[0]);
+      const postSub = children[1] && (children[1] as Element).localName?.toLowerCase() !== "none"
+        ? mathmlNodeToTex(children[1])
+        : "";
+      const postSup = children[2] && (children[2] as Element).localName?.toLowerCase() !== "none"
+        ? mathmlNodeToTex(children[2])
+        : "";
+      const prescriptMarker = children.findIndex(
+        (child) =>
+          child.nodeType === Node.ELEMENT_NODE &&
+          (child as Element).localName.toLowerCase() === "mprescripts",
+      );
+      const preSubNode = prescriptMarker === -1 ? undefined : children[prescriptMarker + 1];
+      const preSupNode = prescriptMarker === -1 ? undefined : children[prescriptMarker + 2];
+      const preSub = preSubNode && (preSubNode as Element).localName?.toLowerCase() !== "none"
+        ? mathmlNodeToTex(preSubNode)
+        : "";
+      const preSup = preSupNode && (preSupNode as Element).localName?.toLowerCase() !== "none"
+        ? mathmlNodeToTex(preSupNode)
+        : "";
+      return `${preSup ? `^{${preSup}}` : ""}${preSub ? `_{${preSub}}` : ""}${base}${postSub ? `_{${postSub}}` : ""}${postSup ? `^{${postSup}}` : ""}`;
+    }
+    default:
+      return allTex;
+  }
+}
+
+function normalizeMathContent(html?: string) {
+  if (!html || typeof DOMParser === "undefined") return html || "";
+
+  const sanitized = stripUnsafeHtml(html);
+  const parsed = new DOMParser().parseFromString(`<div>${sanitized}</div>`, "text/html");
+  const container = parsed.body.firstElementChild;
+  if (!container) return sanitized;
+
+  container.querySelectorAll("math").forEach((math) => {
+    const tex = mathmlNodeToTex(math).replace(/\s+/g, " ").trim();
+    if (!tex) return;
+    const display = math.getAttribute("display") === "block";
+    const left = display ? "\\[" : "\\(";
+    const right = display ? "\\]" : "\\)";
+    math.replaceWith(parsed.createTextNode(`${left}${tex}${right}`));
+  });
+
+  return container.innerHTML;
+}
+
 function HtmlContent({
   html,
   className = "",
@@ -61,12 +203,32 @@ function HtmlContent({
   className?: string;
   testId?: string;
 }) {
-  if (!html) return null;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const normalizedHtml = useMemo(() => normalizeMathContent(html), [html]);
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    renderMathInElement(contentRef.current, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "\\[", right: "\\]", display: true },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "$", right: "$", display: false },
+      ],
+      throwOnError: false,
+      strict: false,
+      trust: false,
+    });
+  }, [normalizedHtml]);
+
+  if (!normalizedHtml) return null;
   return (
     <div
+      ref={contentRef}
       className={`practice-html [&_img]:mx-auto [&_img]:max-w-full [&_img]:object-contain [&_p]:mb-2 [&_table]:max-w-full [&_table]:overflow-auto ${className}`}
       data-testid={testId}
-      dangerouslySetInnerHTML={{ __html: stripUnsafeHtml(html) }}
+      dangerouslySetInnerHTML={{ __html: normalizedHtml }}
     />
   );
 }

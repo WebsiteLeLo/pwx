@@ -228,6 +228,29 @@
   }
 }
 
+/* Infinite Practice math content */
+.practice-html {
+  overflow-wrap: anywhere;
+}
+
+.practice-html .katex {
+  font-size: 1.02em;
+  line-height: 1.2;
+}
+
+.practice-html .katex-display {
+  max-width: 100%;
+  margin: 0.85rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0.1rem 0.5rem;
+}
+
+.practice-html math {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* Infinite Practice keeps the question canvas quiet and image-friendly. */
 .practice-question-canvas {
   background: #fff;
