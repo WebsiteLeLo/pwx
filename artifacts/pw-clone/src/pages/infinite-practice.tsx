@@ -725,7 +725,7 @@ function QuestionRoom({
         <div className="flex min-w-0 items-center gap-3">
           <Link
             data-testid="link-leave-practice"
-            href={`/batch/${batchId}`}
+            href="/batch/infinite-practice"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -969,7 +969,7 @@ export default function InfinitePractice() {
               </div>
               <Link
                 data-testid="link-practice-back"
-                href={`/batch/${batchId}`}
+                href="/batch/infinite-practice"
                 className="inline-flex h-10 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:self-auto"
               >
                 <ArrowLeft className="h-4 w-4" /> Batch overview
