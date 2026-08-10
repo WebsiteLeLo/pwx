@@ -3,8 +3,8 @@ name: Infinite Practice API IDs
 description: Non-obvious ID mapping across the Infinite Practice endpoints.
 ---
 
-Infinite Practice does not use one universal ID for every request. The subjects catalog, chapter/start-test batch, and submit-question-test service can have different IDs supplied by the upstream API contract.
+Infinite Practice does not use one universal ID for every request. The subjects catalog and chapter/start-test batch can differ, while the start-test response returns the dynamic test ID that must be used for both submit-test and test-solution.
 
-**Why:** Treating the returned test document ID or one batch ID as interchangeable with the upstream service ID causes valid-looking requests to hit the wrong route.
+**Why:** The old submit-question-test route is unavailable for this flow; treating a fixed service ID, batch ID, or returned test ID as interchangeable causes valid-looking requests to hit the wrong route.
 
-**How to apply:** Keep each endpoint's path and ID mapping explicit in the API hook, and verify the upstream response envelope before changing the mapping.
+**How to apply:** Use EXAM start-test, retain `data._id`, submit the complete `questionsResponse` to `/{testId}/infinitePractice/submit-test`, then GET `/{testId}/infinitePractice/test-solution`.

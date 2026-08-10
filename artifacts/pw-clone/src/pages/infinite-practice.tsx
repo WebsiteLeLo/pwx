@@ -24,12 +24,15 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import {
   useInfinitePracticeChapters,
   useInfinitePracticeSubjects,
+  useInfinitePracticeSolution,
   useStartInfinitePractice,
   useSubmitInfinitePractice,
   isInfinitePracticeBatch,
   type InfinitePracticeChapter,
   type InfinitePracticeQuestion,
+  type InfinitePracticeTestSolution,
   type InfinitePracticeSubject,
+  type SubmitInfinitePracticeInput,
 } from "@/hooks/useInfinitePractice";
 
 type RoomState = "selection" | "question" | "complete";
@@ -411,53 +414,66 @@ function QuestionRoom({
 }: {
   batchId: string;
   session: { testId: string; questions: InfinitePracticeQuestion[] };
-  onComplete: () => void;
+  onComplete: (result: InfinitePracticeTestSolution) => void;
 }) {
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [solution, setSolution] = useState<Record<string, unknown> | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [answers, setAnswers] = useState<Record<string, SubmitInfinitePracticeInput>>({});
   const [submitError, setSubmitError] = useState("");
-  const submitAnswer = useSubmitInfinitePractice();
+  const submitTest = useSubmitInfinitePractice(session.testId);
+  const loadSolution = useInfinitePracticeSolution(session.testId);
   const startedAt = useRef(Date.now());
   const question = session.questions[index];
-  const progress = ((index + (submitted ? 1 : 0)) / session.questions.length) * 100;
+  const progress = (index / session.questions.length) * 100;
 
   useEffect(() => {
     startedAt.current = Date.now();
-    setSelected(null);
-    setSubmitted(false);
-    setSolution(null);
+    setSelected(answers[session.questions[index]?.questionId]?.markedSolutions ?? []);
     setSubmitError("");
-  }, [index]);
+  }, [answers, index, session.questions]);
 
-  const sendAnswer = () => {
-    if (selected === null || submitAnswer.isPending) return;
-    setSubmitError("");
-    submitAnswer.mutate(
-      {
-        questionId: question.questionId,
-        status: "ATTEMPTED",
-        chapterId: question.chapterId,
-        timeTaken: Math.max(1, Math.round((Date.now() - startedAt.current) / 1000)),
-        questionNumber: index + 1,
-        markedSolutions: [selected + 1],
-        difficulty: question.difficulty,
-        type: question.type,
-      },
-      {
-        onSuccess: (response) => {
-          setSolution(response.data ?? response);
-          setSubmitted(true);
-        },
-        onError: (error) => setSubmitError(error.message),
-      },
-    );
+  const makeAnswer = (): SubmitInfinitePracticeInput | null => {
+    if (!question || selected.length === 0) return null;
+    return {
+      questionId: question.questionId,
+      status: "ATTEMPTED",
+      timeTaken: Math.max(1000, Date.now() - startedAt.current),
+      chapterId: question.chapterId,
+      questionNumber: index + 1,
+      markedSolutions: selected,
+      difficulty: question.difficulty,
+      type: question.type,
+    };
   };
 
-  const next = () => {
-    if (index === session.questions.length - 1) onComplete();
-    else setIndex((value) => value + 1);
+  const saveAnswer = () => {
+    const answer = makeAnswer();
+    if (!answer || submitTest.isPending || loadSolution.isPending) {
+      if (!answer) setSubmitError("Please select at least one option.");
+      return;
+    }
+    setSubmitError("");
+    return answer;
+  };
+
+  const next = async () => {
+    const answer = saveAnswer();
+    if (!answer) return;
+    const nextAnswers = { ...answers, [answer.questionId]: answer };
+    setAnswers(nextAnswers);
+    if (index < session.questions.length - 1) {
+      setIndex((value) => value + 1);
+      return;
+    }
+
+    setSubmitError("");
+    try {
+      await submitTest.mutateAsync({ questionsResponse: Object.values(nextAnswers) });
+      const result = await loadSolution.mutateAsync();
+      onComplete(result);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not submit this test.");
+    }
   };
 
   if (!question) return null;
@@ -516,15 +532,23 @@ function QuestionRoom({
 
           <div className="space-y-3" role="radiogroup" aria-label={`Answers for question ${index + 1}`}>
             {question.options.map((option, optionIndex) => {
-              const isSelected = selected === optionIndex;
+              const isSelected = selected.includes(optionIndex + 1);
               return (
                 <button
                   key={`${question.questionId}-${optionIndex}`}
                   data-testid={`button-option-${optionIndex + 1}`}
                   role="radio"
                   aria-checked={isSelected}
-                  disabled={submitted}
-                  onClick={() => setSelected(optionIndex)}
+                  disabled={submitTest.isPending || loadSolution.isPending}
+                  onClick={() =>
+                    setSelected((current) =>
+                      question.type === 2
+                        ? current.includes(optionIndex + 1)
+                          ? current.filter((value) => value !== optionIndex + 1)
+                          : [...current, optionIndex + 1]
+                        : [optionIndex + 1],
+                    )
+                  }
                   className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all disabled:cursor-default ${
                     isSelected
                       ? "border-indigo-500 bg-indigo-50"
@@ -540,35 +564,6 @@ function QuestionRoom({
             })}
           </div>
 
-          {submitted && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4"
-              data-testid="panel-practice-solution"
-            >
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <Lightbulb className="h-4 w-4 text-amber-600" /> Solution
-              </div>
-              {solution && (
-                <div className="mt-3 text-sm leading-6 text-slate-700">
-                  <HtmlContent
-                    html={
-                      (solution.solution as string)
-                      || (solution.solutionText as string)
-                      || (solution.content as string)
-                      || (solution.explanation as string)
-                    }
-                  />
-                  {typeof solution.solutionImageUrl === "string" && (
-                    <img src={solution.solutionImageUrl} alt="Worked solution" className="mt-3 max-h-[360px] max-w-full object-contain" />
-                  )}
-                </div>
-              )}
-              {!solution && <p className="mt-2 text-sm text-slate-600">Your answer was submitted successfully.</p>}
-            </motion.div>
-          )}
-
           {submitError && (
             <div className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-700" data-testid="status-practice-submit-error">
               {submitError}
@@ -577,26 +572,18 @@ function QuestionRoom({
 
           <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-400">
-              {submitted ? "Answer submitted" : "Select an option to see the solution"}
+              {question.type === 2 ? "Select one or more options" : "Select an option"}
             </p>
-            {!submitted ? (
-              <button
-                data-testid="button-submit-answer"
-                disabled={selected === null || submitAnswer.isPending}
-                onClick={sendAnswer}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                {submitAnswer.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking...</> : <>Check answer <ArrowRight className="h-4 w-4" /></>}
-              </button>
-            ) : (
-              <button
-                data-testid="button-next-question"
-                onClick={next}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800"
-              >
-                {index === session.questions.length - 1 ? "Finish practice" : "Next question"} <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
+            <button
+              data-testid={index === session.questions.length - 1 ? "button-submit-test" : "button-next-question"}
+              disabled={selected.length === 0 || submitTest.isPending || loadSolution.isPending}
+              onClick={next}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {submitTest.isPending || loadSolution.isPending
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting test...</>
+                : <>{index === session.questions.length - 1 ? "Submit test" : "Next question"} <ArrowRight className="h-4 w-4" /></>}
+            </button>
           </div>
         </motion.article>
       </AnimatePresence>
@@ -604,7 +591,14 @@ function QuestionRoom({
   );
 }
 
-function Completion({ onRestart }: { onRestart: () => void }) {
+function Completion({
+  result,
+  onRestart,
+}: {
+  result: InfinitePracticeTestSolution;
+  onRestart: () => void;
+}) {
+  const questionSolutions = result.questionsResponses ?? [];
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
@@ -615,8 +609,47 @@ function Completion({ onRestart }: { onRestart: () => void }) {
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
         <Trophy className="h-8 w-8" />
       </div>
-      <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Set complete</p>
+      <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Test submitted</p>
       <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Practice set finished</h2>
+      <div className="mt-5 grid grid-cols-2 gap-3 text-left sm:grid-cols-4">
+        {[
+          ["Score", result.userScore ?? result.score ?? "—"],
+          ["Accuracy", result.accuracy === undefined ? "—" : `${result.accuracy}%`],
+          ["Correct", result.totalCorrectQuestions ?? "—"],
+          ["Incorrect", result.totalIncorrectQuestions ?? "—"],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl bg-indigo-50 p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-500">{label}</p>
+            <p className="mt-1 text-xl font-bold text-indigo-950">{value}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 text-sm leading-6 text-slate-500">Review the solutions below and keep practising.</p>
+      {questionSolutions.length > 0 && (
+        <div className="mt-6 space-y-3 text-left">
+          {questionSolutions.map((item, itemIndex) => {
+            const correctOptions = (item.options ?? [])
+              .map((option, optionIndex) => option.isCorrect ? optionIndex + 1 : null)
+              .filter((value): value is number => value !== null);
+            const solution = item.solutions?.[0];
+            return (
+              <article key={`${item.questionId}-${itemIndex}`} className="rounded-2xl border border-slate-200 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Question {item.questionNumber ?? itemIndex + 1}</p>
+                <HtmlContent html={item.content} className="mt-2 text-sm leading-6 text-slate-800" />
+                <p className="mt-3 text-xs font-semibold text-emerald-700">
+                  Correct option{correctOptions.length === 1 ? "" : "s"}: {correctOptions.length ? correctOptions.join(", ") : "Not available"}
+                </p>
+                {solution?.text && <HtmlContent html={solution.text} className="mt-2 text-sm leading-6 text-slate-600" />}
+                {solution?.videoSolution?.url && (
+                  <a href={solution.videoSolution.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-indigo-600 hover:underline">
+                    Watch video solution
+                  </a>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
       <p className="mt-3 text-sm leading-6 text-slate-500">Keep the momentum going with another focused set.</p>
       <button
         data-testid="button-practice-again"
@@ -634,6 +667,7 @@ export default function InfinitePractice() {
   const { data: batchData } = useBatchDetails(batchId);
   const [roomState, setRoomState] = useState<RoomState>("selection");
   const [session, setSession] = useState<{ testId: string; questions: InfinitePracticeQuestion[] } | null>(null);
+  const [testResult, setTestResult] = useState<InfinitePracticeTestSolution | null>(null);
   const batchName = batchData?.data?.name || "Arjuna JEE 2026";
 
   usePageMeta({
@@ -665,6 +699,7 @@ export default function InfinitePractice() {
 
   const startQuestionRoom = (nextSession: { testId: string; questions: InfinitePracticeQuestion[] }) => {
     setSession(nextSession);
+    setTestResult(null);
     setRoomState("question");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -701,16 +736,19 @@ export default function InfinitePractice() {
           <QuestionRoom
             batchId={batchId}
             session={session}
-            onComplete={() => {
+            onComplete={(result) => {
+              setTestResult(result);
               setRoomState("complete");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           />
         )}
-        {roomState === "complete" && (
+        {roomState === "complete" && testResult && (
           <Completion
+            result={testResult}
             onRestart={() => {
               setSession(null);
+              setTestResult(null);
               setRoomState("selection");
             }}
           />

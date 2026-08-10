@@ -4,7 +4,6 @@ const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
 const SUBJECTS_BATCH_ID = "698ad3519549b300a5e1cc6a";
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
-const SOLUTION_SERVICE_ID = "6a7926f671df072ea045fe87";
 const MINUTE = 60_000;
 
 export function isInfinitePracticeBatch(batchId?: string) {
@@ -74,9 +73,52 @@ export interface SubmitInfinitePracticeInput {
   type: number;
 }
 
-export interface SubmitInfinitePracticeResponse {
-  success?: boolean;
-  data?: Record<string, unknown>;
+export interface SubmitInfinitePracticeResult {
+  score?: number;
+  accuracy?: number;
+  [key: string]: unknown;
+}
+
+export interface InfinitePracticeSolutionOption {
+  text?: string | null;
+  isCorrect?: boolean;
+  [key: string]: unknown;
+}
+
+export interface InfinitePracticeSolution {
+  text?: string | null;
+  videoSolution?: { type?: number; url?: string } | null;
+  otherSolution?: string | null;
+  [key: string]: unknown;
+}
+
+export interface InfinitePracticeQuestionSolution {
+  questionId: string;
+  content?: string;
+  options?: InfinitePracticeSolutionOption[];
+  solutions?: InfinitePracticeSolution[];
+  type?: number;
+  difficulty?: number;
+  chapterId?: string;
+  chapterName?: string;
+  subjectId?: string;
+  subjectName?: string;
+  timeTaken?: number;
+  status?: string;
+  markedSolutions?: number[];
+  questionNumber?: number;
+  [key: string]: unknown;
+}
+
+export interface InfinitePracticeTestSolution {
+  _id?: string;
+  score?: number;
+  userScore?: number;
+  accuracy?: number;
+  totalCorrectQuestions?: number;
+  totalIncorrectQuestions?: number;
+  totalSkippedQuestions?: number;
+  questionsResponses?: InfinitePracticeQuestionSolution[];
   [key: string]: unknown;
 }
 
@@ -145,7 +187,7 @@ export function useStartInfinitePractice(batchId = PRACTICE_BATCH_ID) {
           body: JSON.stringify({
             exams: [],
             examCategory: EXAM_CATEGORY,
-            testMode: "PRACTICE",
+            testMode: "EXAM",
             questionsCount: input.questionsCount,
             chapters: input.chapters,
             subject: input.subjectId,
@@ -168,23 +210,45 @@ export function useStartInfinitePractice(batchId = PRACTICE_BATCH_ID) {
   });
 }
 
-export function useSubmitInfinitePractice() {
+export function useSubmitInfinitePractice(testId: string) {
   return useMutation({
     mutationFn: async (
-      input: SubmitInfinitePracticeInput,
-    ): Promise<SubmitInfinitePracticeResponse> => {
+      input: { questionsResponse: SubmitInfinitePracticeInput[] },
+    ): Promise<SubmitInfinitePracticeResult> => {
       const response = await fetch(
-        `${API_BASE}/v3/test-service/${SOLUTION_SERVICE_ID}/infinitePractice/submit-question-test`,
+        `${API_BASE}/v3/test-service/${testId}/infinitePractice/submit-test`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(input),
         },
       );
-      return readJson<SubmitInfinitePracticeResponse>(
+      const payload = await readJson<{
+        success: boolean;
+        data?: SubmitInfinitePracticeResult;
+      }>(
         response,
-        "The solution service did not respond. You can retry this answer.",
+        "Could not submit this practice test.",
       );
+      return payload.data ?? {};
+    },
+  });
+}
+
+export function useInfinitePracticeSolution(testId: string) {
+  return useMutation({
+    mutationFn: async (): Promise<InfinitePracticeTestSolution> => {
+      const response = await fetch(
+        `${API_BASE}/v3/test-service/${testId}/infinitePractice/test-solution`,
+      );
+      const payload = await readJson<{
+        success: boolean;
+        data?: InfinitePracticeTestSolution;
+      }>(response, "Could not load the test solutions.");
+      if (!payload.data) {
+        throw new Error("The test solution response was empty.");
+      }
+      return payload.data;
     },
   });
 }
