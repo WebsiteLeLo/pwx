@@ -1,26 +1,83 @@
 import { useEffect, useState } from "react";
-import { apiUrl } from "@/lib/apiUrl";
 
-const VIDCLOUD_BASE = "https://vidcloud.eu.org/play.php";
+const PW_API_BASE =
+  "https://pwsecure.gourav23032009.workers.dev/api/pw/v1";
 
-interface VideoData {
-  url?: string;
-  directUrl?: string;
-  streamUrl?: string;
-  signedUrl?: string;
-  topic?: string;
-  vid?: string;
+const VID_CLOUD_BASE =
+  "https://vidcloud.eu.org/play.php";
+
+function pick(obj: any, keys: string[]): string {
+  for (const key of keys) {
+    const value = obj?.[key];
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+    ) {
+      return String(value);
+    }
+  }
+
+  return "";
 }
 
-interface ApiResponse {
-  success?: boolean;
-  data?: VideoData;
-  url?: string;
-  directUrl?: string;
-  streamUrl?: string;
-  signedUrl?: string;
-  topic?: string;
-  vid?: string;
+function findDeep(obj: any, keys: string[]): string {
+  if (!obj || typeof obj !== "object") return "";
+
+  const direct = pick(obj, keys);
+  if (direct) return direct;
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      const found = findDeep(value, keys);
+      if (found) return found;
+    }
+  }
+
+  return "";
+}
+
+function assetUrl(value: any): string {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    return /^https?:\/\//i.test(value)
+      ? value
+      : `https://static.pw.live/${value.replace(/^\/+/, "")}`;
+  }
+
+  if (typeof value === "object") {
+    if (value.baseUrl && value.key) {
+      return `${value.baseUrl}${value.key}`;
+    }
+
+    if (value.url) {
+      return assetUrl(value.url);
+    }
+
+    if (value.key) {
+      return `https://static.pw.live/${value.key.replace(/^\/+/, "")}`;
+    }
+  }
+
+  return "";
+}
+
+function cleanVideoUrl(url: string): string {
+  if (!url) return "";
+
+  /*
+   * VidCloud's real URL uses the base master.mpd URL,
+   * not the signed query string used by the custom player.
+   */
+  try {
+    const parsed = new URL(url);
+
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url.split("?")[0];
+  }
 }
 
 export default function Watch() {
@@ -29,15 +86,11 @@ export default function Watch() {
   useEffect(() => {
     let cancelled = false;
 
-    async function openVideo() {
+    async function openVidCloud() {
       try {
-        const sp = new URLSearchParams(window.location.search);
-
-        /*
-         * Current Watch URL:
-         *
-         * /watch?batchId=...&subjectId=...&topicId=...&childId=...
-         */
+        const sp = new URLSearchParams(
+          window.location.search
+        );
 
         const batchId =
           sp.get("batchId") ||
@@ -61,54 +114,31 @@ export default function Watch() {
           sp.get("ContentId") ||
           "";
 
-        /*
-         * Optional values.
-         *
-         * If your previous page already sends these, they will
-         * automatically be used. Otherwise they remain empty.
-         */
-
-        const programId =
-          sp.get("programId") ||
-          sp.get("program_id") ||
-          "";
-
-        const typeId =
-          sp.get("typeId") ||
-          sp.get("type_id") ||
-          "";
-
-        const videoImg =
-          sp.get("videoImg") ||
-          sp.get("video_img") ||
-          "";
-
-        const suppliedTitle =
-          sp.get("title") ||
-          sp.get("videoName") ||
-          sp.get("video_name") ||
-          "";
-
         if (!batchId) {
-          throw new Error("batchId is missing.");
+          throw new Error("batchId missing");
+        }
+
+        if (!subjectId) {
+          throw new Error("subjectId missing");
         }
 
         if (!childId) {
-          throw new Error("childId/videoId is missing.");
+          throw new Error("videoId/childId missing");
         }
 
         /*
-         * Get the actual stream information.
-         *
-         * This is the same endpoint your old AkpPlayer uses.
+         * Only metadata/source information.
+         * AkpPlayer is NOT used.
          */
-        const endpoint =
-          `${apiUrl("")}/akp-video-url` +
-          `?batchId=${encodeURIComponent(batchId)}` +
-          `&childId=${encodeURIComponent(childId)}`;
+        const scheduleId = childId;
 
-        const response = await fetch(endpoint, {
-          method: "GET",
+        const detailsUrl =
+          `${PW_API_BASE}/batches/` +
+          `${encodeURIComponent(batchId)}/subject/` +
+          `${encodeURIComponent(subjectId)}/schedule/` +
+          `${encodeURIComponent(scheduleId)}/schedule-details`;
+
+        const response = await fetch(detailsUrl, {
           headers: {
             Accept: "application/json",
           },
@@ -116,65 +146,171 @@ export default function Watch() {
 
         if (!response.ok) {
           throw new Error(
-            `Video API failed (${response.status})`
+            `Schedule details failed: ${response.status}`
           );
         }
 
-        const json: ApiResponse = await response.json();
+        const json = await response.json();
 
-        const data: VideoData =
-          json?.data ?? json;
+        const root =
+          json?.data ??
+          json;
 
         /*
-         * Pick whichever URL your API returns.
+         * Find the actual video object dynamically.
          */
-        const rawStreamUrl =
-          data.streamUrl ||
-          data.url ||
-          data.directUrl ||
-          "";
+        const videoObject =
+          root?.video ??
+          root?.videoData ??
+          root?.videoDetails ??
+          root?.content ??
+          root;
 
-        if (!rawStreamUrl) {
-          throw new Error(
-            "No stream URL was returned by the video API."
-          );
+        /*
+         * video ID
+         */
+        const videoId =
+          findDeep(videoObject, [
+            "video_id",
+            "videoId",
+            "childId",
+            "contentId",
+            "_id",
+            "id",
+          ]) ||
+          childId;
+
+        /*
+         * typeId
+         */
+        const typeId =
+          findDeep(videoObject, [
+            "typeId",
+            "type_id",
+            "videoTypeId",
+            "video_type_id",
+          ]);
+
+        /*
+         * Program ID
+         */
+        const programId =
+          findDeep(videoObject, [
+            "program_id",
+            "programId",
+          ]);
+
+        /*
+         * Actual master.mpd URL
+         */
+        let videoUrl =
+          findDeep(videoObject, [
+            "video_url",
+            "videoUrl",
+            "videoURL",
+            "streamUrl",
+            "streamURL",
+            "url",
+            "directUrl",
+            "directURL",
+            "mpdUrl",
+            "mpdURL",
+            "manifestUrl",
+            "manifestURL",
+          ]);
+
+        /*
+         * If nested object was not enough, search
+         * the complete schedule response.
+         */
+        if (!videoUrl) {
+          videoUrl = findDeep(root, [
+            "video_url",
+            "videoUrl",
+            "videoURL",
+            "streamUrl",
+            "streamURL",
+            "url",
+            "directUrl",
+            "directURL",
+            "mpdUrl",
+            "mpdURL",
+            "manifestUrl",
+            "manifestURL",
+          ]);
         }
 
         /*
-         * Remove any existing query string from the base URL.
-         */
-        const baseStreamUrl =
-          rawStreamUrl.split("?")[0];
-
-        /*
-         * signedUrl contains the CloudFront query string.
-         */
-        const signedQuery =
-          data.signedUrl || "";
-
-        const mpdUrl = signedQuery
-          ? `${baseStreamUrl}${signedQuery}`
-          : baseStreamUrl;
-
-        /*
-         * Video title.
+         * Remove CloudFront signing query.
+         * Real VidCloud URL uses:
          *
-         * Prefer:
-         * 1. API topic
-         * 2. URL title
-         * 3. fallback
+         * https://...cloudfront.net/UUID/master.mpd
+         */
+        videoUrl = cleanVideoUrl(videoUrl);
+
+        if (!videoUrl) {
+          throw new Error(
+            "master.mpd URL was not found in schedule details"
+          );
+        }
+
+        /*
+         * Video name
          */
         const videoName =
-          data.topic ||
-          suppliedTitle ||
+          findDeep(videoObject, [
+            "video_name",
+            "videoName",
+            "title",
+            "name",
+            "topic",
+          ]) ||
+          findDeep(root, [
+            "video_name",
+            "videoName",
+            "title",
+            "name",
+            "topic",
+          ]) ||
           "Lecture";
 
         /*
-         * Build the COMPLETE VidCloud URL dynamically.
+         * Video image
          */
-        const vidcloud = new URL(
-          VIDCLOUD_BASE
-        );
+        let videoImgValue =
+          findDeep(videoObject, [
+            "video_img",
+            "videoImg",
+            "thumbnail",
+            "thumbnailUrl",
+            "thumbnail_url",
+            "image",
+            "imageUrl",
+            "image_url",
+          ]);
+
+        if (!videoImgValue) {
+          videoImgValue =
+            findDeep(root, [
+              "video_img",
+              "videoImg",
+              "thumbnail",
+              "thumbnailUrl",
+              "thumbnail_url",
+              "image",
+              "imageUrl",
+              "image_url",
+            ]);
+        }
+
+        const videoImg =
+          assetUrl(videoImgValue);
+
+        /*
+         * Build EXACT VidCloud parameter structure.
+         */
+        const vidcloud =
+          new URL(VID_CLOUD_BASE);
 
         vidcloud.searchParams.set(
           "batch_id",
@@ -198,7 +334,7 @@ export default function Watch() {
 
         vidcloud.searchParams.set(
           "video_id",
-          childId
+          videoId
         );
 
         vidcloud.searchParams.set(
@@ -208,7 +344,7 @@ export default function Watch() {
 
         vidcloud.searchParams.set(
           "video_url",
-          mpdUrl
+          videoUrl
         );
 
         vidcloud.searchParams.set(
@@ -231,35 +367,44 @@ export default function Watch() {
           "Lecture"
         );
 
+        const finalUrl =
+          vidcloud.toString();
+
+        console.log(
+          "VIDCLOUD URL:",
+          finalUrl
+        );
+
         if (cancelled) return;
 
         /*
-         * DIRECTLY OPEN VIDCLOUD IN THE BROWSER.
+         * DIRECTLY OPEN VIDCloud.
          *
          * No iframe.
          * No AkpPlayer.
-         * No custom player.
+         * No Shaka.
+         * No custom video player.
          */
         window.location.replace(
-          vidcloud.toString()
+          finalUrl
         );
       } catch (err) {
         if (cancelled) return;
 
         console.error(
-          "Watch error:",
+          "VidCloud error:",
           err
         );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to open video."
+            : "Unable to generate VidCloud URL"
         );
       }
     }
 
-    openVideo();
+    openVidCloud();
 
     return () => {
       cancelled = true;
@@ -277,32 +422,24 @@ export default function Watch() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "24px",
-          fontFamily:
-            "Arial, sans-serif",
+          padding: 24,
+          fontFamily: "Arial, sans-serif",
+          textAlign: "center",
         }}
       >
-        <div
-          style={{
-            maxWidth: "600px",
-            textAlign: "center",
-          }}
-        >
-          <div
+        <div>
+          <h2
             style={{
-              fontSize: "20px",
-              fontWeight: 600,
-              marginBottom: "10px",
+              marginBottom: 10,
             }}
           >
             Unable to open video
-          </div>
+          </h2>
 
           <div
             style={{
               color:
-                "rgba(255,255,255,0.6)",
-              fontSize: "14px",
+                "rgba(255,255,255,.6)",
             }}
           >
             {error}
@@ -322,11 +459,10 @@ export default function Watch() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily:
-          "Arial, sans-serif",
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      Opening video...
+      Opening VidCloud...
     </div>
   );
 }
