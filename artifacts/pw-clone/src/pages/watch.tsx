@@ -1,66 +1,127 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
-import { AkpPlayer } from "@/components/AkpPlayer";
+import { useEffect, useState } from "react";
 
 export default function Watch() {
-  const [params, setParams] = useState<{
-    batchId: string;
-    subjectId: string;
-    childId: string;
-    title: string;
-  } | null>(null);
-  const backUrlRef = useRef("/");
-  const [, navigate] = useLocation();
+  const [videoUrl, setVideoUrl] = useState("");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const batchId   = sp.get("batchId")  || "";
-    const subjectId = sp.get("subjectId") || "";
-    const topicId   = sp.get("topicId")  || "";
-    const childId   = sp.get("childId") || sp.get("videoId") || sp.get("ContentId") || "";
-    const title     = sp.get("title") || "";
 
-    // Build back URL
-    const backUrl = sp.get("backUrl");
-    if (backUrl) {
-      backUrlRef.current = backUrl;
-    } else if (batchId && subjectId && topicId) {
-      backUrlRef.current = `/batch/${batchId}/subject/${subjectId}/topic/${topicId}`;
-    } else if (batchId && subjectId) {
-      backUrlRef.current = `/batch/${batchId}/subject/${subjectId}`;
-    } else if (batchId) {
-      backUrlRef.current = `/batch/${batchId}`;
-    }
+    // Get values dynamically from current URL
+    const batchId =
+      sp.get("batch_id") ||
+      sp.get("batchId") ||
+      "";
 
-    if (batchId && childId) {
-      setParams({ batchId, subjectId, childId, title });
-    }
+    const programId =
+      sp.get("program_id") ||
+      sp.get("programId") ||
+      "";
+
+    const subjectId =
+      sp.get("subject_id") ||
+      sp.get("subjectId") ||
+      "";
+
+    const topicId =
+      sp.get("topic_id") ||
+      sp.get("topicId") ||
+      "";
+
+    const videoId =
+      sp.get("video_id") ||
+      sp.get("videoId") ||
+      sp.get("childId") ||
+      "";
+
+    const typeId =
+      sp.get("typeId") ||
+      sp.get("type_id") ||
+      "";
+
+    const videoUrlParam =
+      sp.get("video_url") ||
+      sp.get("videoUrl") ||
+      "";
+
+    const videoName =
+      sp.get("video_name") ||
+      sp.get("videoName") ||
+      sp.get("title") ||
+      "";
+
+    const videoImg =
+      sp.get("video_img") ||
+      sp.get("videoImg") ||
+      "";
+
+    const videoType =
+      sp.get("video_type") ||
+      sp.get("videoType") ||
+      "new";
+
+    const playType =
+      sp.get("play_type") ||
+      sp.get("playType") ||
+      "Lecture";
+
+    // Build VidCloud URL dynamically
+    const vidcloud = new URL(
+      "https://vidcloud.eu.org/play.php"
+    );
+
+    vidcloud.searchParams.set("batch_id", batchId);
+    vidcloud.searchParams.set("program_id", programId);
+    vidcloud.searchParams.set("subject_id", subjectId);
+    vidcloud.searchParams.set("topic_id", topicId);
+    vidcloud.searchParams.set("video_id", videoId);
+    vidcloud.searchParams.set("typeId", typeId);
+    vidcloud.searchParams.set("video_url", videoUrlParam);
+    vidcloud.searchParams.set("video_name", videoName);
+    vidcloud.searchParams.set("video_img", videoImg);
+    vidcloud.searchParams.set("video_type", videoType);
+    vidcloud.searchParams.set("play_type", playType);
+
+    setVideoUrl(vidcloud.toString());
   }, []);
 
-  // Back-navigation handler for the player header back button
-  useEffect(() => {
-    const onPopState = () => navigate(backUrlRef.current);
-    // The AkpPlayer calls window.history.back() — intercept popstate
-    // so we navigate within the SPA instead of leaving
-    return () => {};
-  }, [navigate]);
-
-  if (!params) {
+  if (!videoUrl) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Missing video parameters</div>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "#000",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+        }}
+      >
+        Loading video...
       </div>
     );
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000" }}>
-      <AkpPlayer
-        batchId={params.batchId}
-        subjectId={params.subjectId}
-        scheduleId={params.childId}
-        childId={params.childId}
-        title={params.title}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "#000",
+        overflow: "hidden",
+      }}
+    >
+      <iframe
+        src={videoUrl}
+        title="Video Player"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        allowFullScreen
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+          display: "block",
+        }}
       />
     </div>
   );
