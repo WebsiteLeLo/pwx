@@ -1,39 +1,43 @@
-```tsx
 import { useEffect, useState } from "react";
 import { apiUrl } from "@/lib/apiUrl";
 
-const VIDCloudBase = "https://vidcloud.eu.org/play.php";
+const VIDCLOUD_BASE = "https://vidcloud.eu.org/play.php";
 
-interface VideoResponse {
-  success?: boolean;
-  data?: {
-    url?: string;
-    directUrl?: string;
-    streamUrl?: string;
-    signedUrl?: string;
-    topic?: string;
-  };
+interface VideoData {
   url?: string;
   directUrl?: string;
   streamUrl?: string;
   signedUrl?: string;
   topic?: string;
+  vid?: string;
 }
 
-function getData(json: VideoResponse) {
-  return json.data ?? json;
+interface ApiResponse {
+  success?: boolean;
+  data?: VideoData;
+  url?: string;
+  directUrl?: string;
+  streamUrl?: string;
+  signedUrl?: string;
+  topic?: string;
+  vid?: string;
 }
 
 export default function Watch() {
-  const [videoUrl, setVideoUrl] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadVideo() {
+    async function openVideo() {
       try {
         const sp = new URLSearchParams(window.location.search);
+
+        /*
+         * Current Watch URL:
+         *
+         * /watch?batchId=...&subjectId=...&topicId=...&childId=...
+         */
 
         const batchId =
           sp.get("batchId") ||
@@ -57,9 +61,16 @@ export default function Watch() {
           sp.get("ContentId") ||
           "";
 
-        const title =
-          sp.get("title") ||
-          sp.get("video_name") ||
+        /*
+         * Optional values.
+         *
+         * If your previous page already sends these, they will
+         * automatically be used. Otherwise they remain empty.
+         */
+
+        const programId =
+          sp.get("programId") ||
+          sp.get("program_id") ||
           "";
 
         const typeId =
@@ -67,92 +78,188 @@ export default function Watch() {
           sp.get("type_id") ||
           "";
 
-        const programId =
-          sp.get("programId") ||
-          sp.get("program_id") ||
-          "";
-
         const videoImg =
           sp.get("videoImg") ||
           sp.get("video_img") ||
           "";
 
-        if (!batchId || !childId) {
-          throw new Error("Missing batchId or videoId.");
+        const suppliedTitle =
+          sp.get("title") ||
+          sp.get("videoName") ||
+          sp.get("video_name") ||
+          "";
+
+        if (!batchId) {
+          throw new Error("batchId is missing.");
         }
 
-        // Same endpoint already used by AkpPlayer
-        const response = await fetch(
-          `${apiUrl("")}/akp-video-url?batchId=${encodeURIComponent(
-            batchId
-          )}&childId=${encodeURIComponent(childId)}`
-        );
+        if (!childId) {
+          throw new Error("childId/videoId is missing.");
+        }
+
+        /*
+         * Get the actual stream information.
+         *
+         * This is the same endpoint your old AkpPlayer uses.
+         */
+        const endpoint =
+          `${apiUrl("")}/akp-video-url` +
+          `?batchId=${encodeURIComponent(batchId)}` +
+          `&childId=${encodeURIComponent(childId)}`;
+
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
 
         if (!response.ok) {
           throw new Error(
-            `Video information request failed (${response.status})`
+            `Video API failed (${response.status})`
           );
         }
 
-        const json: VideoResponse = await response.json();
-        const data = getData(json);
+        const json: ApiResponse = await response.json();
 
-        const baseUrl = (
+        const data: VideoData =
+          json?.data ?? json;
+
+        /*
+         * Pick whichever URL your API returns.
+         */
+        const rawStreamUrl =
           data.streamUrl ||
           data.url ||
           data.directUrl ||
-          ""
-        ).split("?")[0];
+          "";
 
-        if (!baseUrl) {
-          throw new Error("No video stream URL returned.");
+        if (!rawStreamUrl) {
+          throw new Error(
+            "No stream URL was returned by the video API."
+          );
         }
 
-        const signedQuery = data.signedUrl || "";
+        /*
+         * Remove any existing query string from the base URL.
+         */
+        const baseStreamUrl =
+          rawStreamUrl.split("?")[0];
 
-        // Same MPD construction used by AkpPlayer
+        /*
+         * signedUrl contains the CloudFront query string.
+         */
+        const signedQuery =
+          data.signedUrl || "";
+
         const mpdUrl = signedQuery
-          ? `${baseUrl}${signedQuery}`
-          : baseUrl;
+          ? `${baseStreamUrl}${signedQuery}`
+          : baseStreamUrl;
+
+        /*
+         * Video title.
+         *
+         * Prefer:
+         * 1. API topic
+         * 2. URL title
+         * 3. fallback
+         */
+        const videoName =
+          data.topic ||
+          suppliedTitle ||
+          "Lecture";
+
+        /*
+         * Build the COMPLETE VidCloud URL dynamically.
+         */
+        const vidcloud = new URL(
+          VIDCLOUD_BASE
+        );
+
+        vidcloud.searchParams.set(
+          "batch_id",
+          batchId
+        );
+
+        vidcloud.searchParams.set(
+          "program_id",
+          programId
+        );
+
+        vidcloud.searchParams.set(
+          "subject_id",
+          subjectId
+        );
+
+        vidcloud.searchParams.set(
+          "topic_id",
+          topicId
+        );
+
+        vidcloud.searchParams.set(
+          "video_id",
+          childId
+        );
+
+        vidcloud.searchParams.set(
+          "typeId",
+          typeId
+        );
+
+        vidcloud.searchParams.set(
+          "video_url",
+          mpdUrl
+        );
+
+        vidcloud.searchParams.set(
+          "video_name",
+          videoName
+        );
+
+        vidcloud.searchParams.set(
+          "video_img",
+          videoImg
+        );
+
+        vidcloud.searchParams.set(
+          "video_type",
+          "new"
+        );
+
+        vidcloud.searchParams.set(
+          "play_type",
+          "Lecture"
+        );
 
         if (cancelled) return;
 
         /*
-         * Build VidCloud URL dynamically.
-         * Nothing related to the current lecture is hardcoded.
+         * DIRECTLY OPEN VIDCLOUD IN THE BROWSER.
+         *
+         * No iframe.
+         * No AkpPlayer.
+         * No custom player.
          */
-        const vidcloud = new URL(VIDCloudBase);
-
-        vidcloud.searchParams.set("batch_id", batchId);
-        vidcloud.searchParams.set("program_id", programId);
-        vidcloud.searchParams.set("subject_id", subjectId);
-        vidcloud.searchParams.set("topic_id", topicId);
-        vidcloud.searchParams.set("video_id", childId);
-        vidcloud.searchParams.set("typeId", typeId);
-        vidcloud.searchParams.set("video_url", mpdUrl);
-
-        vidcloud.searchParams.set(
-          "video_name",
-          data.topic || title || "Lecture"
+        window.location.replace(
+          vidcloud.toString()
         );
-
-        vidcloud.searchParams.set("video_img", videoImg);
-        vidcloud.searchParams.set("video_type", "new");
-        vidcloud.searchParams.set("play_type", "Lecture");
-
-        setVideoUrl(vidcloud.toString());
       } catch (err) {
         if (cancelled) return;
+
+        console.error(
+          "Watch error:",
+          err
+        );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load video."
+            : "Unable to open video."
         );
       }
     }
 
-    loadVideo();
+    openVideo();
 
     return () => {
       cancelled = true;
@@ -170,48 +277,37 @@ export default function Watch() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 24,
-          textAlign: "center",
+          padding: "24px",
+          fontFamily:
+            "Arial, sans-serif",
         }}
       >
-        <div>
+        <div
+          style={{
+            maxWidth: "600px",
+            textAlign: "center",
+          }}
+        >
           <div
             style={{
-              fontSize: 18,
+              fontSize: "20px",
               fontWeight: 600,
-              marginBottom: 8,
+              marginBottom: "10px",
             }}
           >
-            Video could not be loaded
+            Unable to open video
           </div>
 
           <div
             style={{
-              fontSize: 14,
-              color: "rgba(255,255,255,.55)",
+              color:
+                "rgba(255,255,255,0.6)",
+              fontSize: "14px",
             }}
           >
             {error}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (!videoUrl) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "#000",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        Loading video...
       </div>
     );
   }
@@ -222,26 +318,15 @@ export default function Watch() {
         position: "fixed",
         inset: 0,
         background: "#000",
-        overflow: "hidden",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily:
+          "Arial, sans-serif",
       }}
     >
-      <iframe
-        src={videoUrl}
-        title="Video Player"
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        allowFullScreen
-        referrerPolicy="no-referrer"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          border: "none",
-          display: "block",
-          background: "#000",
-        }}
-      />
+      Opening video...
     </div>
   );
 }
-```
