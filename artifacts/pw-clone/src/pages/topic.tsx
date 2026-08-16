@@ -308,7 +308,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
           ? new Date(content.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
 
-        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&topicId=${encodeURIComponent(topicId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}`;
+        const watchUrl = `https://pwthor.live/watch?batchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&ChildId=${encodeURIComponent(content._id)}&Type=penpencilvdo&VideoUrl=&isLocked=true`;
 
         const done = isCompleted(content._id);
         return (
