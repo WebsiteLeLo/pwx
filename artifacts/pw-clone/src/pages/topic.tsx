@@ -311,10 +311,15 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
         const watchUrl = `https://pwthor.live/watch?batchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&ChildId=${encodeURIComponent(content._id)}&Type=penpencilvdo&VideoUrl=&isLocked=true`;
 
         const done = isCompleted(content._id);
+        
         return (
-          <Link
+          // <Link> ki jagah normal <a> tag use karein
+          <a
             key={content._id}
             href={watchUrl}
+            target="_blank" // Naye tab me open karne ke liye (same tab ke liye isey hata dein)
+            rel="noopener noreferrer"
+            className="block" // Layout maintain rakhne ke liye
           >
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -338,12 +343,14 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     <Play className="w-10 h-10 text-muted-foreground opacity-40" />
                   </div>
                 )}
+                
+                {/* ... Baaki ka existing video card code same rahega ... */}
+                
                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                   <div className="w-11 h-11 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
                     <Play className="w-5 h-5 fill-current" />
                   </div>
                 </div>
-                {/* Completed overlay badge */}
                 {done && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <div className="w-12 h-12 rounded-full bg-green-500/90 flex items-center justify-center">
@@ -357,7 +364,6 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     {dur}
                   </div>
                 )}
-                {/* Save for offline button */}
                 <SaveOfflineButton
                   videoId={vid?._id || vid?.video_id || content._id}
                   batchId={batchId}
@@ -376,7 +382,6 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     {dateStr}
                   </div>
                 )}
-                {/* Mark done / Download row */}
                 <div className="mt-1 flex gap-1.5">
                   <button
                     onClick={(e) => {
@@ -408,7 +413,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 </div>
               </div>
             </motion.div>
-          </Link>
+          </a>
         );
       })}
     </div>
