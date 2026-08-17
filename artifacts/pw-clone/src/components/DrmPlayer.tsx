@@ -271,13 +271,30 @@ export function DrmPlayer({
         const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         if (netEngine) {
           netEngine.registerRequestFilter((type: number, request: any) => {
-            if (request.uris[0] && request.uris[0].includes(".key")) {
-              const match = request.uris[0].match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || request.uris[0].match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+            const uri = request.uris[0];
+            if (!uri) return;
+
+            if (uri.includes(".key")) {
+              const match = uri.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || uri.match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
               if (match) {
                 const uuid = match[1];
                 request.uris[0] = isLocalhost
                   ? `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`
                   : `/proxy/streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
+              }
+              return;
+            }
+
+            if (!isLocalhost) {
+              if (uri.startsWith("https://streama.pimaxer.in/")) {
+                request.uris[0] = "/proxy/" + uri.replace(/^https?:\/\//, "");
+              } else {
+                // If it's a root-relative URL that got resolved against the window origin
+                // e.g., https://pwxstudy.site/d62486b8-7266-473b-80c0-07172c8e3a6b/hls/720/000.ts
+                const match = uri.match(/^https?:\/\/[^\/]+\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
+                if (match) {
+                  request.uris[0] = `/proxy/streama.pimaxer.in/${match[1]}`;
+                }
               }
             }
           });

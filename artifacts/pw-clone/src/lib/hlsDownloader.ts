@@ -119,11 +119,19 @@ export class HLSDownloader {
         
         let segUrl = segments[i];
         try {
-          segUrl = new URL(segUrl, playlistUrl).href;
+          const absolutePlaylistUrl = new URL(playlistUrl, window.location.origin).href;
+          segUrl = new URL(segUrl, absolutePlaylistUrl).href;
+          
+          // Fix root-relative URLs that got resolved against the bare domain
+          const match = segUrl.match(/^https?:\/\/[^\/]+\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
+          if (match && !segUrl.includes("/proxy/streama.pimaxer.in/")) {
+            segUrl = new URL(`/proxy/streama.pimaxer.in/${match[1]}`, window.location.origin).href;
+          }
         } catch (e) {
           if (!segUrl.startsWith("http")) {
             const urlBase = playlistUrl.substring(0, playlistUrl.lastIndexOf("/") + 1);
             segUrl = urlBase + segUrl.replace(/^\//, "");
+            segUrl = new URL(segUrl, window.location.origin).href;
           }
         }
 
