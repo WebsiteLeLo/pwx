@@ -217,7 +217,7 @@ export function DrmPlayer({
             const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
             hlsUrl = isLocalhost
               ? `https://streama.pimaxer.in/${uuid}/master.m3u8`
-              : `/proxy/streama.pimaxer.in/${uuid}/master.m3u8`;
+              : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(`https://streama.pimaxer.in/${uuid}/master.m3u8`)}`;
           }
 
           if (cancelled) return;
@@ -266,7 +266,7 @@ export function DrmPlayer({
           },
         });
 
-        // Intercept and rewrite HLS decryption key requests
+        // Intercept and rewrite HLS requests to route through Render backend proxy
         const netEngine = player.getNetworkingEngine();
         const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         if (netEngine) {
@@ -274,28 +274,35 @@ export function DrmPlayer({
             const uri = request.uris[0];
             if (!uri) return;
 
+            // Key requests
             if (uri.includes(".key")) {
-              const match = uri.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || uri.match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+              const match = uri.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
               if (match) {
                 const uuid = match[1];
+                const keyUrl = `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
                 request.uris[0] = isLocalhost
-                  ? `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`
-                  : `/proxy/streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
+                  ? keyUrl
+                  : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(keyUrl)}`;
               }
               return;
             }
 
+            // On production, route ALL streama requests through Render backend proxy
             if (!isLocalhost) {
+              // Already proxied? skip
+              if (uri.includes("/streama-proxy")) return;
+
+              // Direct streama.pimaxer.in URL
+              if (uri.includes("streama.pimaxer.in")) {
+                request.uris[0] = `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(uri)}`;
+                return;
+              }
+
+              // Root-relative URL resolved against window origin (e.g., https://pwxstudy.site/uuid/hls/720/000.ts)
               const uuidPathMatch = uri.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
               if (uuidPathMatch) {
-                const actualPath = uuidPathMatch[1];
-                if (actualPath.endsWith(".ts")) {
-                  // Direct fetch for .ts segments (streama doesn't block them by CORS, and CF proxy fails on large blobs)
-                  request.uris[0] = `https://streama.pimaxer.in/${actualPath}`;
-                } else {
-                  // Proxy for playlists
-                  request.uris[0] = `/proxy/streama.pimaxer.in/${actualPath}`;
-                }
+                const streamaUrl = `https://streama.pimaxer.in/${uuidPathMatch[1]}`;
+                request.uris[0] = `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(streamaUrl)}`;
               }
             }
           });

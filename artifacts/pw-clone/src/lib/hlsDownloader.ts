@@ -5,6 +5,9 @@ export interface DownloadProgress {
   error?: string;
 }
 
+import { apiUrl } from "@/lib/apiUrl";
+const PROXY_BASE = apiUrl("/api");
+
 export class HLSDownloader {
   private url: string;
   private uuid: string;
@@ -27,14 +30,16 @@ export class HLSDownloader {
       
       // 1. Fetch master playlist to get best quality (or use specified quality)
       let playlistUrl = "";
-      if (this.url.includes("streama.pimaxer.in")) {
-        const uuidMatch = this.url.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || this.url.match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+      if (this.url.includes("streama.pimaxer.in") || this.url.includes("/streama-proxy")) {
+        const uuidMatch = this.url.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || this.url.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/);
         if (uuidMatch) {
           const uuid = uuidMatch[1];
-          const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          const directUrl = `https://streama.pimaxer.in/${uuid}/hls/${quality || 720}/main.m3u8`;
           playlistUrl = isLocalhost
-            ? `https://streama.pimaxer.in/${uuid}/hls/${quality || 720}/main.m3u8`
-            : `/proxy/streama.pimaxer.in/${uuid}/hls/${quality || 720}/main.m3u8`;
+            ? directUrl
+            : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(directUrl)}`;
         } else {
           playlistUrl = this.url;
         }
@@ -84,10 +89,10 @@ export class HLSDownloader {
         // Rewrite key URL just like in DrmPlayer
         let finalKeyUrl = keyUrl;
         if (keyUrl.includes(".key")) {
-          const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          const keyDirect = `https://streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`;
           finalKeyUrl = isLocalhost
-            ? `https://streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`
-            : `/proxy/streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`;
+            ? keyDirect
+            : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(keyDirect)}`;
         }
 
         const keyRes = await fetch(finalKeyUrl);
@@ -129,14 +134,12 @@ export class HLSDownloader {
           }
         }
 
-        // Final normalization to route .ts files directly to streama (bypassing CF proxy limits)
-        const uuidPathMatch = segUrl.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
-        if (uuidPathMatch) {
-          const actualPath = uuidPathMatch[1];
-          if (actualPath.endsWith(".ts")) {
-            segUrl = `https://streama.pimaxer.in/${actualPath}`;
-          } else if (!segUrl.includes("/proxy/")) {
-            segUrl = new URL(`/proxy/streama.pimaxer.in/${actualPath}`, window.location.origin).href;
+        // Final normalization: route through Render backend proxy on production
+        if (!isLocalhost) {
+          const uuidPathMatch = segUrl.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
+          if (uuidPathMatch && !segUrl.includes("/streama-proxy")) {
+            const streamaUrl = `https://streama.pimaxer.in/${uuidPathMatch[1]}`;
+            segUrl = `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(streamaUrl)}`;
           }
         }
 

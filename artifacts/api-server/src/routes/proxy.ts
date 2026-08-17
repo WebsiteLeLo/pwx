@@ -600,4 +600,71 @@ proxyRouter.get("/drive/files", async (req, res) => {
   }
 });
 
+// ── Streama HLS proxy (bypasses CORS/IP blocks on streama.pimaxer.in) ──────
+// Cloudflare Pages IPs are blocked by streama, so we route through Render.
+const STREAMA_HOST = "streama.pimaxer.in";
+
+proxyRouter.options("/streama-proxy", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.status(204).end();
+});
+
+proxyRouter.get("/streama-proxy", async (req, res) => {
+  const rawUrl = req.query.url as string | undefined;
+  if (!rawUrl) {
+    res.status(400).json({ error: "Missing url param" });
+    return;
+  }
+
+  let fullUrl = rawUrl;
+  if (!fullUrl.startsWith("http")) fullUrl = `https://${STREAMA_HOST}/${fullUrl.replace(/^\//, "")}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(fullUrl);
+  } catch {
+    res.status(400).json({ error: "Invalid URL" });
+    return;
+  }
+
+  if (parsed.hostname !== STREAMA_HOST) {
+    res.status(403).json({ error: "Only streama.pimaxer.in is allowed" });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(fullUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Origin": "http://localhost:5000",
+        "Referer": "http://localhost:5000/",
+        "Accept": "*/*",
+      },
+    });
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    const cl = upstream.headers.get("content-length");
+    if (cl) res.setHeader("Content-Length", cl);
+    res.status(upstream.status);
+
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body as any).pipe(res);
+    } else {
+      const buf = await upstream.arrayBuffer();
+      res.end(Buffer.from(buf));
+    }
+  } catch (err) {
+    req.log.error({ err }, "streama-proxy fetch failed");
+    if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
+  }
+});
+
 export default proxyRouter;
