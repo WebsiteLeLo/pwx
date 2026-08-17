@@ -22,7 +22,7 @@ function formatTime(secs: number): string {
 
 const RESUME_KEY = (id: string) => `pw-resume-${id}`;
 interface QualityTrack { height: number; bandwidth: number; raw: any; }
-type Status = "loading" | "decrypting" | "ready" | "error" | "fallback";
+type Status = "loading" | "decrypting" | "ready" | "error";
 type SettingsPanel = "main" | "speed" | "quality";
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -131,7 +131,6 @@ export function DrmPlayer({
   const [menuOpen, setMenuOpen]           = useState(false);
   const [topMenuPanel, setTopMenuPanel]   = useState<"main" | "download">("main");
   const [isMobile, setIsMobile]           = useState(false);
-  const [useFallback, setUseFallback]     = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -164,15 +163,6 @@ export function DrmPlayer({
 
   useEffect(() => {
     if (!batchId || !childId) return;
-    // Auto-fallback after 3 failed attempts on production
-    if (attempt >= 3 && !useFallback) {
-      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      if (!isLocalhost) {
-        setUseFallback(true);
-        setStatus("fallback");
-        return;
-      }
-    }
     let cancelled = false;
 
     async function setup() {
@@ -729,43 +719,17 @@ export function DrmPlayer({
         </div>
       )}
 
-      {status === "error" && !useFallback && (
+      {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-5 text-center" style={{ background: "rgba(0,0,0,.88)" }}>
           <span className="text-4xl">⚠️</span>
           <p className="text-sm text-[#ff6584] max-w-[300px] leading-relaxed">{error}</p>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); setAttempt((a) => a + 1); }}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-medium"
-              style={{ background: ACCENT }}
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setUseFallback(true); setStatus("fallback"); }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-medium border border-white/20 hover:bg-white/10 transition-colors"
-            >
-              🎬 Watch via PW Thor
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* PW Thor iframe fallback — guaranteed playback */}
-      {(status === "fallback" || useFallback) && (
-        <div className="absolute inset-0 z-50 bg-black">
-          <iframe
-            src={`https://pwthor.live/watch?batchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&ChildId=${encodeURIComponent(childId)}&Type=penpencilvdo&VideoUrl=&isLocked=true`}
-            className="w-full h-full border-none"
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
           <button
-            onClick={() => { setUseFallback(false); setStatus("error"); }}
-            className="absolute top-3 right-3 z-50 bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg border border-white/20 hover:bg-black/90 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setAttempt((a) => a + 1); }}
+            className="flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-medium"
+            style={{ background: ACCENT }}
           >
-            ✕ Back to Player
+            <RefreshCw className="w-4 h-4" />
+            Retry
           </button>
         </div>
       )}
