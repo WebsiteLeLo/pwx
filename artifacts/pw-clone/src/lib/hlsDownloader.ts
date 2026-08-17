@@ -26,8 +26,22 @@ export class HLSDownloader {
       this.updateProgress(0, 0, "fetching_manifest");
       
       // 1. Fetch master playlist to get best quality (or use specified quality)
-      const baseUrl = this.url.substring(0, this.url.lastIndexOf("/"));
-      let playlistUrl = quality ? `${baseUrl}/hls/${quality}/main.m3u8` : `${baseUrl}/hls/720/main.m3u8`;
+      let playlistUrl = "";
+      if (this.url.includes("streama.pimaxer.in")) {
+        const uuidMatch = this.url.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || this.url.match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+        if (uuidMatch) {
+          const uuid = uuidMatch[1];
+          const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          playlistUrl = isLocalhost
+            ? `https://streama.pimaxer.in/${uuid}/hls/${quality || 720}/main.m3u8`
+            : `/proxy/streama.pimaxer.in/${uuid}/hls/${quality || 720}/main.m3u8`;
+        } else {
+          playlistUrl = this.url;
+        }
+      } else {
+        const baseUrl = this.url.substring(0, this.url.lastIndexOf("/"));
+        playlistUrl = quality ? `${baseUrl}/hls/${quality}/main.m3u8` : `${baseUrl}/hls/720/main.m3u8`;
+      }
       
       let playlistRes = await fetch(playlistUrl);
       if (!playlistRes.ok) {
@@ -70,7 +84,10 @@ export class HLSDownloader {
         // Rewrite key URL just like in DrmPlayer
         let finalKeyUrl = keyUrl;
         if (keyUrl.includes(".key")) {
-          finalKeyUrl = `https://streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`;
+          const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+          finalKeyUrl = isLocalhost
+            ? `https://streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`
+            : `/proxy/streama.pimaxer.in/${this.uuid}/hls-key?videoKey=${this.uuid}&key=enc.key`;
         }
 
         const keyRes = await fetch(finalKeyUrl);

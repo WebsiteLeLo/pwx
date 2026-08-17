@@ -213,7 +213,11 @@ export function DrmPlayer({
           const uuidMatch = videoUrl.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
           let hlsUrl = videoUrl;
           if (uuidMatch) {
-            hlsUrl = `https://streama.pimaxer.in/${uuidMatch[1]}/master.m3u8`;
+            const uuid = uuidMatch[1];
+            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+            hlsUrl = isLocalhost
+              ? `https://streama.pimaxer.in/${uuid}/master.m3u8`
+              : `/proxy/streama.pimaxer.in/${uuid}/master.m3u8`;
           }
 
           if (cancelled) return;
@@ -264,13 +268,16 @@ export function DrmPlayer({
 
         // Intercept and rewrite HLS decryption key requests
         const netEngine = player.getNetworkingEngine();
+        const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         if (netEngine) {
           netEngine.registerRequestFilter((type: number, request: any) => {
             if (request.uris[0] && request.uris[0].includes(".key")) {
-              const match = request.uris[0].match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+              const match = request.uris[0].match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//) || request.uris[0].match(/\/proxy\/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
               if (match) {
                 const uuid = match[1];
-                request.uris[0] = `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
+                request.uris[0] = isLocalhost
+                  ? `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`
+                  : `/proxy/streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
               }
             }
           });
