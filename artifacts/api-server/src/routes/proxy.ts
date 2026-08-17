@@ -646,10 +646,24 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
       },
     });
 
-    let buf = Buffer.from(await upstream.arrayBuffer());
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const isM3u8 = fullUrl.endsWith(".m3u8") || contentType.toLowerCase().includes("mpegurl");
 
-    if (fullUrl.endsWith(".m3u8") || contentType.toLowerCase().includes("mpegurl")) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    // Do not cache .m3u8 files on the proxy to prevent stale rewrites, but cache segments
+    if (!isM3u8) {
+      res.setHeader("Cache-Control", "public, max-age=3600");
+    } else {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+
+    res.status(upstream.status);
+    res.setHeader("Content-Type", contentType);
+
+    if (isM3u8) {
+      let buf = Buffer.from(await upstream.arrayBuffer());
       const text = buf.toString("utf-8");
       const rewritten = text.split("\n").map(line => {
         const trimmed = line.trim();
@@ -663,17 +677,25 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
         return line;
       }).join("\n");
       buf = Buffer.from(rewritten, "utf-8");
+      res.setHeader("Content-Length", buf.length);
+      res.end(buf);
+    } else {
+      const cl = upstream.headers.get("content-length");
+      if (cl) res.setHeader("Content-Length", cl);
+
+      if (upstream.body) {
+        const reader = upstream.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+        res.end();
+      } else {
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        res.end(buf);
+      }
     }
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "*");
-    res.setHeader("Cache-Control", "public, max-age=3600");
-
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Length", buf.length);
-    res.status(upstream.status);
-    res.end(buf);
   } catch (err) {
     req.log.error({ err, url: fullUrl }, "streama-proxy fetch failed");
     if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
