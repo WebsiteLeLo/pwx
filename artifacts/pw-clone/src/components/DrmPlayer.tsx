@@ -105,6 +105,7 @@ export function DrmPlayer({
 
   const [status, setStatus]         = useState<Status>("loading");
   const [statusMsg, setStatusMsg]   = useState("Initializing…");
+  const [loadProgress, setLoadProgress] = useState(0);
   const [error, setError]           = useState("");
   const [attempt, setAttempt]       = useState(0);
 
@@ -138,6 +139,24 @@ export function DrmPlayer({
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Simulate loading progress
+  useEffect(() => {
+    if (status === "loading" || status === "decrypting") {
+      setLoadProgress(0);
+      const interval = setInterval(() => {
+        setLoadProgress(prev => {
+          if (prev < 40) return prev + Math.floor(Math.random() * 15) + 5; // fast to 40
+          if (prev < 80) return prev + Math.floor(Math.random() * 5) + 2;  // med to 80
+          if (prev < 99) return prev + 1; // slow to 99
+          return prev;
+        });
+      }, 300);
+      return () => clearInterval(interval);
+    } else if (status === "ready") {
+      setLoadProgress(100);
+    }
+  }, [status, attempt]);
 
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
@@ -713,18 +732,19 @@ export function DrmPlayer({
       />
 
       {(status === "loading" || status === "decrypting") && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4" style={{ background: "rgba(0,0,0,.82)" }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6" style={{ background: "rgba(0,0,0,.82)" }}>
           <div className="relative flex items-center justify-center">
-            {/* Glowing outer circle */}
-            <svg className="w-16 h-16 animate-spin" viewBox="0 0 100 100">
+            {/* Glowing outer circle background */}
+            <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
                 r="44"
                 fill="none"
-                stroke="rgba(255,255,255,0.1)"
+                stroke="rgba(255,255,255,0.08)"
                 strokeWidth="6"
               />
+              {/* Dynamic Progress Circle */}
               <circle
                 cx="50"
                 cy="50"
@@ -733,17 +753,25 @@ export function DrmPlayer({
                 stroke={ACCENT}
                 strokeWidth="6"
                 strokeLinecap="round"
-                strokeDasharray="200"
-                strokeDashoffset="60"
-                className="drop-shadow-[0_0_8px_rgba(90,75,218,0.8)]"
+                strokeDasharray="276.46"
+                strokeDashoffset={276.46 - (loadProgress / 100) * 276.46}
+                className="transition-all duration-300 ease-out drop-shadow-[0_0_12px_rgba(90,75,218,0.9)]"
               />
             </svg>
-            {/* PWX Branding inside circle */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-white font-bold tracking-wider text-sm drop-shadow-md">PWX</span>
+            
+            {/* Text inside circle */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-white/60 text-[10px] font-bold tracking-widest uppercase mb-0.5">PWX</span>
+              <span className="text-white font-bold text-xl drop-shadow-md">{loadProgress}<span className="text-[10px] text-white/70 ml-0.5">%</span></span>
             </div>
           </div>
-          <p className="text-sm text-white/70 animate-pulse tracking-wide font-medium">{statusMsg}</p>
+          
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-[13px] text-white/80 font-medium tracking-wide">{statusMsg}</p>
+            {loadProgress > 80 && (
+              <p className="text-[10px] text-white/40 animate-pulse">Just a moment...</p>
+            )}
+          </div>
         </div>
       )}
 
