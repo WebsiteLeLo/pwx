@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowDownToLine } from "lucide-react";
+import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
 
@@ -7,34 +8,8 @@ const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const PROXY_BASE = apiUrl("/api");
 const ACCENT = "#5a4bda";
 
-interface DrmCache { mpdUrl: string; kid: string; keyHex: string; }
+interface DrmCache { hlsUrl: string; }
 const drmCache = new Map<string, DrmCache>();
-
-// Extract KID directly from MPD XML — no external service needed
-function extractKidFromMpd(mpdText: string): string | null {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(mpdText, "application/xml");
-    const cps = doc.querySelectorAll("ContentProtection");
-    for (const cp of Array.from(cps)) {
-      // Look for default_KID in any namespace (cenc:default_KID)
-      for (const attr of Array.from(cp.attributes)) {
-        if (attr.localName.toLowerCase() === "default_kid" && attr.value) {
-          return attr.value.replace(/-/g, "").toLowerCase();
-        }
-      }
-    }
-  } catch { /* noop */ }
-  return null;
-}
-
-function hexToBase64url(hex: string): string {
-  const pairs = hex.match(/.{1,2}/g) ?? [];
-  const bytes = new Uint8Array(pairs.map((b) => parseInt(b, 16)));
-  let bin = "";
-  bytes.forEach((b) => { bin += String.fromCharCode(b); });
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
 
 function formatTime(secs: number): string {
   if (!isFinite(secs) || secs < 0) return "0:00";
@@ -58,7 +33,7 @@ export interface DrmPlayerProps {
   poster?: string;
   title?: string;
   onOpenTimeline?: () => void;
-  onOpenAttachments?: () => void;
+  onOpenSlides?: () => void;
 }
 
 function RwSvg() {
@@ -113,7 +88,7 @@ function CBtn({ onClick, children, title, className = "" }: { onClick?: (e: Reac
 
 export function DrmPlayer({
   batchId, subjectId, childId, poster, title,
-  onOpenTimeline, onOpenAttachments,
+  onOpenTimeline, onOpenSlides,
 }: DrmPlayerProps) {
   const videoRef      = useRef<HTMLVideoElement>(null);
   const playerRef     = useRef<any>(null);
@@ -148,8 +123,13 @@ export function DrmPlayer({
   const [qualities, setQualities]         = useState<QualityTrack[]>([]);
   const [activeQuality, setActiveQuality] = useState<number | "auto">("auto");
   const [seekTooltip, setSeekTooltip]     = useState<{ time: number; pct: number } | null>(null);
+
+  // Download state
+  const [downloadState, setDownloadState] = useState<DownloadProgress | null>(null);
+  const downloaderRef = useRef<HLSDownloader | null>(null);
   const [buffering, setBuffering]         = useState(false);
   const [menuOpen, setMenuOpen]           = useState(false);
+  const [topMenuPanel, setTopMenuPanel]   = useState<"main" | "download">("main");
   const [isMobile, setIsMobile]           = useState(false);
 
   useEffect(() => {
@@ -193,60 +173,61 @@ export function DrmPlayer({
       setDuration(0);
       setQualities([]);
       setActiveQuality("auto");
+      
+      if (downloaderRef.current) {
+        downloaderRef.current.cancel();
+        downloaderRef.current = null;
+        setDownloadState(null);
+      }
 
       try {
         const cacheKey = `${batchId}:${subjectId}:${childId}`;
         let cached = drmCache.get(cacheKey);
 
         if (!cached) {
-          // ── Step 1: Get MPD URL from pwsecure ──────────────────────────────
           setStatusMsg("Fetching video URL…");
-          const videoRes = await fetch(
-            `${PW_API}/v1/videos/${encodeURIComponent(childId)}`
+          let videoUrl: string | undefined;
+
+          // Try fetching from the slides API as it contains the required URL for many videos
+          const slidesRes = await fetch(
+            `${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${childId}/slides`
           );
-          if (!videoRes.ok) throw new Error(`Video details failed (${videoRes.status})`);
-          const videoData = await videoRes.json();
-          const mpdUrl: string | undefined = videoData?.data?.videoUrl;
-          if (!mpdUrl) throw new Error("No MPD URL in video details");
+          if (slidesRes.ok) {
+            const slidesData = await slidesRes.json();
+            videoUrl = slidesData?.data?.url;
+          }
+
+          // Fallback to the videos API if the URL wasn't found in slides
+          if (!videoUrl) {
+            const videoRes = await fetch(
+              `${PW_API}/v1/videos/${encodeURIComponent(childId)}`
+            );
+            if (videoRes.ok) {
+              const videoData = await videoRes.json();
+              videoUrl = videoData?.data?.videoUrl;
+            }
+          }
+
+          if (!videoUrl) throw new Error("No video URL in video details");
+
+          const uuidMatch = videoUrl.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
+          let hlsUrl = videoUrl;
+          if (uuidMatch) {
+            hlsUrl = `https://streama.pimaxer.in/${uuidMatch[1]}/master.m3u8`;
+          }
 
           if (cancelled) return;
 
-          // ── Step 2: Fetch proxied MPD and extract KID client-side ──────────
-          setStatusMsg("Extracting encryption key…");
-          const mpdRes = await fetch(
-            `${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`
-          );
-          if (!mpdRes.ok) throw new Error(`MPD fetch failed (${mpdRes.status})`);
-          const mpdText = await mpdRes.text();
-          const kid = extractKidFromMpd(mpdText);
-          if (!kid) throw new Error("No KID found in MPD");
-
-          if (cancelled) return;
-
-          // ── Step 3: Exchange KID for ClearKey via pwsecure ────────────────
-          setStatusMsg("Decrypting license key…");
-          const otpRes = await fetch(
-            `${PW_API}/v1/videos/get-otp?key=${encodeURIComponent(kid)}&isEncoded=true`
-          );
-          if (!otpRes.ok) throw new Error(`OTP fetch failed (${otpRes.status})`);
-          const otpData = await otpRes.json();
-          const keyHex: string | undefined =
-            otpData?.data?.otp ?? otpData?.data?.key ?? otpData?.key;
-          if (!keyHex) throw new Error("No decryption key returned");
-
-          cached = { mpdUrl, kid, keyHex };
+          cached = { hlsUrl };
           drmCache.set(cacheKey, cached);
         } else {
           setStatusMsg("Loading from cache…");
         }
 
-        const { mpdUrl, kid, keyHex } = cached;
+        const { hlsUrl } = cached;
         if (cancelled) return;
-        setStatus("decrypting");
+        setStatus("loading");
         setStatusMsg("Initializing player…");
-
-        const kidB64 = hexToBase64url(kid);
-        const keyB64 = hexToBase64url(keyHex);
 
         const shakaModule = await import("shaka-player");
         const shaka = (shakaModule as any).default ?? shakaModule;
@@ -265,7 +246,6 @@ export function DrmPlayer({
         await player.attach(video);
         playerRef.current = player;
         player.configure({
-          drm: { clearKeys: { [kidB64]: keyB64 } },
           streaming: {
             bufferingGoal: 60,
             rebufferingGoal: 2,
@@ -281,6 +261,20 @@ export function DrmPlayer({
             },
           },
         });
+
+        // Intercept and rewrite HLS decryption key requests
+        const netEngine = player.getNetworkingEngine();
+        if (netEngine) {
+          netEngine.registerRequestFilter((type: number, request: any) => {
+            if (request.uris[0] && request.uris[0].includes(".key")) {
+              const match = request.uris[0].match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+              if (match) {
+                const uuid = match[1];
+                request.uris[0] = `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
+              }
+            }
+          });
+        }
 
         player.addEventListener("error", (event: Event) => {
           if (cancelled) return;
@@ -315,7 +309,7 @@ export function DrmPlayer({
           setQualities(tracks);
         });
 
-        await player.load(`${PROXY_BASE}/proxy?url=${encodeURIComponent(mpdUrl)}`);
+        await player.load(hlsUrl);
 
         if (!cancelled) {
           recoveryAttemptsRef.current = 0;
@@ -508,6 +502,52 @@ export function DrmPlayer({
     setShowSettings(false);
   }
 
+  function handleDownload(quality: number | null = null) {
+    if (downloaderRef.current || status !== "ready" || !videoRef.current) return;
+    setMenuOpen(false);
+    setTopMenuPanel("main");
+
+    // Get the base video URL from shaka player
+    const uuidMatch = videoRef.current.src?.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//) 
+      || playerRef.current?.getAssetUri()?.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
+    
+    // We can extract it from playerRef or just use the batchId/childId for name
+    const manifestUrl = playerRef.current?.getAssetUri();
+    if (!manifestUrl) {
+      alert("Unable to fetch video URL for download.");
+      return;
+    }
+
+    let uuid = "";
+    if (uuidMatch) uuid = uuidMatch[1];
+    
+    // Fallback uuid extraction from pimaxer domain
+    if (!uuid) {
+      const match2 = manifestUrl.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+      if (match2) uuid = match2[1];
+    }
+
+    if (!uuid) {
+      alert("Could not identify video UUID for decryption.");
+      return;
+    }
+
+    const downloader = new HLSDownloader(manifestUrl, uuid, (prog) => {
+      setDownloadState(prog);
+      if (prog.status === "done" || prog.status === "error") {
+        setTimeout(() => {
+          if (downloaderRef.current === downloader) {
+            downloaderRef.current = null;
+            setDownloadState(null);
+          }
+        }, 3000); // clear UI after 3s
+      }
+    });
+
+    downloaderRef.current = downloader;
+    downloader.start(title ? `${title.replace(/[^a-zA-Z0-9 ]/g, "")}.mp4` : "lecture.mp4", quality);
+  }
+
   function toggleFullscreen() {
     const el = containerRef.current;
     const video = videoRef.current;
@@ -619,7 +659,7 @@ export function DrmPlayer({
   const speedLabel = speed === 1 ? "Normal" : `${speed}x`;
   const volumeLevel: "off" | "low" | "high" = (muted || volume === 0) ? "off" : volume < 0.5 ? "low" : "high";
 
-  const hasPanel = !!(onOpenTimeline || onOpenAttachments);
+  const hasPanel = !!(onOpenTimeline || onOpenSlides);
 
   return (
     <div
@@ -662,6 +702,39 @@ export function DrmPlayer({
         </div>
       )}
 
+      {/* Download Progress Overlay */}
+      {downloadState && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 backdrop-blur-md rounded-xl px-4 py-3 flex flex-col items-center min-w-[200px] border border-white/10 shadow-2xl">
+          <div className="text-white text-sm font-semibold mb-2">
+            {downloadState.status === "fetching_manifest" && "Starting Download..."}
+            {downloadState.status === "fetching_key" && "Fetching Decryption Key..."}
+            {downloadState.status === "downloading" && `Downloading (${downloadState.downloaded}/${downloadState.total})`}
+            {downloadState.status === "muxing" && "Preparing MP4..."}
+            {downloadState.status === "done" && "Download Complete!"}
+            {downloadState.status === "error" && "Download Failed"}
+          </div>
+          {downloadState.status === "downloading" && (
+            <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#5A4BDA] transition-all duration-300"
+                style={{ width: `${(downloadState.downloaded / downloadState.total) * 100}%` }}
+              />
+            </div>
+          )}
+          {downloadState.status === "error" && (
+            <p className="text-xs text-red-400 mt-1">{downloadState.error}</p>
+          )}
+          {downloadState.status !== "done" && downloadState.status !== "error" && (
+            <button 
+              className="mt-2 text-xs text-white/60 hover:text-white"
+              onClick={(e) => { e.stopPropagation(); downloaderRef.current?.cancel(); setDownloadState(null); downloaderRef.current = null; }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
+
       {buffering && status === "ready" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[8]">
           <div className="w-10 h-10 rounded-full border-[3px] animate-spin" style={{ borderColor: `rgba(90,75,218,.18)`, borderTopColor: ACCENT }} />
@@ -675,6 +748,13 @@ export function DrmPlayer({
           onClick={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
         >
+          {/* Backdrops for popups to close them when clicking outside */}
+          {showSettings && (
+            <div className="absolute inset-0 z-40" onClick={(e) => { e.stopPropagation(); setShowSettings(false); }} onTouchEnd={(e) => { e.stopPropagation(); setShowSettings(false); }} />
+          )}
+          {menuOpen && (
+            <div className="absolute inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} onTouchEnd={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+          )}
           {/* ── Header ── */}
           <div
             className="flex items-center gap-1 px-1 pt-1 pb-10 flex-shrink-0"
@@ -699,24 +779,65 @@ export function DrmPlayer({
                     style={{ background: "rgba(12,12,20,.98)", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 8px 40px rgba(0,0,0,.95)" }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {onOpenTimeline && (
-                      <button
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                        onClick={() => { setMenuOpen(false); onOpenTimeline(); }}
-                      >
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3.167 5.583a.083.083 0 01.166 0v12.834a.083.083 0 01-.167 0V5.583zM5.667 17.333a1 1 0 001 1h10.666a1 1 0 001-1V6.667a1 1 0 00-1-1H6.667a1 1 0 00-1 1v10.666zm4.888-3.3V9.966L13.945 12l-3.39 2.034zM20.666 5.583a.083.083 0 11.167 0v12.834a.083.083 0 01-.166 0V5.583z"/></svg>
-                        Timeline
-                      </button>
+                    {topMenuPanel === "main" && (
+                      <div>
+                        {onOpenTimeline && (
+                          <button
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                            style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                            onClick={() => { setMenuOpen(false); onOpenTimeline(); }}
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3.167 5.583a.083.083 0 01.166 0v12.834a.083.083 0 01-.167 0V5.583zM5.667 17.333a1 1 0 001 1h10.666a1 1 0 001-1V6.667a1 1 0 00-1-1H6.667a1 1 0 00-1 1v10.666zm4.888-3.3V9.966L13.945 12l-3.39 2.034zM20.666 5.583a.083.083 0 11.167 0v12.834a.083.083 0 01-.166 0V5.583z"/></svg>
+                            Timeline
+                          </button>
+                        )}
+                        {onOpenSlides && (
+                          <button
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                            style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                            onClick={() => { setMenuOpen(false); onOpenSlides(); }}
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                            Slides
+                          </button>
+                        )}
+                        
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setTopMenuPanel("download"); }}
+                        >
+                          <ArrowDownToLine className="w-4 h-4 text-white/70" />
+                          Download Video
+                        </button>
+                      </div>
                     )}
-                    {onOpenAttachments && (
-                      <button
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
-                        onClick={() => { setMenuOpen(false); onOpenAttachments(); }}
-                      >
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-                        Attachments
-                      </button>
+
+                    {topMenuPanel === "download" && (
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={(e) => { e.stopPropagation(); setTopMenuPanel("main"); }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-medium">Select Quality</span>
+                        </button>
+                        <div className="max-h-[250px] overflow-y-auto no-scrollbar py-1">
+                          {qualities.length === 0 ? (
+                            <div className="px-4 py-3 text-white/50 text-[13px]">No qualities available</div>
+                          ) : (
+                            qualities.map((q) => (
+                              <button key={q.height}
+                                className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5"
+                                style={{ borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                                onClick={(e) => { e.stopPropagation(); handleDownload(q.height); }}
+                              >
+                                <span>{q.height}p</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -944,19 +1065,6 @@ export function DrmPlayer({
         </div>
       )}
 
-      {/* Settings backdrop */}
-      {showSettings && (
-        <div
-          className="absolute inset-0 z-[25]"
-          onClick={(e) => { e.stopPropagation(); setShowSettings(false); }}
-        />
-      )}
-      {menuOpen && (
-        <div
-          className="absolute inset-0 z-[25]"
-          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-        />
-      )}
     </div>
   );
 }

@@ -4,6 +4,14 @@ packages:
   - lib/integrations/*
   - scripts
 
+allowBuilds:
+  esbuild: true
+  msedge-tts: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+  workerd: true
+
 autoInstallPeers: false
 
 catalog:
