@@ -713,9 +713,37 @@ export function DrmPlayer({
       />
 
       {(status === "loading" || status === "decrypting") && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: "rgba(0,0,0,.82)" }}>
-          <div className="w-10 h-10 rounded-full border-[3px] animate-spin" style={{ borderColor: `rgba(90,75,218,.18)`, borderTopColor: ACCENT }} />
-          <p className="text-sm text-white/65">{statusMsg}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4" style={{ background: "rgba(0,0,0,.82)" }}>
+          <div className="relative flex items-center justify-center">
+            {/* Glowing outer circle */}
+            <svg className="w-16 h-16 animate-spin" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                fill="none"
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="6"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                fill="none"
+                stroke={ACCENT}
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray="200"
+                strokeDashoffset="60"
+                className="drop-shadow-[0_0_8px_rgba(90,75,218,0.8)]"
+              />
+            </svg>
+            {/* PWX Branding inside circle */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-white font-bold tracking-wider text-sm drop-shadow-md">PWX</span>
+            </div>
+          </div>
+          <p className="text-sm text-white/70 animate-pulse tracking-wide font-medium">{statusMsg}</p>
         </div>
       )}
 
