@@ -308,17 +308,14 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
           ? new Date(content.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
 
-        const watchUrl = `https://pwthor.live/watch?batchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&ChildId=${encodeURIComponent(content._id)}&Type=penpencilvdo&VideoUrl=&isLocked=true`;
+        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(content._id)}`;
 
         const done = isCompleted(content._id);
         
         return (
-          // <Link> ki jagah normal <a> tag use karein
-          <a
+          <Link
             key={content._id}
             href={watchUrl}
-            target="_blank" // Naye tab me open karne ke liye (same tab ke liye isey hata dein)
-            rel="noopener noreferrer"
             className="block" // Layout maintain rakhne ke liye
           >
             <motion.div
@@ -413,7 +410,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                 </div>
               </div>
             </motion.div>
-          </a>
+          </Link>
         );
       })}
     </div>
