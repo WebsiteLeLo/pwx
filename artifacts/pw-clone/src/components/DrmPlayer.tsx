@@ -286,14 +286,15 @@ export function DrmPlayer({
             }
 
             if (!isLocalhost) {
-              if (uri.startsWith("https://streama.pimaxer.in/")) {
-                request.uris[0] = "/proxy/" + uri.replace(/^https?:\/\//, "");
-              } else {
-                // If it's a root-relative URL that got resolved against the window origin
-                // e.g., https://pwxstudy.site/d62486b8-7266-473b-80c0-07172c8e3a6b/hls/720/000.ts
-                const match = uri.match(/^https?:\/\/[^\/]+\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
-                if (match) {
-                  request.uris[0] = `/proxy/streama.pimaxer.in/${match[1]}`;
+              const uuidPathMatch = uri.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
+              if (uuidPathMatch) {
+                const actualPath = uuidPathMatch[1];
+                if (actualPath.endsWith(".ts")) {
+                  // Direct fetch for .ts segments (streama doesn't block them by CORS, and CF proxy fails on large blobs)
+                  request.uris[0] = `https://streama.pimaxer.in/${actualPath}`;
+                } else {
+                  // Proxy for playlists
+                  request.uris[0] = `/proxy/streama.pimaxer.in/${actualPath}`;
                 }
               }
             }
