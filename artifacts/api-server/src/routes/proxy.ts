@@ -624,7 +624,8 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
   let parsed: URL;
   try {
     parsed = new URL(fullUrl);
-  } catch {
+  } catch (e) {
+    req.log.error({ rawUrl, err: e }, "streama-proxy: invalid URL");
     res.status(400).json({ error: "Invalid URL" });
     return;
   }
@@ -635,6 +636,7 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
   }
 
   try {
+    req.log.info({ url: fullUrl }, "streama-proxy: fetching");
     const upstream = await fetch(fullUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -644,6 +646,8 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
       },
     });
 
+    const buf = Buffer.from(await upstream.arrayBuffer());
+
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "*");
@@ -651,18 +655,11 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
     res.setHeader("Content-Type", contentType);
-    const cl = upstream.headers.get("content-length");
-    if (cl) res.setHeader("Content-Length", cl);
+    res.setHeader("Content-Length", buf.length);
     res.status(upstream.status);
-
-    if (upstream.body) {
-      Readable.fromWeb(upstream.body as any).pipe(res);
-    } else {
-      const buf = await upstream.arrayBuffer();
-      res.end(Buffer.from(buf));
-    }
+    res.end(buf);
   } catch (err) {
-    req.log.error({ err }, "streama-proxy fetch failed");
+    req.log.error({ err, url: fullUrl }, "streama-proxy fetch failed");
     if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
   }
 });
