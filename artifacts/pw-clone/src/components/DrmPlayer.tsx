@@ -269,12 +269,9 @@ export function DrmPlayer({
         await player.attach(video);
         playerRef.current = player;
         player.configure({
-          abr: {
-            defaultBandwidthEstimate: 300000, // Start with lower resolution (e.g. 360p) for instant playback
-          },
           streaming: {
             bufferingGoal: 60,
-            rebufferingGoal: 5,
+            rebufferingGoal: 2,
             bufferBehind: 30,
             safeSeekOffset: 3,
             stallEnabled: false,
