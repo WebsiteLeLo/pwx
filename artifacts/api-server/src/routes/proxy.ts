@@ -646,14 +646,30 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
       },
     });
 
-    const buf = Buffer.from(await upstream.arrayBuffer());
+    let buf = Buffer.from(await upstream.arrayBuffer());
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+
+    if (fullUrl.endsWith(".m3u8") || contentType.toLowerCase().includes("mpegurl")) {
+      const text = buf.toString("utf-8");
+      const rewritten = text.split("\n").map(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#") && !trimmed.startsWith("http")) {
+          try {
+            return new URL(trimmed, fullUrl).href;
+          } catch {
+            return line;
+          }
+        }
+        return line;
+      }).join("\n");
+      buf = Buffer.from(rewritten, "utf-8");
+    }
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "*");
     res.setHeader("Cache-Control", "public, max-age=3600");
 
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", buf.length);
     res.status(upstream.status);
