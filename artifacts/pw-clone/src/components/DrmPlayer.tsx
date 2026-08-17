@@ -735,45 +735,67 @@ export function DrmPlayer({
       />
 
       {(status === "loading" || status === "decrypting") && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6" style={{ background: "rgba(0,0,0,.82)" }}>
-          <div className="relative flex items-center justify-center">
-            {/* Glowing outer circle background */}
-            <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 overflow-hidden" style={{ background: "linear-gradient(135deg, #09090b 0%, #18181b 100%)" }}>
+          {/* Subtle animated background glowing orbs */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] bg-[#5a4bda] rounded-full mix-blend-screen filter blur-[80px] opacity-30 animate-pulse" style={{ animationDuration: '4s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150px] h-[150px] bg-[#ff6584] rounded-full mix-blend-screen filter blur-[60px] opacity-20" style={{ animation: 'pulse 3s infinite alternate' }} />
+          </div>
+
+          <div className="relative flex items-center justify-center z-10">
+            {/* Outer spinning ring (fast, dashed, thin) */}
+            <svg className="absolute w-36 h-36 animate-spin" viewBox="0 0 100 100" style={{ animationDuration: '6s' }}>
+              <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="4 8" />
+            </svg>
+            
+            <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
+              <defs>
+                <linearGradient id="pwxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#818cf8" />
+                  <stop offset="50%" stopColor="#c084fc" />
+                  <stop offset="100%" stopColor="#fb7185" />
+                </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              {/* Background track */}
+              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="4" />
+              {/* Dynamic Progress Circle with Gradient & Glow */}
               <circle
                 cx="50"
                 cy="50"
                 r="44"
                 fill="none"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="6"
-              />
-              {/* Dynamic Progress Circle */}
-              <circle
-                cx="50"
-                cy="50"
-                r="44"
-                fill="none"
-                stroke={ACCENT}
-                strokeWidth="6"
+                stroke="url(#pwxGradient)"
+                strokeWidth="4"
                 strokeLinecap="round"
                 strokeDasharray="276.46"
                 strokeDashoffset={276.46 - (loadProgress / 100) * 276.46}
-                className="transition-all duration-300 ease-out drop-shadow-[0_0_12px_rgba(90,75,218,0.9)]"
+                filter="url(#glow)"
+                className="transition-all duration-300 ease-out"
               />
             </svg>
             
             {/* Text inside circle */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-white/60 text-[10px] font-bold tracking-widest uppercase mb-0.5">PWX</span>
-              <span className="text-white font-bold text-xl drop-shadow-md">{loadProgress}<span className="text-[10px] text-white/70 ml-0.5">%</span></span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#ff6584] text-[11px] font-black tracking-[0.2em] uppercase mb-1 animate-pulse">PWX</span>
+              <span className="text-white font-bold text-3xl drop-shadow-[0_0_12px_rgba(255,255,255,0.4)] tracking-tight">
+                {loadProgress}<span className="text-[12px] text-white/50 ml-0.5 font-medium">%</span>
+              </span>
             </div>
           </div>
           
-          <div className="flex flex-col items-center gap-1.5">
-            <p className="text-[13px] text-white/80 font-medium tracking-wide">{statusMsg}</p>
-            {loadProgress > 80 && (
-              <p className="text-[10px] text-white/40 animate-pulse">Just a moment...</p>
-            )}
+          <div className="flex flex-col items-center gap-3 z-10 mt-4">
+            <div className="flex items-center gap-2">
+               <div className="w-1.5 h-1.5 rounded-full bg-[#818cf8] animate-bounce" style={{ animationDelay: "0ms" }} />
+               <div className="w-1.5 h-1.5 rounded-full bg-[#c084fc] animate-bounce" style={{ animationDelay: "150ms" }} />
+               <div className="w-1.5 h-1.5 rounded-full bg-[#fb7185] animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+            <p className="text-[11px] text-white/60 font-semibold tracking-widest uppercase mt-1">
+              {statusMsg}
+            </p>
           </div>
         </div>
       )}
