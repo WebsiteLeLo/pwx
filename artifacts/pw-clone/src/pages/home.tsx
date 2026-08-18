@@ -113,7 +113,7 @@ function TelegramModal({ batchName, onClose }: { batchName: string; onClose: () 
           {/* Buttons */}
           <div className="flex flex-col gap-2">
             <a
-              href="https://t.me/pwxonrender"
+              href="https://t.me/codexstudys"
               target="_blank"
               rel="noopener noreferrer"
               onClick={onClose}
