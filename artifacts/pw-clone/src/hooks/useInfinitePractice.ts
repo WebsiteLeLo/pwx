@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+const API_BASE = "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
 const MINUTE = 60_000;
