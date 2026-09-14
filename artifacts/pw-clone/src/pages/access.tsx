@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { KeyRound, Info, CheckCircle2, Loader2, X } from "lucide-react";
 import { generateAndRedirect, prepareAccessGeneration, storePendingGeneration, storeAccessKey, verifyAccessKey } from "@/lib/access-key";
+import { apiUrl } from "@/lib/apiUrl";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -86,6 +87,15 @@ export default function AccessPage() {
   const [redirectError, setRedirectError] = useState("");
   const [, setLocation] = useLocation();
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const [validityHours, setValidityHours] = useState(24);
+
+  useEffect(() => {
+    fetch(apiUrl("/settings/arolinks_validity"))
+      .then(res => res.json())
+      .then(data => {
+         if (data?.value?.hours) setValidityHours(data.value.hours);
+      }).catch(() => {});
+  }, []);
 
   const handleClick = async () => {
     setRedirecting(true);
@@ -251,9 +261,9 @@ export default function AccessPage() {
           <KeyRound size={22} color="#f0b429" />
         </div>
         <div style={styles.eyebrow}>Access Required</div>
-        <h2 style={styles.title}>Unlock 24 Hours</h2>
+        <h2 style={styles.title}>Unlock {validityHours} Hours</h2>
         <p style={styles.copy}>
-          Generate a key and complete the steps to unlock the platform for 24 hours.
+          Generate a key and complete the steps to unlock the platform for {validityHours} hours.
         </p>
         <button className="access-btn" onClick={handleClick} disabled={redirecting}>
           <KeyRound size={16} />

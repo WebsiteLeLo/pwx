@@ -326,6 +326,9 @@ function SettingsTab() {
   const [pwApiUrl, setPwApiUrl] = useState("https://proxy.streamvideo.co.in/fetch/api.penpencil.co");
   const [apiLoaded, setApiLoaded] = useState(false);
 
+  const [arolinksValidity, setArolinksValidity] = useState(24);
+  const [arolinksLoaded, setArolinksLoaded] = useState(false);
+
   useEffect(() => {
     if (!isLoading && !mLoaded) {
       const m = (settings as any[]).find((s) => s.key === "maintenance");
@@ -348,7 +351,12 @@ function SettingsTab() {
       if (p?.value) setPwApiUrl(p.value as string);
       setApiLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded]);
+    if (!isLoading && !arolinksLoaded) {
+      const a = (settings as any[]).find((s) => s.key === "arolinks_validity");
+      if (a?.value?.hours) setArolinksValidity(Number(a.value.hours));
+      setArolinksLoaded(true);
+    }
+  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded, arolinksLoaded]);
 
   async function saveMaintenance() {
     try {
@@ -641,6 +649,42 @@ function SettingsTab() {
                     {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Save API URL
                   </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Arolinks Configuration */}
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-900/30 text-violet-400 flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-white">Arolinks Key Validity</h3>
+                  <p className="text-zinc-400 text-sm">Control how long keys generated via Arolinks remain active.</p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  {[24, 48, 72].map((hrs) => (
+                    <Button
+                      key={hrs}
+                      variant={arolinksValidity === hrs ? "default" : "outline"}
+                      onClick={async () => {
+                        setArolinksValidity(hrs);
+                        try {
+                          await updateSetting.mutateAsync({ key: "arolinks_validity", value: { hours: hrs } });
+                          toast({ title: "Arolinks validity updated" });
+                        } catch (e: any) {
+                          toast({ title: "Failed to update", description: e.message, variant: "destructive" });
+                        }
+                      }}
+                      disabled={updateSetting.isPending}
+                      className={arolinksValidity === hrs ? "bg-violet-600 hover:bg-violet-700 text-white" : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"}
+                    >
+                      {hrs} Hours
+                    </Button>
+                  ))}
                 </div>
               </div>
             </div>

@@ -85,9 +85,15 @@ router.post("/access/claim", async (req, res) => {
     }
 
     const plainKey = createAccessKey();
+    let validityHours = 24;
+    const [setting] = await client.query(`SELECT value FROM site_settings WHERE key = 'arolinks_validity'`).then(r => r.rows);
+    if (setting && setting.value && typeof setting.value.hours === "number") {
+      validityHours = setting.value.hours;
+    }
+
     const inserted = await client.query(
        `INSERT INTO access_keys (key_hash, label, source, active, expires_at)
-        VALUES ($1, $2, $3, true, NOW() + INTERVAL '24 hours')
+        VALUES ($1, $2, $3, true, NOW() + INTERVAL '${validityHours} hours')
        RETURNING id`,
        [hashAccessKey(plainKey), AROLINKS_LABEL, AROLINKS_SOURCE],
     );
