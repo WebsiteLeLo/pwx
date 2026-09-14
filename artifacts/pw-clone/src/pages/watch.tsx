@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DrmPlayer } from "@/components/DrmPlayer";
-import { useAttachmentUrls } from "@/hooks/usePWApi";
+import { useScheduleDetails, getPdfUrl } from "@/hooks/usePWApi";
 
 export default function Watch() {
   const [params, setParams] = useState({
@@ -23,7 +23,7 @@ export default function Watch() {
     }
   }, []);
 
-  const { data: attachments } = useAttachmentUrls(
+  const { data: scheduleData } = useScheduleDetails(
     params.batchId,
     params.subjectId,
     params.videoId
@@ -67,13 +67,16 @@ export default function Watch() {
     );
   }
 
-  const handleOpenSlides = () => {
-    if (attachments && attachments.length > 0 && attachments[0].url) {
-      window.open(attachments[0].url, '_blank');
-    } else {
-      alert("No slides available for this video.");
-    }
-  };
+  const schedData = scheduleData?.data;
+  const title = schedData?.topic || "Video Player";
+  
+  const hwList = schedData?.homeworkIds ?? [];
+  const attachments = hwList.flatMap(hw => 
+    (hw.attachmentIds ?? []).map(att => ({
+      name: att.name || hw.topic || "Attachment",
+      url: getPdfUrl(att)
+    }))
+  );
 
   return (
     <div className="w-full h-screen bg-black overflow-hidden relative">
@@ -81,8 +84,8 @@ export default function Watch() {
         batchId={params.batchId}
         subjectId={params.subjectId}
         childId={params.videoId}
-        title="Video Player"
-        onOpenSlides={handleOpenSlides}
+        title={title}
+        attachments={attachments}
       />
     </div>
   );

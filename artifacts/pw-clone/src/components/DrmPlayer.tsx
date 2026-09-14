@@ -34,6 +34,7 @@ export interface DrmPlayerProps {
   title?: string;
   onOpenTimeline?: () => void;
   onOpenSlides?: () => void;
+  attachments?: { name: string; url: string }[];
 }
 
 function RwSvg() {
@@ -88,7 +89,7 @@ function CBtn({ onClick, children, title, className = "" }: { onClick?: (e: Reac
 
 export function DrmPlayer({
   batchId, subjectId, childId, poster, title,
-  onOpenTimeline, onOpenSlides,
+  onOpenTimeline, onOpenSlides, attachments
 }: DrmPlayerProps) {
   const videoRef      = useRef<HTMLVideoElement>(null);
   const playerRef     = useRef<any>(null);
@@ -130,7 +131,7 @@ export function DrmPlayer({
   const downloaderRef = useRef<HLSDownloader | null>(null);
   const [buffering, setBuffering]         = useState(false);
   const [menuOpen, setMenuOpen]           = useState(false);
-  const [topMenuPanel, setTopMenuPanel]   = useState<"main" | "download">("main");
+  const [topMenuPanel, setTopMenuPanel]   = useState<"main" | "download" | "attachments">("main");
   const [isMobile, setIsMobile]           = useState(false);
 
   useEffect(() => {
@@ -737,7 +738,7 @@ export function DrmPlayer({
   const speedLabel = speed === 1 ? "Normal" : `${speed}x`;
   const volumeLevel: "off" | "low" | "high" = (muted || volume === 0) ? "off" : volume < 0.5 ? "low" : "high";
 
-  const hasPanel = !!(onOpenTimeline || onOpenSlides);
+  const hasPanel = !!(onOpenTimeline || onOpenSlides || (attachments && attachments.length > 0));
 
   return (
     <div
@@ -921,6 +922,16 @@ export function DrmPlayer({
                             Slides
                           </button>
                         )}
+                        {attachments && attachments.length > 0 && (
+                          <button
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                            style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                            onClick={(e) => { e.stopPropagation(); setTopMenuPanel("attachments"); }}
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                            Attachments
+                          </button>
+                        )}
                         
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
@@ -956,6 +967,30 @@ export function DrmPlayer({
                               </button>
                             ))
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {topMenuPanel === "attachments" && (
+                      <div>
+                        <button
+                          className="flex items-center gap-2 w-full px-4 py-3 border-none bg-transparent cursor-pointer hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={(e) => { e.stopPropagation(); setTopMenuPanel("main"); }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                          <span className="text-white text-[14px] font-medium">Attachments</span>
+                        </button>
+                        <div className="max-h-[250px] overflow-y-auto no-scrollbar py-1">
+                          {attachments?.map((att, i) => (
+                            <button key={i}
+                              className="w-full flex items-center justify-between px-4 py-3 border-none cursor-pointer text-white text-[13px] transition-colors hover:bg-white/5 text-left"
+                              style={{ borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); window.open(att.url, '_blank'); }}
+                            >
+                              <span className="truncate">{att.name}</span>
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}
