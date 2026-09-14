@@ -12,11 +12,15 @@ export default function Watch() {
   useEffect(() => {
     // Parse URL params
     const searchParams = new URLSearchParams(window.location.search);
-    setParams({
-      batchId: searchParams.get("batchId") || "",
-      subjectId: searchParams.get("subjectId") || "",
-      videoId: searchParams.get("videoId") || searchParams.get("childId") || "",
-    });
+    const vId = searchParams.get("videoId") || searchParams.get("childId") || "";
+    
+    if (vId) {
+      setParams({
+        batchId: searchParams.get("batchId") || "",
+        subjectId: searchParams.get("subjectId") || "",
+        videoId: vId,
+      });
+    }
   }, []);
 
   const { data: attachments } = useAttachmentUrls(

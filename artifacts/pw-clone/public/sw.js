@@ -1,5 +1,5 @@
 const CACHE_NAME = "pwx-v4";
-const SEG_CACHE_NAME = "pwx-segments-v1";
+const SEG_CACHE_NAME = "pwx-segments-v2";
 const API_CACHE_NAME = "pwx-api-v1";
 
 const SEG_MAX = 8000;  // max DASH segment entries (high for full offline lectures)
@@ -93,7 +93,7 @@ self.addEventListener("fetch", (event) => {
 
   // ── 1. DASH video segments (same-origin proxy) — cache-first ─────────────
   if (url.pathname.includes("/api/dash-seg/") || url.pathname.includes("/api/proxy")) {
-    const cacheKey = new Request(url.pathname);
+    const cacheKey = new Request(url.href); // Must include query string!
     event.respondWith(
       caches.open(SEG_CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(cacheKey);

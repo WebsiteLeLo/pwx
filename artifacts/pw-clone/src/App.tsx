@@ -11,6 +11,7 @@ import { NotificationBanner } from "@/components/notification-banner";
 import { MaintenanceGate } from "@/components/maintenance-gate";
 import { getStoredAccessKey, verifyAccessKey } from "@/lib/access-key";
 import { useAccessGateSetting } from "@/hooks/useAdmin";
+import { initializePwApi } from "@/lib/pwApiStore";
 
 // Pages
 import Home from "@/pages/home";
@@ -139,6 +140,15 @@ function Router() {
   );
 }
 
+function AppInit({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    initializePwApi().then(() => setReady(true));
+  }, []);
+  if (!ready) return <div className="min-h-screen bg-[#0a0a0f]" />;
+  return <>{children}</>;
+}
+
 function App() {
   const [dtState, setDtState] = useState<{ detected: boolean; strikes: number }>({
     detected: false,
@@ -158,16 +168,18 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <LoadingBar />
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-        {dtState.detected && (
-          <DevToolsBlocked strikes={dtState.strikes} onDismiss={dismiss} />
-        )}
-      </TooltipProvider>
+      <AppInit>
+        <TooltipProvider>
+          <LoadingBar />
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+          {dtState.detected && (
+            <DevToolsBlocked strikes={dtState.strikes} onDismiss={dismiss} />
+          )}
+        </TooltipProvider>
+      </AppInit>
     </QueryClientProvider>
   );
 }

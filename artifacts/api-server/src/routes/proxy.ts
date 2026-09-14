@@ -1,7 +1,21 @@
 import { Router } from "express";
 import { Readable } from "node:stream";
+import { db, siteSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const proxyRouter = Router();
+
+export async function getPwApiUrl() {
+  try {
+    const [setting] = await db
+      .select()
+      .from(siteSettingsTable)
+      .where(eq(siteSettingsTable.key, "pw_api_url"));
+    return (setting?.value as string) || "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
+  } catch (e) {
+    return "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
+  }
+}
 
 const CDN_HOSTS = [
   "sec-prod-mediacdn.pw.live",
@@ -9,8 +23,9 @@ const CDN_HOSTS = [
   "mediacdn.pw.live",
   "cloudfront.net",          // PW video CDN distributions
   "proxy.primestudy.site",   // learnbyakp stream proxy
+  "herokuapp.com",           // devcoderz video stream host
 ];
-const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net"];
+const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net", "testwave.cc"];
 
 function isAllowedCdnHost(hostname: string): boolean {
   return CDN_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
@@ -170,7 +185,6 @@ proxyRouter.get("/akp-video-url", async (req, res) => {
 // ── PW lecture slides + attachments ─────────────────────────────────────────
 // Keeps the browser independent of the upstream API's CORS and normalizes the
 // two schedule endpoints into the small shape the video player needs.
-const PW_API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw/v1";
 const OBJECT_ID = /^[a-f\d]{24}$/i;
 
 function pwAssetUrl(asset: any, fallback?: string): string {
@@ -234,7 +248,8 @@ proxyRouter.get("/pw-schedule-assets", async (req, res) => {
     return;
   }
 
-  const base = `${PW_API_BASE}/batches/${batchId}/subject/${subjectId}/schedule/${scheduleId}`;
+  const apiBase = `${await getPwApiUrl()}/v1`;
+  const base = `${apiBase}/batches/${batchId}/subject/${subjectId}/schedule/${scheduleId}`;
   try {
     const [slidesResponse, detailsResponse] = await Promise.all([
       fetch(`${base}/slides`, { headers: { Accept: "application/json" } }),
@@ -334,7 +349,7 @@ proxyRouter.get("/pw-video/:videoId", async (req, res) => {
     return;
   }
 
-  const PW_SECURE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+  const PW_SECURE = await getPwApiUrl();
   const url = `${PW_SECURE}/v1/videos/${encodeURIComponent(videoId)}`;
 
   try {
@@ -429,44 +444,59 @@ proxyRouter.get("/proxy", async (req, res) => {
     return;
   }
 
-  try {
-    const { status, contentType, buffer } = await fetchCdn(rawUrl);
-    const isMpd =
-      contentType.includes("dash") ||
-      contentType.includes("xml") ||
-      parsed.pathname.endsWith(".mpd");
+  const isMpd =
+    rawUrl.includes(".mpd") ||
+    rawUrl.includes(".m3u8") ||
+    rawUrl.includes(".xml");
 
+  if (isMpd) {
+    try {
+      const { status, contentType, buffer } = await fetchCdn(rawUrl);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      res.status(status);
+
+      if (status < 300) {
+        const mpdText = new TextDecoder().decode(buffer);
+        res.setHeader("Content-Type", "application/dash+xml");
+        
+        // Extract the absolute base path from the original URL (e.g., https://host/path/to/)
+        const basePath = rawUrl.substring(0, rawUrl.lastIndexOf("/") + 1);
+        
+        // Inject the absolute original BaseURL into the MPD.
+        const rewritten = injectBaseUrl(mpdText, basePath);
+        res.end(rewritten);
+      } else {
+        res.setHeader("Content-Type", contentType);
+        res.end(Buffer.from(buffer));
+      }
+    } catch (err) {
+      req.log.error({ err }, "proxy MPD fetch failed");
+      res.status(502).json({ error: "Upstream fetch failed" });
+    }
+  } else {
+    // For large video segments (.m4s, .mp4, .ts), stream directly instead of buffering in memory
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    res.status(status);
-
-    if (isMpd && status < 300) {
-      const mpdText = new TextDecoder().decode(buffer);
-      res.setHeader("Content-Type", "application/dash+xml");
-
-      // proxy.primestudy.site segments already carry signed absolute URLs —
-      // injecting a BaseURL would break segment resolution, so pass through as-is.
-      if (parsed.hostname === "proxy.primestudy.site") {
-        res.end(mpdText);
-      } else {
-        const pathParts = parsed.pathname.split("/").filter(Boolean);
-        const uuid = pathParts[0] ?? "";
-        const sigQs = parsed.search.slice(1);
-        const sigB64 = Buffer.from(sigQs).toString("base64url");
-        const proto = req.get("x-forwarded-proto") || req.protocol;
-        const host = req.get("x-forwarded-host") || req.get("host") || "";
-        const baseUrl = `${proto}://${host}/api/dash-seg/${sigB64}/${uuid}/`;
-
-        const rewritten = injectBaseUrl(mpdText, baseUrl);
-        res.end(rewritten);
+    
+    try {
+      let upstream = await fetch(rawUrl, { headers: CDN_HEADER_VARIANTS[0] });
+      if (upstream.status === 403) {
+        upstream = await fetch(rawUrl, { headers: CDN_HEADER_VARIANTS[1] });
       }
-    } else {
-      res.setHeader("Content-Type", contentType);
-      res.end(Buffer.from(buffer));
+      
+      res.status(upstream.status);
+      res.setHeader("Content-Type", upstream.headers.get("content-type") || "video/mp4");
+      
+      if (upstream.body) {
+        upstream.body.pipe(res);
+      } else {
+        res.end();
+      }
+    } catch (err) {
+      req.log.error({ err }, "proxy segment fetch failed");
+      res.status(502).end();
     }
-  } catch (err) {
-    req.log.error({ err }, "proxy fetch failed");
-    res.status(502).json({ error: "Upstream fetch failed" });
   }
 });
 
@@ -701,5 +731,6 @@ proxyRouter.get("/streama-proxy", async (req, res) => {
     if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
   }
 });
+
 
 export default proxyRouter;

@@ -4,7 +4,7 @@ import {
   Bell, Settings, Shield, LogOut, Plus, Trash2, Eye, EyeOff,
   Wrench, AlertTriangle, CheckCircle, Info, AlertCircle, Loader2,
   Send, ToggleLeft, ToggleRight, X, Save, RefreshCw,
-  KeyRound, Copy, Ban, Clock3,
+  KeyRound, Copy, Ban, Clock3, Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,6 +323,9 @@ function SettingsTab() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [keyLabel, setKeyLabel] = useState("");
 
+  const [pwApiUrl, setPwApiUrl] = useState("https://proxy.streamvideo.co.in/fetch/api.penpencil.co");
+  const [apiLoaded, setApiLoaded] = useState(false);
+
   useEffect(() => {
     if (!isLoading && !mLoaded) {
       const m = (settings as any[]).find((s) => s.key === "maintenance");
@@ -340,7 +343,12 @@ function SettingsTab() {
       setAccessGateEnabled(gate?.value?.enabled ?? true);
       setAccessLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, accessLoaded]);
+    if (!isLoading && !apiLoaded) {
+      const p = (settings as any[]).find((s) => s.key === "pw_api_url");
+      if (p?.value) setPwApiUrl(p.value as string);
+      setApiLoaded(true);
+    }
+  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded]);
 
   async function saveMaintenance() {
     try {
@@ -358,6 +366,15 @@ function SettingsTab() {
       toast({ title: enabled ? "🔒 Access key gate started" : "🔓 Access key gate removed" });
     } catch (e: any) {
       setAccessGateEnabled(!enabled);
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function saveApiUrl() {
+    try {
+      await updateSetting.mutateAsync({ key: "pw_api_url", value: pwApiUrl });
+      toast({ title: "API URL updated successfully!" });
+    } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
   }
@@ -592,6 +609,40 @@ function SettingsTab() {
                 {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 {maintenance.enabled ? "Enable Maintenance" : "Save (Site Live)"}
               </Button>
+            </div>
+          </div>
+
+          {/* API Configuration */}
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-900/30 text-blue-400 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-white">PW API Configuration</h3>
+                  <p className="text-zinc-400 text-sm">Configure the base URL for upstream Penpencil API requests.</p>
+                </div>
+                <div>
+                  <Label className="text-zinc-300 text-xs mb-1.5 block">API Base URL</Label>
+                  <Input
+                    value={pwApiUrl}
+                    onChange={(e) => setPwApiUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500"
+                  />
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button
+                    onClick={saveApiUrl}
+                    disabled={updateSetting.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save API URL
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

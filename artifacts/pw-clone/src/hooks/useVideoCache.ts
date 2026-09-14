@@ -166,35 +166,52 @@ export function useVideoCache() {
       signal?: AbortSignal
     ): Promise<"ok" | "error"> => {
       try {
-        // 1. Get MPD URL via server-side proxy (adds proper Referer/Origin headers)
-        const urlRes = await fetch(
-          `/api/pw-video/${encodeURIComponent(videoId)}`,
-          { signal }
-        );
-        if (!urlRes.ok) throw new Error(`Failed to get video URL (${urlRes.status})`);
-        const urlData = await urlRes.json();
-        const mpdUrl: string | undefined = urlData?.data?.videoUrl;
-        if (!mpdUrl) throw new Error("Video not available for offline download");
-
-        if (signal?.aborted) return "error";
-
-        // 2. Try to get a signed/accessible stream URL from vidcloud's player page.
-        //    Vidcloud has PW auth baked in and embeds the actual signed CDN URL.
-        let resolvedMpdUrl = mpdUrl;
+        // 1. Get MPD URL via devcoderz API
+        let resolvedMpdUrl: string | undefined;
         try {
-          const vcRes = await fetch(
-            `/api/vidcloud-stream?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(videoId)}`,
+          const devcoderzRes = await fetch("https://devcoderz-backend.vercel.app/api/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ batchId, subjectId, lectureId: videoId }),
+            signal,
+          });
+          if (devcoderzRes.ok) {
+            const data = await devcoderzRes.json();
+            resolvedMpdUrl = data?.video_url || data?.m3u8Url;
+          }
+        } catch (e) {
+          console.error("Devcoderz fetch failed", e);
+        }
+
+        if (!resolvedMpdUrl) {
+          // Fallback to server-side proxy
+          const urlRes = await fetch(
+            `/api/pw-video/${encodeURIComponent(videoId)}`,
             { signal }
           );
-          if (vcRes.ok) {
-            const vcData = await vcRes.json();
-            if (vcData.urls && vcData.urls.length > 0) {
-              // Prefer signed CloudFront URLs (contain Policy= or Signature=)
-              const signed = (vcData.urls as string[]).find(u => u.includes("Policy=") || u.includes("Signature="));
-              resolvedMpdUrl = signed || vcData.urls[0];
+          if (!urlRes.ok) throw new Error(`Failed to get video URL (${urlRes.status})`);
+          const urlData = await urlRes.json();
+          const mpdUrl: string | undefined = urlData?.data?.videoUrl;
+          if (!mpdUrl) throw new Error("Video not available for offline download");
+          resolvedMpdUrl = mpdUrl;
+
+          // Try to get a signed/accessible stream URL from vidcloud's player page.
+          try {
+            const vcRes = await fetch(
+              `/api/vidcloud-stream?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(videoId)}`,
+              { signal }
+            );
+            if (vcRes.ok) {
+              const vcData = await vcRes.json();
+              if (vcData.urls && vcData.urls.length > 0) {
+                const signed = (vcData.urls as string[]).find(u => u.includes("Policy=") || u.includes("Signature="));
+                resolvedMpdUrl = signed || vcData.urls[0];
+              }
             }
-          }
-        } catch { /* vidcloud extraction optional */ }
+          } catch { /* vidcloud extraction optional */ }
+        }
+
+        const mpdUrl = resolvedMpdUrl;
 
         if (signal?.aborted) return "error";
 
@@ -229,7 +246,8 @@ export function useVideoCache() {
         async function fetchSegment(url: string) {
           if (signal?.aborted) return;
           try {
-            await fetch(url, { signal });
+            const fetchUrl = url.includes("herokuapp.com") ? `/api/proxy?url=${encodeURIComponent(url)}` : url;
+            await fetch(fetchUrl, { signal });
           } catch { /* individual segment failure is ok */ }
           done++;
           onProgress(done, segmentUrls.length);

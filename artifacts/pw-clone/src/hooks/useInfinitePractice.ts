@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+import { PW_API as API_BASE } from "@/lib/pwApiStore";
 const PRACTICE_BATCH_ID = "676e4dee1ec923bc192f38c9";
 const EXAM_CATEGORY = "vckzned6mqjlkub8wsfh605rp";
 const MINUTE = 60_000;

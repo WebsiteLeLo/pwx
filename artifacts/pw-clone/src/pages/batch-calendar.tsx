@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Play, Clock, Calendar, BookOpen, Pin, PinOff
 import { Link } from "wouter";
 import { Layout } from "@/components/layout";
 import { useBatchDetails, ContentItem } from "@/hooks/usePWApi";
+import { PW_API as API_BASE } from "@/lib/pwApiStore";
 
 function getPinnedMonth(batchId: string): { year: number; month: number } | null {
   try {
@@ -23,7 +24,6 @@ function clearPinnedMonth(batchId: string) {
   localStorage.removeItem(`cal_pin_${batchId}`);
 }
 
-const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 

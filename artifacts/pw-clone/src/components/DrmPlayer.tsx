@@ -4,11 +4,11 @@ import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
 
-const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+import { PW_API } from "@/lib/pwApiStore";
 const PROXY_BASE = apiUrl("/api");
 const ACCENT = "#5a4bda";
 
-interface DrmCache { hlsUrl: string; }
+interface DrmCache { hlsUrl: string; clearKeys?: Record<string, string>; }
 const drmCache = new Map<string, DrmCache>();
 
 function formatTime(secs: number): string {
@@ -165,7 +165,7 @@ export function DrmPlayer({
   }, []);
 
   const scheduleRecovery = useCallback((message: string) => {
-    if (reconnectTimerRef.current || recoveryAttemptsRef.current >= 4 || !navigator.onLine) {
+    if (reconnectTimerRef.current || recoveryAttemptsRef.current >= 2 || !navigator.onLine) {
       setStatus("error");
       setError(message);
       return;
@@ -203,17 +203,50 @@ export function DrmPlayer({
         const cacheKey = `${batchId}:${subjectId}:${childId}`;
         let cached = drmCache.get(cacheKey);
 
+        if (cached && cached.hlsUrl.includes("herokuapp.com") && !cached.clearKeys) {
+          cached = undefined;
+        }
+
         if (!cached) {
           setStatusMsg("Fetching video URL…");
           let videoUrl: string | undefined;
 
-          // Try fetching from the slides API as it contains the required URL for many videos
-          const slidesRes = await fetch(
-            `${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${childId}/slides`
-          );
-          if (slidesRes.ok) {
-            const slidesData = await slidesRes.json();
-            videoUrl = slidesData?.data?.url;
+          // Try examcrushers API first
+          try {
+            const examRes = await fetch("https://player.examcrushers.in/api/video", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ batchId, key: "Sharma", lectureId: childId, subjectId }),
+            });
+            if (examRes.ok) {
+              const data = await examRes.json();
+              if (data?.success && data?.url) {
+                const key = "ExamCrushers_Secret_Stream_Key_9921";
+                let encodedUrl = "";
+                for (let i = 0; i < data.url.length; i++) {
+                  encodedUrl += String.fromCharCode(data.url.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                }
+                const base64Url = btoa(encodedUrl).replace(/\+/g, "-").replace(/\//g, "_");
+                videoUrl = `https://streams.examcrushers.in/stream/v1/${base64Url}/manifest.mpd`;
+                
+                if (data?.keys) {
+                  cached = { hlsUrl: "", clearKeys: data.keys };
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Examcrushers fetch failed", e);
+          }
+
+          // Fallback to the slides API if devcoderz didn't provide a URL
+          if (!videoUrl) {
+            const slidesRes = await fetch(
+              `${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${childId}/slides`
+            );
+            if (slidesRes.ok) {
+              const slidesData = await slidesRes.json();
+              videoUrl = slidesData?.data?.url;
+            }
           }
 
           // Fallback to the videos API if the URL wasn't found in slides
@@ -231,23 +264,22 @@ export function DrmPlayer({
 
           const uuidMatch = videoUrl.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
           let hlsUrl = videoUrl;
-          if (uuidMatch) {
+          if (uuidMatch && videoUrl.includes("pimaxer")) {
             const uuid = uuidMatch[1];
-            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-            hlsUrl = isLocalhost
-              ? `https://streama.pimaxer.in/${uuid}/master.m3u8`
-              : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(`https://streama.pimaxer.in/${uuid}/master.m3u8`)}`;
+            hlsUrl = `https://stream.srv-1.pimaxer.in/${uuid}/master.m3u8`;
           }
 
           if (cancelled) return;
 
-          cached = { hlsUrl };
+          if (!cached) cached = { hlsUrl };
+          else cached.hlsUrl = hlsUrl;
+
           drmCache.set(cacheKey, cached);
         } else {
           setStatusMsg("Loading from cache…");
         }
 
-        const { hlsUrl } = cached;
+        const { hlsUrl, clearKeys } = cached;
         if (cancelled) return;
         setStatus("loading");
         setStatusMsg("Initializing player…");
@@ -268,26 +300,31 @@ export function DrmPlayer({
         const player = new shaka.Player();
         await player.attach(video);
         playerRef.current = player;
-        player.configure({
+        const config: any = {
           streaming: {
-            bufferingGoal: 60,
-            rebufferingGoal: 2,
+            bufferingGoal: 30,
+            rebufferingGoal: 5,
             bufferBehind: 30,
             safeSeekOffset: 3,
             stallEnabled: false,
             retryParameters: {
-              maxAttempts: 4,
-              baseDelay: 100,
+              maxAttempts: 3,
+              baseDelay: 1000,
               backoffFactor: 1.5,
               fuzzFactor: 0.5,
               timeout: 30000,
             },
           },
-        });
+        };
+
+        if (clearKeys) {
+          config.drm = { clearKeys };
+        }
+
+        player.configure(config);
 
         // Intercept and rewrite HLS requests to route through Render backend proxy
         const netEngine = player.getNetworkingEngine();
-        const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         if (netEngine) {
           netEngine.registerRequestFilter((type: number, request: any) => {
             const uri = request.uris[0];
@@ -295,35 +332,25 @@ export function DrmPlayer({
 
             // Key requests
             if (uri.includes(".key")) {
-              const match = uri.match(/streama\.pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+              const match = uri.match(/pimaxer\.in\/([0-9a-fA-F\-]+)\//);
               if (match) {
                 const uuid = match[1];
-                const keyUrl = `https://streama.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
-                request.uris[0] = isLocalhost
-                  ? keyUrl
-                  : `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(keyUrl)}`;
+                request.uris[0] = `https://stream.srv-1.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
               }
               return;
             }
 
-            // On production, route ALL streama requests through Render backend proxy
-            if (!isLocalhost) {
-              // Already proxied? skip
-              if (uri.includes("/streama-proxy")) return;
+            // Prevent infinite proxy loops
+            if (uri.includes("/api/proxy") || uri.includes(PROXY_BASE + "/proxy")) return;
 
-              // Direct streama.pimaxer.in URL
-              if (uri.includes("streama.pimaxer.in")) {
-                request.uris[0] = `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(uri)}`;
-                return;
-              }
-
-              // Root-relative URL resolved against window origin (e.g., https://pwxstudy.site/uuid/hls/720/000.ts)
-              const uuidPathMatch = uri.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/.*)$/);
-              if (uuidPathMatch) {
-                const streamaUrl = `https://streama.pimaxer.in/${uuidPathMatch[1]}`;
-                request.uris[0] = `${PROXY_BASE}/streama-proxy?url=${encodeURIComponent(streamaUrl)}`;
-              }
+            // Intercept CDN URLs (devcoderz & PW) to bypass CORS & WAF!
+            const cdnHosts = ["herokuapp.com", "cloudfront.net", "pw.live"];
+            if (cdnHosts.some((h) => uri.includes(h))) {
+              // MUST be an absolute URL, otherwise Shaka resolves it against the MPD's <BaseURL>!
+              request.uris[0] = `${window.location.origin}${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
+              return;
             }
+
           });
         }
 
@@ -419,7 +446,7 @@ export function DrmPlayer({
            try { localStorage.setItem(RESUME_KEY(childId), String(video.currentTime)); } catch {}
            scheduleRecovery("Video is taking too long to buffer.");
          }
-       }, 8000);
+       }, 30000);
      };
      const onCanPlay  = () => {
        setBuffering(false);
@@ -785,7 +812,7 @@ export function DrmPlayer({
           <span className="text-4xl">⚠️</span>
           <p className="text-sm text-[#ff6584] max-w-[300px] leading-relaxed">{error}</p>
           <button
-            onClick={(e) => { e.stopPropagation(); setAttempt((a) => a + 1); }}
+            onClick={(e) => { e.stopPropagation(); recoveryAttemptsRef.current = 0; setAttempt((a) => a + 1); }}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-medium"
             style={{ background: ACCENT }}
           >

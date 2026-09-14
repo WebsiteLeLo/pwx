@@ -8,12 +8,12 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import "./AiGirl.css";
 import { emitAriaAction, type DppResult } from "@/lib/ariaEventBus";
+import { PW_API } from "@/lib/pwApiStore";
 
 // AI backend base — empty string in dev (Vite proxy handles /api/*),
 // set VITE_AI_API_URL to the Render backend URL in production.
 const AI_BASE = (import.meta.env.VITE_AI_API_URL ?? "").replace(/\/$/, "");
 const aiUrl = (path: string) => `${AI_BASE}${path}`;
-const PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type GirlState = "idle" | "talking" | "thinking";

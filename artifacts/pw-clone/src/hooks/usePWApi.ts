@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-const API_BASE = "https://pwsecure.gourav23032009.workers.dev/api/pw";
+import { PW_API as API_BASE } from "@/lib/pwApiStore";
 const MIN = 1000 * 60;
 
 export interface Batch {

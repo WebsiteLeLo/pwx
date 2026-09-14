@@ -1,8 +1,0 @@
-- [Artifact workflow ports](artifact-workflow-ports.md) — Replit injects PORT env for artifact workflows; pw-clone gets PORT=20318 (→ ext 80), api-server needs PORT=8080 in its dev script to match waitForPort.
-- [Edge mixed-voice TTS](edge-mixed-voice-tts.md) — one continuous Edge TTS stream is preferred; separate language audio segments create audible boundary pauses.
-- [Server-controlled access gate](access-gate.md) — browser storage is only a convenience; API state and hashed admin-issued keys are authoritative.
-- [Sitemap domain alignment](sitemap-domain-alignment.md) — sitemap URLs, robots.txt, canonical tags, and the published host must all use the same domain.
-- [External batch API failures](external-batch-api-failures.md) — third-party batch responses can be rate-limited or incomplete; always normalize them before rendering.
-- [Video player buffering and downloads](video-player-downloads.md) — protected manifests are not downloadable files; allow only validated direct media URLs through the server proxy.
-- [Infinite Practice API IDs](infinite-practice-api-ids.md) — subjects may use the catalog batch while chapters/start and solution use separate IDs; keep each endpoint contract explicit.
-- [Infinite Practice math formats](infinite-practice-math-formats.md) — live question payloads mix MathML markup with delimited LaTeX; normalize both before KaTeX rendering.
