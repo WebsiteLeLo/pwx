@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { DrmPlayer } from "@/components/DrmPlayer";
+import { useEffect, useState, useRef } from "react";
+import { DrmPlayer, DrmPlayerRef } from "@/components/DrmPlayer";
 import { useScheduleDetails, getPdfUrl, useSlides } from "@/hooks/usePWApi";
 import { X } from "lucide-react";
 
@@ -10,6 +10,7 @@ export default function Watch() {
     videoId: "",
   });
   const [showSlides, setShowSlides] = useState(false);
+  const playerRef = useRef<DrmPlayerRef>(null);
 
   useEffect(() => {
     // Parse URL params
@@ -92,6 +93,7 @@ export default function Watch() {
     <div className="w-full h-screen bg-black flex overflow-hidden">
       <div className="flex-1 relative h-full min-w-0">
         <DrmPlayer
+          ref={playerRef}
           batchId={params.batchId}
           subjectId={params.subjectId}
           childId={params.videoId}
@@ -131,13 +133,17 @@ export default function Watch() {
                 return (
                   <div 
                     key={slide._id || idx} 
-                    className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 relative group cursor-pointer hover:border-zinc-600 transition-colors"
-                    onClick={() => window.open(imgUrl, "_blank")}
+                    className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 relative group cursor-pointer hover:border-violet-500/50 hover:ring-2 hover:ring-violet-500/20 transition-all"
+                    onClick={() => {
+                      if (playerRef.current) {
+                        playerRef.current.seekTo(ts);
+                      }
+                    }}
                   >
                     <img 
                       src={imgUrl} 
                       alt={`Slide ${idx + 1}`} 
-                      className="w-full h-auto object-cover"
+                      className="w-full h-auto object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                       loading="lazy"
                     />
                     <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md text-white text-[11px] px-2 py-0.5 rounded font-medium">

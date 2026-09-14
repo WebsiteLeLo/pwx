@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import { RefreshCw, ArrowDownToLine } from "lucide-react";
 import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
@@ -35,6 +35,10 @@ export interface DrmPlayerProps {
   onOpenTimeline?: () => void;
   onOpenSlides?: () => void;
   attachments?: { name: string; url: string }[];
+}
+
+export interface DrmPlayerRef {
+  seekTo: (time: number) => void;
 }
 
 function RwSvg() {
@@ -87,10 +91,10 @@ function CBtn({ onClick, children, title, className = "" }: { onClick?: (e: Reac
   );
 }
 
-export function DrmPlayer({
+export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   batchId, subjectId, childId, poster, title,
   onOpenTimeline, onOpenSlides, attachments
-}: DrmPlayerProps) {
+}, ref) => {
   const videoRef      = useRef<HTMLVideoElement>(null);
   const playerRef     = useRef<any>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -109,6 +113,15 @@ export function DrmPlayer({
   const [loadProgress, setLoadProgress] = useState(0);
   const [error, setError]           = useState("");
   const [attempt, setAttempt]       = useState(0);
+
+  useImperativeHandle(ref, () => ({
+    seekTo: (t: number) => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = t;
+        if (videoRef.current.paused) videoRef.current.play().catch(() => {});
+      }
+    }
+  }));
 
   const [playing, setPlaying]             = useState(false);
   const [currentTime, setCurrentTime]     = useState(0);
@@ -1222,4 +1235,4 @@ export function DrmPlayer({
 
     </div>
   );
-}
+});
