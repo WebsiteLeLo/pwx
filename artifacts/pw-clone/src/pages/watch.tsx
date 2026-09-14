@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { DrmPlayer, DrmPlayerRef } from "@/components/DrmPlayer";
 import { useScheduleDetails, getPdfUrl, useSlides } from "@/hooks/usePWApi";
 import { X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Watch() {
   const [params, setParams] = useState({
@@ -11,6 +12,7 @@ export default function Watch() {
   });
   const [showSlides, setShowSlides] = useState(false);
   const playerRef = useRef<DrmPlayerRef>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Parse URL params
@@ -135,8 +137,13 @@ export default function Watch() {
                     key={slide._id || idx} 
                     className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 relative group cursor-pointer hover:border-violet-500/50 hover:ring-2 hover:ring-violet-500/20 transition-all"
                     onClick={() => {
-                      if (playerRef.current) {
-                        playerRef.current.seekTo(ts);
+                      if (ts > 0 || idx === 0) {
+                        if (playerRef.current) playerRef.current.seekTo(ts);
+                      } else {
+                        toast({ 
+                          title: "No timestamp available", 
+                          description: "This slide doesn't have a specific timeline attached.",
+                        });
                       }
                     }}
                   >
