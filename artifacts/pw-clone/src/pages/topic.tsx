@@ -308,9 +308,7 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
           ? new Date(content.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
 
-        //const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(content._id)}`;
-      const watchUrl = `https://nextstudy-player.faizan92048.workers.dev/play.php?&subject_id=${encodeURIComponent(subjectId)}&batch_id=${encodeURIComponent(batchId)}&video_key=${encodeURIComponent(content._id)}`;
-      
+        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(content._id)}`;
         const done = isCompleted(content._id);
         
         return (
