@@ -712,3 +712,16 @@ export function useTestInstructions(testId: string, enabled: boolean) {
     gcTime: MIN * 120,
   });
 }
+
+export function useSlides(batchId: string, subjectId: string, videoId: string) {
+  return useQuery({
+    queryKey: ["slides", batchId, subjectId, videoId],
+    queryFn: async () => {
+      if (!batchId || !subjectId || !videoId) return null;
+      const r = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${videoId}/slides`);
+      if (!r.ok) return null;
+      return r.json();
+    },
+    enabled: !!batchId && !!subjectId && !!videoId,
+  });
+}
