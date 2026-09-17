@@ -230,7 +230,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             const examRes = await fetch("https://player.examcrushers.in/api/video", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ batchId, key: "Sharma", lectureId: childId, subjectId }),
+              body: JSON.stringify({ batchId, key: "mera-gupt-key", lectureId: childId, subjectId }),
             });
             if (examRes.ok) {
               const data = await examRes.json();
