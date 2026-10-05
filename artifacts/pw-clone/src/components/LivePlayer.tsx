@@ -468,7 +468,7 @@ export function LivePlayer({
         const seekStart = video.seekable.start(0);
         const seekEnd   = video.seekable.end(video.seekable.length - 1);
         const range     = seekEnd - seekStart;
-        if (range > 30) {
+        if (range > 0) {
           setHasDvr(true);
           setDuration(range);
           const offset = seekEnd - ct;
@@ -930,15 +930,23 @@ export function LivePlayer({
             <div className="flex items-center gap-0.5">
               {/* Play/Pause (desktop) */}
               {!isMobile && (
-                <Btn onClick={(e) => { e.stopPropagation(); togglePlay(); }} title={playing ? "Pause" : "Play"}>
-                  {playing ? (
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                      <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
-                    </svg>
-                  ) : (
-                    <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "16px solid #fff", marginLeft: 2 }} />
-                  )}
-                </Btn>
+                <>
+                  <Btn onClick={(e) => { e.stopPropagation(); skip(-10); }} title="-10s">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l4-4 4 4"/><path d="M7 7v7a5 5 0 0 0 10 0V11"/></svg>
+                  </Btn>
+                  <Btn onClick={(e) => { e.stopPropagation(); togglePlay(); }} title={playing ? "Pause" : "Play"}>
+                    {playing ? (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                        <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+                      </svg>
+                    ) : (
+                      <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "16px solid #fff", marginLeft: 2 }} />
+                    )}
+                  </Btn>
+                  <Btn onClick={(e) => { e.stopPropagation(); skip(10); }} title="+10s">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11l-4-4-4 4"/><path d="M17 7v7a5 5 0 0 1-10 0V11"/></svg>
+                  </Btn>
+                </>
               )}
 
               {/* Volume */}
