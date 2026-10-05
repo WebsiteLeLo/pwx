@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { LivePlayer } from "@/components/LivePlayer";
 import { apiUrl } from "@/lib/apiUrl";
+import { decodePwMarco } from "@/lib/pwmarco";
 
 const PROXY_BASE = apiUrl("");
 
@@ -28,7 +29,9 @@ export default function LiveWatch() {
     // Params
     const directStreamUrl = sp.get("streamUrl") || sp.get("url") || "";
     const batchId  = sp.get("batchId")  || "";
+    const subjectId = sp.get("subjectId") || "";
     const videoId  = sp.get("videoId")  || sp.get("childId") || "";
+    const topicId  = sp.get("topicId") || videoId;
     const title    = sp.get("title")    || "Live Class";
     const backUrl  = sp.get("backUrl")  || "/pw";
 
@@ -56,21 +59,35 @@ export default function LiveWatch() {
       (async () => {
         try {
           const res = await fetch(
-            `${PROXY_BASE}/akp-video-url?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(videoId)}`
+            `${PROXY_BASE}/pwmarco-stream-url?parentId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(videoId)}&urlType=penpencilvdo&videoId=${encodeURIComponent(videoId)}&topicId=${encodeURIComponent(topicId)}`
           );
           if (!res.ok) throw new Error(`API error ${res.status}`);
           const json = await res.json();
 
           if (cancelled) return;
 
-          // Normalise — API may return data at root or inside .data
-          const d = (json.data ?? json) as any;
-          const baseUrl = (d.streamUrl ?? d.url ?? d.directUrl ?? "").split("?")[0];
-          if (!baseUrl) throw new Error("No stream URL returned by API");
+          let d = (json.data ?? json) as any;
+          if (json?.v === "1" && json?.d) {
+            const decoded = decodePwMarco(json.d);
+            if (decoded?.success && decoded?.data?.url) {
+              d = decoded.data;
+              d.streamUrl = "https://m.pwmarco.site" + d.url;
+            }
+          }
 
-          const signedQs = d.signedUrl ?? "";
-          const streamUrl = signedQs ? `${baseUrl}${signedQs}` : baseUrl;
-          const clearKeys: Record<string, string> = d.clearKeys ?? {};
+          let streamUrl = "";
+          let clearKeys: Record<string, string> = d.clearKeys ?? {};
+          
+          if (json?.v === "1" && json?.d) {
+            // It's a pwmarco stream, use the full URL with query params
+            streamUrl = d.streamUrl;
+          } else {
+            // Legacy / fallback handling for other APIs
+            const baseUrl = (d.streamUrl ?? d.url ?? d.directUrl ?? "").split("?")[0];
+            if (!baseUrl) throw new Error("No stream URL returned by API");
+            const signedQs = d.signedUrl ?? "";
+            streamUrl = signedQs ? `${baseUrl}${signedQs}` : baseUrl;
+          }
           const resolvedTitle = d.topic || title;
 
           setState({
