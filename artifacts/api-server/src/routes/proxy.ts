@@ -87,6 +87,19 @@ function isAllowedPdfHost(hostname: string): boolean {
   return PDF_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 }
 
+// ── pwmarco video URL proxy ───────────────────────────────────────────────────
+proxyRouter.get("/pwmarco-video-url", async (req, res) => {
+  const { batchId, childId, subjectId } = req.query as Record<string, string>;
+  const url = `https://m.pwmarco.site/api/get-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}&urlType=penpencilvdo`;
+  try {
+    const upstream = await fetch(url);
+    const data = await upstream.json();
+    res.json(data);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Vidcloud stream URL extractor ─────────────────────────────────────────────
 // Fetches vidcloud's play.php page (which has PW auth baked in) and extracts
 // any CloudFront signed MPD/HLS/M3U8 URLs embedded in the page source.
