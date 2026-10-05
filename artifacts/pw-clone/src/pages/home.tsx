@@ -607,8 +607,12 @@ export default function Home() {
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q || q.length < 2) return [];
+    const words = q.split(/\s+/).filter(Boolean);
     return allBatches
-      .filter((b) => b.name.toLowerCase().includes(q))
+      .filter((b) => {
+        const text = b.name.toLowerCase();
+        return words.every((w) => text.includes(w));
+      })
       .slice(0, 6)
       .map((b) => b.name);
   }, [query, allBatches]);
@@ -619,16 +623,21 @@ export default function Home() {
   const filtered = useMemo(() => {
     if (!query.trim()) return sourceBatches;
     const q = query.trim().toLowerCase();
-    return sourceBatches.filter(
-      (b) =>
-        b.name.toLowerCase().includes(q) ||
-        b.byName?.toLowerCase().includes(q)
-    );
+    const words = q.split(/\s+/).filter(Boolean);
+    return sourceBatches.filter((b) => {
+      const text = `${b.name} ${b.byName || ""}`.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
   }, [sourceBatches, query]);
 
-  const filteredMixes = query.trim()
-    ? mixes.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()))
-    : mixes;
+  const filteredMixes = useMemo(() => {
+    if (!query.trim()) return mixes;
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return mixes.filter((m) => {
+      const text = m.name.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+  }, [mixes, query]);
 
   const visibleBatches = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;

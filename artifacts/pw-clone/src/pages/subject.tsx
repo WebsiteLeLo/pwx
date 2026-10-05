@@ -184,7 +184,11 @@ export default function Subject() {
   const displayTopics = reorderMode
     ? orderedTopics
     : search.trim()
-      ? orderedTopics.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
+      ? orderedTopics.filter(t => {
+          const text = t.name.toLowerCase();
+          const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+          return words.every(w => text.includes(w));
+        })
       : orderedTopics;
 
   const breadcrumbs = fromMix
