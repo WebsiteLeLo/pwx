@@ -251,7 +251,8 @@ export function LivePlayer({
           function addSig(url: string): string {
             if (!sigParams || !sigHost) return url;
             if (!url.includes(sigHost)) return url;
-            if (url.includes("Signature=") || url.includes("signature=")) return url;
+            // Avoid duplicate signature params
+            if (url.includes("Signature=") || url.includes("signature=") || (sigParams.startsWith("q=") && url.includes("q="))) return url;
             return url.includes("?") ? `${url}&${sigParams}` : `${url}?${sigParams}`;
           }
 
