@@ -9,6 +9,8 @@ export default function Watch() {
     batchId: "",
     subjectId: "",
     videoId: "",
+    videoType: "",
+    topicId: "",
   });
   const [showSlides, setShowSlides] = useState(false);
   const playerRef = useRef<DrmPlayerRef>(null);
@@ -24,6 +26,8 @@ export default function Watch() {
         batchId: searchParams.get("batchId") || "",
         subjectId: searchParams.get("subjectId") || "",
         videoId: vId,
+        videoType: searchParams.get("video_type") || "",
+        topicId: searchParams.get("topicId") || vId,
       });
     }
   }, []);
@@ -100,6 +104,8 @@ export default function Watch() {
           subjectId={params.subjectId}
           childId={params.videoId}
           title={title}
+          videoType={params.videoType}
+          topicId={params.topicId}
           attachments={attachments}
           onOpenSlides={slides.length > 0 ? () => setShowSlides(p => !p) : undefined}
         />

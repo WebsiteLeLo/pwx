@@ -33,6 +33,8 @@ export interface DrmPlayerProps {
   childId: string;
   poster?: string;
   title?: string;
+  videoType?: string;
+  topicId?: string;
   onOpenTimeline?: () => void;
   onOpenSlides?: () => void;
   attachments?: { name: string; url: string }[];
@@ -93,7 +95,7 @@ function CBtn({ onClick, children, title, className = "" }: { onClick?: (e: Reac
 }
 
 export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
-  batchId, subjectId, childId, poster, title,
+  batchId, subjectId, childId, poster, title, videoType, topicId,
   onOpenTimeline, onOpenSlides, attachments
 }, ref) => {
   const videoRef      = useRef<HTMLVideoElement>(null);
@@ -228,7 +230,12 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
           // Try pwmarco API first
           try {
-            const pwMarcoRes = await fetch(`${PROXY_BASE}/pwmarco-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}`);
+            const apiEndpoint = videoType === "live" ? "/pwmarco-stream-url" : "/pwmarco-video-url";
+            const qs = videoType === "live" 
+              ? `?parentId=${batchId}&subjectId=${subjectId}&childId=${childId}&urlType=penpencilvdo&videoId=${childId}&topicId=${topicId || childId}`
+              : `?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}`;
+            
+            const pwMarcoRes = await fetch(`${PROXY_BASE}${apiEndpoint}${qs}`);
             if (pwMarcoRes.ok) {
               const data = await pwMarcoRes.json();
               if (data?.v === "1" && data?.d) {

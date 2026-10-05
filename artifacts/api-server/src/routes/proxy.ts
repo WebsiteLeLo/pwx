@@ -100,6 +100,19 @@ proxyRouter.get("/pwmarco-video-url", async (req, res) => {
   }
 });
 
+// ── pwmarco stream URL proxy ───────────────────────────────────────────────────
+proxyRouter.get("/pwmarco-stream-url", async (req, res) => {
+  const query = new URLSearchParams(req.query as any).toString();
+  const url = `https://m.pwmarco.site/api/stream-url?${query}`;
+  try {
+    const upstream = await fetch(url);
+    const data = await upstream.json();
+    res.json(data);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Vidcloud stream URL extractor ─────────────────────────────────────────────
 // Fetches vidcloud's play.php page (which has PW auth baked in) and extracts
 // any CloudFront signed MPD/HLS/M3U8 URLs embedded in the page source.
