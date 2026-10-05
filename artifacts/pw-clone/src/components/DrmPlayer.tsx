@@ -228,7 +228,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
           // Try pwmarco API first
           try {
-            const pwMarcoRes = await fetch(`https://m.pwmarco.site/api/get-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}&urlType=penpencilvdo`);
+            const pwMarcoRes = await fetch(`${PROXY_BASE}/pwmarco-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}`);
             if (pwMarcoRes.ok) {
               const data = await pwMarcoRes.json();
               if (data?.v === "1" && data?.d) {
