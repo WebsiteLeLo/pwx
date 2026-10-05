@@ -427,6 +427,10 @@ export function LivePlayer({
   /* ── Auto-reconnect ──────────────────────────────────────────────────── */
   function scheduleReconnect() {
     reconnectCountRef.current += 1;
+    if (reconnectCountRef.current > 2) {
+      window.location.reload();
+      return;
+    }
     const delay = Math.min(2000 * reconnectCountRef.current, 16000);
     setStatusMsg(`Stream interrupted — reconnecting in ${delay / 1000}s…`);
     setStatus("loading");
@@ -452,7 +456,7 @@ export function LivePlayer({
         if (wasPlaying && !video.paused && video.readyState < 3) {
           scheduleReconnect();
         }
-      }, 8000);
+      }, 20000); // Increased from 8s to 20s
     };
     const onCanPlay = () => {
       setBuffering(false);
@@ -590,7 +594,8 @@ export function LivePlayer({
     const v = videoRef.current;
     if (!v || !v.seekable.length) return;
     const seekEnd = v.seekable.end(v.seekable.length - 1);
-    const seekStart = v.seekable.start(0);
+    // Add 2 second margin to prevent hitting purged segments
+    const seekStart = v.seekable.start(0) + 2;
     v.currentTime = Math.max(seekStart, Math.min(v.currentTime + secs, seekEnd));
     resetHideTimer();
   }
@@ -655,7 +660,7 @@ export function LivePlayer({
   function seekToRatio(ratio: number) {
     const v = videoRef.current;
     if (!v || !v.seekable.length) return;
-    const seekStart = v.seekable.start(0);
+    const seekStart = v.seekable.start(0) + 2;
     const seekEnd   = v.seekable.end(v.seekable.length - 1);
     v.currentTime = seekStart + ratio * (seekEnd - seekStart);
   }
