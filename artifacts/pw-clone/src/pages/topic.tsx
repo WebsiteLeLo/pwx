@@ -11,6 +11,7 @@ import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, D
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { PW_API } from "@/lib/pwApiStore";
+import { apiUrl } from "@/lib/apiUrl";
 import JSZip from "jszip";
 
 type TabKey = ContentType;
@@ -254,7 +255,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     for (let i = 0; i < pdfs.length; i++) {
       const { title, url } = pdfs[i];
       try {
-        const proxiedUrl = `/api/pdf?url=${encodeURIComponent(url)}`;
+        const proxiedUrl = apiUrl(`/pdf?url=${encodeURIComponent(url)}`);
         const res = await fetch(proxiedUrl);
         if (!res.ok) throw new Error("Fetch failed");
         const blob = await res.blob();
