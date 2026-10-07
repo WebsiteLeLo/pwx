@@ -185,7 +185,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     
     if (!skipAd) {
       localStorage.setItem("pwx_download_intent", window.location.pathname);
-      window.location.href = "https://arolinks.com/YOUR_DOWNLOAD_LINK"; // REPLACE THIS URL
+      window.location.href = "https://arolinks.com/JlLtYn";
       return;
     }
 
