@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2, Loader2 } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
+import { PW_API } from "@/lib/pwApiStore";
 
 type TabKey = ContentType;
 
@@ -175,7 +176,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     for (const content of items) {
       const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
       try {
-        const res = await fetch(`/api/pw/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
+        const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
         if (!res.ok) continue;
         const json = await res.json() as { success: boolean; data: any };
         const schedData = json.data;
