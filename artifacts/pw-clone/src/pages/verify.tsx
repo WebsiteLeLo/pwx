@@ -89,7 +89,13 @@ export default function VerifyPage() {
         if (success) {
           clearPendingGeneration();
           setStatus("success");
-          setTimeout(() => setLocation("/pw"), 1800);
+          
+          const downloadIntent = localStorage.getItem("pwx_download_intent");
+          if (downloadIntent) {
+            setTimeout(() => setLocation(downloadIntent), 1800);
+          } else {
+            setTimeout(() => setLocation("/pw"), 1800);
+          }
         } else {
           setStatus("failed");
         }

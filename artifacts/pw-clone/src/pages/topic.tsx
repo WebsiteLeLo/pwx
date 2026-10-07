@@ -11,6 +11,7 @@ import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, D
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { PW_API } from "@/lib/pwApiStore";
+import { prepareAccessGeneration, storePendingGeneration } from "@/lib/access-key";
 import JSZip from "jszip";
 
 type TabKey = ContentType;
@@ -171,9 +172,33 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
 
   const queryClient = useQueryClient();
 
-  const handleDownload = async () => {
+  useEffect(() => {
+    const intent = localStorage.getItem("pwx_download_intent");
+    if (intent === window.location.pathname) {
+      localStorage.removeItem("pwx_download_intent");
+      handleDownload(true);
+    }
+  }, []);
+
+  const handleDownload = async (skipAd = false) => {
     if (downloading) return;
     setDownloading(true);
+    
+    if (!skipAd) {
+      try {
+        const token = await prepareAccessGeneration();
+        storePendingGeneration(token);
+        localStorage.setItem("pwx_download_intent", window.location.pathname);
+        window.location.href = "https://arolinks.com/vSDzpK";
+        return;
+      } catch (e) {
+        console.error("Failed to prepare ad", e);
+        setDownloading(false);
+        alert("Failed to initialize secure download. Please try again.");
+        return;
+      }
+    }
+
     setIsZipping(false);
     setProgress(0);
     setTotal(0);
