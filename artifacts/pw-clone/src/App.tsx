@@ -35,6 +35,7 @@ import AdminPanel from "@/pages/admin";
 import AccessPage from "@/pages/access";
 import VerifyPage from "@/pages/verify";
 import DownloadVerifyPage from "@/pages/download-verify";
+import DownloadVerifyPage from "@/pages/download-verify";
 import InfinitePractice from "@/pages/infinite-practice";
 import InfinitePracticeHub from "@/pages/infinite-practice-hub";
 
@@ -112,6 +113,7 @@ function Router() {
                   <Route path="/"><Redirect to="/pw" /></Route>
                   <Route path="/access" component={AccessPage} />
                   <Route path="/verify" component={VerifyPage} />
+                  <Route path="/download-verify" component={DownloadVerifyPage} />
                   <Route path="/pw" component={Home} />
                   <Route path="/batch/infinite-practice" component={InfinitePracticeHub} />
                   <Route path="/batch/:batchId" component={Batch} />
