@@ -6,7 +6,7 @@ import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2, Loader2 } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
 
@@ -160,6 +160,93 @@ interface TabContentProps {
   contentType: ContentType;
 }
 
+function DownloadAllButton({ items, contentType }: { items: ContentItem[], contentType: ContentType }) {
+  const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+
+    const pdfs: { title: string, url: string }[] = [];
+    
+    for (const content of items) {
+      const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
+      
+      if (content.homeworkIds && content.homeworkIds.length > 0) {
+        content.homeworkIds.forEach(hw => {
+          const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
+          if (hw.attachmentIds && hw.attachmentIds.length > 0) {
+            hw.attachmentIds.forEach(att => {
+              const url = getPdfUrl(att);
+              if (url) pdfs.push({ title: hwTitle, url });
+            });
+          }
+        });
+      } else if (content.urls && content.urls.length > 0) {
+        content.urls.forEach(u => {
+          if (u.url) pdfs.push({ title: u.name ?? baseTitle, url: u.url });
+        });
+      }
+    }
+
+    setTotal(pdfs.length);
+    setProgress(0);
+
+    for (let i = 0; i < pdfs.length; i++) {
+      const { title, url } = pdfs[i];
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Fetch failed");
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objUrl;
+        
+        // Clean title for file name
+        const cleanTitle = title.replace(/[^a-zA-Z0-9 -]/g, "").trim() || "Document";
+        a.download = `${cleanTitle}.pdf`;
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+      } catch (e) {
+        console.error("Failed to download", title, e);
+      }
+      setProgress(i + 1);
+      await new Promise(r => setTimeout(r, 600)); // Delay between downloads
+    }
+
+    setDownloading(false);
+  };
+
+  if (items.length === 0) return null;
+
+  return (
+    <Button 
+      size="sm" 
+      variant="outline" 
+      className="text-xs h-8 gap-1.5 bg-background/50 hover:bg-background shadow-sm"
+      onClick={handleDownload}
+      disabled={downloading}
+    >
+      {downloading ? (
+        <>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {progress} / {total}
+        </>
+      ) : (
+        <>
+          <Download className="w-3.5 h-3.5" />
+          Download All
+        </>
+      )}
+    </Button>
+  );
+}
+
 /* ── Notes: sequential page-walker ── */
 function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
   const [fetchPage, setFetchPage] = useState(1);
@@ -233,8 +320,9 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
   return (
     <div className="mt-6 space-y-3">
       {done && allItems.length > 0 && (
-        <div className="pb-1 border-b border-border/30 mb-2">
-          <span className="text-xs text-muted-foreground">{allItems.length} document{allItems.length !== 1 ? "s" : ""}</span>
+        <div className="pb-2 border-b border-border/30 mb-4 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{allItems.length} document{allItems.length !== 1 ? "s" : ""}</span>
+          <DownloadAllButton items={allItems} contentType={contentType} />
         </div>
       )}
       {allItems.map((content, index) => (
