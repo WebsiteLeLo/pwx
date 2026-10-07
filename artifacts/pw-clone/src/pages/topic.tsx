@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { usePageMeta, breadcrumbSchema } from "@/hooks/usePageMeta";
-import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem } from "@/hooks/usePWApi";
+import { useTopicContents, useAllTopicContents, useBatchDetails, useTopics, useAttachmentUrls, getPdfUrl, ContentType, ContentItem, AttachmentUrlItem } from "@/hooks/usePWApi";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -168,6 +169,8 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   const [total, setTotal] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
 
+  const queryClient = useQueryClient();
+
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
@@ -176,30 +179,52 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     setTotal(0);
 
     const pdfs: { title: string, url: string }[] = [];
+    const isDpp = contentType === "DppNotes";
     
-    // Step 1: Fetch all schedule-details to get complete attachment keys
+    // Step 1: Get attachment URLs from React Query cache (populated by NoteItem)
     for (const content of items) {
-      const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
-      try {
-        const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
-        if (!res.ok) continue;
-        const json = await res.json() as { success: boolean; data: any };
-        const schedData = json.data;
+      const baseTitle = content.name ?? content.topic ?? (isDpp ? "DPP Sheet" : "Study Notes");
+      const queryKey = ["attachmentUrlsV4", batchId, subjectId, content._id, isDpp];
+      
+      // Try to get from cache first
+      let cachedData = queryClient.getQueryData<AttachmentUrlItem[]>(queryKey);
+      
+      // If not in cache (e.g. if NoteItem didn't render it yet), fetch it
+      if (!cachedData) {
+        try {
+          const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
+          if (res.ok) {
+            const json = await res.json() as { success: boolean; data: any };
+            const schedData = json.data;
+            let hwList = isDpp
+              ? (schedData.dpp?.homeworkIds?.length ? schedData.dpp.homeworkIds : (schedData.homeworkIds ?? []))
+              : (schedData.homeworkIds ?? []);
 
-        let hwList = (contentType === "DppNotes")
-          ? (schedData.dpp?.homeworkIds?.length ? schedData.dpp.homeworkIds : (schedData.homeworkIds ?? []))
-          : (schedData.homeworkIds ?? []);
-
-        for (const hw of hwList) {
-          const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-          const atts = hw.attachmentIds ?? [];
-          for (const att of atts) {
-            const url = getPdfUrl(att);
-            if (url) pdfs.push({ title: hwTitle, url });
+            cachedData = [];
+            for (const hw of hwList) {
+              const hwTopic = hw.topic ?? "";
+              const atts = hw.attachmentIds ?? [];
+              for (const att of atts) {
+                cachedData.push({
+                  topic: hwTopic,
+                  baseUrl: att.baseUrl,
+                  key: att.key ?? "",
+                  url: getPdfUrl(att),
+                });
+              }
+            }
           }
+        } catch (err) {
+          console.error("Failed to fetch details for", baseTitle, err);
         }
-      } catch (err) {
-        console.error("Failed to fetch details for", baseTitle, err);
+      }
+
+      if (cachedData && cachedData.length > 0) {
+        cachedData.forEach((item, i) => {
+          const hw = content.homeworkIds?.[i];
+          const title = hw?.topic ?? hw?.note ?? hw?.slug ?? content.name ?? content.topic ?? baseTitle;
+          pdfs.push({ title, url: item.url });
+        });
       }
     }
 
