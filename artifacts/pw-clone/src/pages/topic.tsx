@@ -10,6 +10,7 @@ import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, D
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { PW_API } from "@/lib/pwApiStore";
+import JSZip from "jszip";
 
 type TabKey = ContentType;
 
@@ -165,10 +166,14 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
+  const [isZipping, setIsZipping] = useState(false);
 
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    setIsZipping(false);
+    setProgress(0);
+    setTotal(0);
 
     const pdfs: { title: string, url: string }[] = [];
     
@@ -198,8 +203,13 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
       }
     }
 
+    if (pdfs.length === 0) {
+      setDownloading(false);
+      return;
+    }
+
     setTotal(pdfs.length);
-    setProgress(0);
+    const zip = new JSZip();
 
     for (let i = 0; i < pdfs.length; i++) {
       const { title, url } = pdfs[i];
@@ -208,26 +218,37 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
         const res = await fetch(proxiedUrl);
         if (!res.ok) throw new Error("Fetch failed");
         const blob = await res.blob();
-        const objUrl = URL.createObjectURL(blob);
+        
+        const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '-').trim() || `Document_${i+1}`;
+        zip.file(`${safeTitle}.pdf`, blob);
+      } catch (err) {
+        console.error("Failed to download", title, err);
+      }
+      setProgress(i + 1);
+    }
+
+    if (Object.keys(zip.files).length > 0) {
+      setIsZipping(true);
+      try {
+        const content = await zip.generateAsync({ type: "blob" });
+        const objUrl = URL.createObjectURL(content);
         const a = document.createElement("a");
         a.href = objUrl;
-        
-        // Clean title for file name
-        const cleanTitle = title.replace(/[^a-zA-Z0-9 -]/g, "").trim() || "Document";
-        a.download = `${cleanTitle}.pdf`;
-        
+        const zipName = (contentType === "DppNotes" ? "DPPs" : "Notes") + "_PWX.zip";
+        a.download = zipName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(objUrl);
       } catch (e) {
-        console.error("Failed to download", title, e);
+        console.error("Failed to generate zip", e);
       }
-      setProgress(i + 1);
-      await new Promise(r => setTimeout(r, 600)); // Delay between downloads
     }
 
+    setIsZipping(false);
     setDownloading(false);
+    setProgress(0);
+    setTotal(0);
   };
 
   if (items.length === 0) return null;
@@ -243,7 +264,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
       {downloading ? (
         <>
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          {progress} / {total}
+          {isZipping ? "Zipping..." : `${progress} / ${total}`}
         </>
       ) : (
         <>
