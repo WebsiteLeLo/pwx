@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  claimAccessGeneration,
-  clearPendingGeneration,
-  getPendingGeneration,
-  getStoredAccessKey,
-  storeAccessKey,
-  verifyAccessKey,
-} from "@/lib/access-key";
 
 const styles = {
   shell: {
@@ -16,7 +8,7 @@ const styles = {
     display: "grid",
     placeItems: "center",
     background:
-      "#0a0a12 radial-gradient(ellipse 60% 50% at 50% 30%, rgba(124,58,237,0.25), transparent 70%), radial-gradient(ellipse 40% 40% at 80% 80%, rgba(34,211,238,0.12), transparent 70%)",
+      "#0a0a12 radial-gradient(ellipse 60% 50% at 50% 30%, rgba(16,185,129,0.25), transparent 70%), radial-gradient(ellipse 40% 40% at 80% 80%, rgba(34,211,238,0.12), transparent 70%)",
     fontFamily: "'Inter', sans-serif",
     color: "#a1a1c2",
     padding: "1.5rem",
@@ -24,8 +16,8 @@ const styles = {
   card: {
     width: "100%",
     maxWidth: 380,
-    border: "1px solid rgba(124,58,237,0.35)",
-    background: "linear-gradient(180deg, rgba(30,27,75,0.5), rgba(10,10,18,0.7))",
+    border: "1px solid rgba(16,185,129,0.35)",
+    background: "linear-gradient(180deg, rgba(6,78,59,0.5), rgba(10,10,18,0.7))",
     borderRadius: 14,
     padding: "2.5rem 2rem",
     textAlign: "center" as const,
@@ -51,52 +43,34 @@ const styles = {
     height: 56,
     margin: "0 auto 1.5rem",
     borderRadius: "50%",
-    border: "3px solid rgba(124,58,237,0.25)",
+    border: "3px solid rgba(16,185,129,0.25)",
     borderTopColor:
-      state === "success" ? "#f0b429" : state === "failed" ? "rgba(255,255,255,0.15)" : "#22d3ee",
+      state === "success" ? "#10b981" : state === "failed" ? "rgba(255,255,255,0.15)" : "#34d399",
     borderColor: state === "failed" ? "rgba(255,255,255,0.15)" : undefined,
   }),
-  link: {
-    background: "none",
-    border: "none",
-    color: "#22d3ee",
-    fontSize: "0.85rem",
-    cursor: "pointer",
-    textDecoration: "underline",
-    textUnderlineOffset: "3px",
-  },
 };
 
-export default function VerifyPage() {
+export default function DownloadVerifyPage() {
   const [status, setStatus] = useState<"checking" | "success" | "failed">("checking");
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     let cancelled = false;
-    let started = false;
-    const timeout = setTimeout(async () => {
-      if (started) return;
-      started = true;
-      try {
-        const pendingGeneration = getPendingGeneration();
-        let key = getStoredAccessKey();
-        if (pendingGeneration) {
-          key = await claimAccessGeneration(pendingGeneration);
-          storeAccessKey(key);
-        }
-        const success = Boolean(key) && await verifyAccessKey(key);
-        if (cancelled) return;
-        if (success) {
-          clearPendingGeneration();
-          setStatus("success");
-          setTimeout(() => setLocation("/pw"), 1800);
-        } else {
-          setStatus("failed");
-        }
-      } catch {
-        if (!cancelled) setStatus("failed");
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+      
+      const intent = localStorage.getItem("pwx_download_intent");
+      if (intent) {
+        // Mark as unlocked for this session
+        sessionStorage.setItem("pwx_download_unlocked", "true");
+        setStatus("success");
+        setTimeout(() => setLocation(intent), 1500);
+      } else {
+        setStatus("failed");
+        setTimeout(() => setLocation("/pw"), 2000);
       }
-    }, 600);
+    }, 800);
+    
     return () => {
       cancelled = true;
       clearTimeout(timeout);
@@ -123,23 +97,20 @@ export default function VerifyPage() {
         <AnimatePresence mode="wait">
           {status === "checking" && (
             <motion.div key="checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h2 style={styles.title}>Verifying…</h2>
-              <p style={styles.copy}>Confirming your key.</p>
+              <h2 style={styles.title}>Unlocking Download…</h2>
+              <p style={styles.copy}>Please wait a moment.</p>
             </motion.div>
           )}
           {status === "success" && (
             <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h2 style={styles.title}>Access Granted</h2>
-              <p style={styles.copy}>Unlocked for 24 hours. Redirecting…</p>
+              <h2 style={styles.title}>Download Unlocked</h2>
+              <p style={styles.copy}>Redirecting you back to your files…</p>
             </motion.div>
           )}
           {status === "failed" && (
             <motion.div key="failed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h2 style={styles.title}>Verification Failed</h2>
-              <p style={styles.copy}>Your key expired or wasn't found.</p>
-              <button style={styles.link} onClick={() => setLocation("/access")}>
-                Generate a new key
-              </button>
+              <h2 style={styles.title}>Action Failed</h2>
+              <p style={styles.copy}>No pending download found.</p>
             </motion.div>
           )}
         </AnimatePresence>
