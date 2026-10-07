@@ -298,7 +298,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
       size="sm" 
       variant="outline" 
       className="text-xs h-8 gap-1.5 bg-background/50 hover:bg-background shadow-sm"
-      onClick={handleDownload}
+      onClick={() => handleDownload(false)}
       disabled={downloading}
     >
       {downloading ? (
