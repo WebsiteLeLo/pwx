@@ -160,7 +160,7 @@ interface TabContentProps {
   contentType: ContentType;
 }
 
-function DownloadAllButton({ items, contentType }: { items: ContentItem[], contentType: ContentType }) {
+function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: ContentItem[], contentType: ContentType, batchId: string, subjectId: string }) {
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
@@ -171,23 +171,29 @@ function DownloadAllButton({ items, contentType }: { items: ContentItem[], conte
 
     const pdfs: { title: string, url: string }[] = [];
     
+    // Step 1: Fetch all schedule-details to get complete attachment keys
     for (const content of items) {
       const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
-      
-      if (content.homeworkIds && content.homeworkIds.length > 0) {
-        content.homeworkIds.forEach(hw => {
+      try {
+        const res = await fetch(`/api/pw/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
+        if (!res.ok) continue;
+        const json = await res.json() as { success: boolean; data: any };
+        const schedData = json.data;
+
+        let hwList = (contentType === "DppNotes")
+          ? (schedData.dpp?.homeworkIds?.length ? schedData.dpp.homeworkIds : (schedData.homeworkIds ?? []))
+          : (schedData.homeworkIds ?? []);
+
+        for (const hw of hwList) {
           const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-          if (hw.attachmentIds && hw.attachmentIds.length > 0) {
-            hw.attachmentIds.forEach(att => {
-              const url = getPdfUrl(att);
-              if (url) pdfs.push({ title: hwTitle, url });
-            });
+          const atts = hw.attachmentIds ?? [];
+          for (const att of atts) {
+            const url = getPdfUrl(att);
+            if (url) pdfs.push({ title: hwTitle, url });
           }
-        });
-      } else if (content.urls && content.urls.length > 0) {
-        content.urls.forEach(u => {
-          if (u.url) pdfs.push({ title: u.name ?? baseTitle, url: u.url });
-        });
+        }
+      } catch (err) {
+        console.error("Failed to fetch details for", baseTitle, err);
       }
     }
 
@@ -323,7 +329,7 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
       {done && allItems.length > 0 && (
         <div className="pb-2 border-b border-border/30 mb-4 flex items-center justify-between">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{allItems.length} document{allItems.length !== 1 ? "s" : ""}</span>
-          <DownloadAllButton items={allItems} contentType={contentType} />
+          <DownloadAllButton items={allItems} contentType={contentType} batchId={batchId} subjectId={subjectId} />
         </div>
       )}
       {allItems.map((content, index) => (
