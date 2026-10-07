@@ -197,7 +197,8 @@ function DownloadAllButton({ items, contentType }: { items: ContentItem[], conte
     for (let i = 0; i < pdfs.length; i++) {
       const { title, url } = pdfs[i];
       try {
-        const res = await fetch(url);
+        const proxiedUrl = `/api/pdf?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxiedUrl);
         if (!res.ok) throw new Error("Fetch failed");
         const blob = await res.blob();
         const objUrl = URL.createObjectURL(blob);
