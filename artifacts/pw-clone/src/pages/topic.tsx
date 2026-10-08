@@ -43,25 +43,76 @@ interface NoteItemProps {
 
 function getPdfsFromContent(content: any, isDpp: boolean) {
   const baseTitle = content.name ?? content.topic ?? (isDpp ? "DPP Sheet" : "Study Notes");
-  const rows: { title: string; url: string | null }[] = [];
+  const candidates: { title: string; url: string | null; priority: number }[] = [];
+
+  // Helper to extract from an array of Attachment objects
+  const extractAttachments = (atts: any[], title: string, priority: number) => {
+    if (!atts || atts.length === 0) return false;
+    let found = false;
+    atts.forEach((att: any) => {
+      let url = getPdfUrl(att);
+      if (url) {
+        // If url doesn't end with .pdf and doesn't contain a file extension, it might be a bad _id fallback
+        if (!url.includes('.pdf') && !url.includes('.doc')) {
+           priority -= 50; // lower priority for suspected bad URLs
+        }
+        candidates.push({ title, url, priority });
+        found = true;
+      }
+    });
+    return found;
+  };
+
+  // 1. Try content.homeworkIds (Priority 30)
+  let hasHwAttachments = false;
   if (content.homeworkIds && content.homeworkIds.length > 0) {
     content.homeworkIds.forEach((hw: any) => {
       const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-      if (hw.attachmentIds && hw.attachmentIds.length > 0) {
-        hw.attachmentIds.forEach((att: any) => {
-          rows.push({ title: hwTitle, url: getPdfUrl(att) || null });
-        });
-      } else {
-        rows.push({ title: hwTitle, url: null });
-      }
+      const found = extractAttachments(hw.attachmentIds, hwTitle, 30);
+      if (found) hasHwAttachments = true;
     });
-  } else if (content.urls && content.urls.length > 0) {
-    content.urls.forEach((u: any) => {
-      rows.push({ title: u.name ?? baseTitle, url: u.url });
-    });
-  } else {
-    rows.push({ title: baseTitle, url: null });
   }
+
+  // 2. Try content.attachmentIds (Top-level) (Priority 20)
+  let hasTopAttachments = false;
+  if (content.attachmentIds && content.attachmentIds.length > 0) {
+    hasTopAttachments = extractAttachments(content.attachmentIds, baseTitle, 20);
+  }
+
+  // 3. Try content.urls (Priority 10)
+  let hasUrls = false;
+  if (content.urls && content.urls.length > 0) {
+    content.urls.forEach((u: any) => {
+      candidates.push({ title: u.name ?? baseTitle, url: u.url, priority: 10 });
+      hasUrls = true;
+    });
+  }
+
+  // Filter candidates to only return the highest priority ones
+  // If there are any candidates with priority > 0, return those.
+  let bestCandidates = candidates;
+  if (candidates.length > 0) {
+    const maxPriority = Math.max(...candidates.map(c => c.priority));
+    // If the best we have is a bad URL (priority < 0) from homeworkIds, maybe top-level attachmentIds has a good URL!
+    // So we pick the candidate(s) that have the highest priority.
+    bestCandidates = candidates.filter(c => c.priority === maxPriority);
+  }
+
+  const rows = bestCandidates.map(c => ({ title: c.title, url: c.url }));
+
+  // Fallback if nothing found
+  if (rows.length === 0) {
+    // If homeworkIds was present but had NO attachments at all, we used to push null.
+    if (content.homeworkIds && content.homeworkIds.length > 0 && !hasHwAttachments) {
+       content.homeworkIds.forEach((hw: any) => {
+          const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
+          rows.push({ title: hwTitle, url: null });
+       });
+    } else {
+       rows.push({ title: baseTitle, url: null });
+    }
+  }
+
   return rows;
 }
 
