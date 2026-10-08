@@ -118,51 +118,9 @@ function getPdfsFromContent(content: any, isDpp: boolean) {
 
 function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
   const { toggle, isCompleted } = useCompletedItems();
-  const count = content.homeworkIds?.length || 1;
   const isDpp = contentType === "DppNotes";
-  const { data, isLoading } = useAttachmentUrls(batchId, subjectId, content._id, count, isDpp);
 
-  const baseTitle = content.name ?? content.topic ?? (contentType === "DppNotes" ? "DPP Sheet" : "Study Notes");
-
-  const pdfs = useMemo(() => {
-    if (data && data.length > 0) {
-      return data.map((item, i) => {
-        const hw = content.homeworkIds?.[i];
-        const title = hw?.topic ?? hw?.note ?? hw?.slug ?? content.name ?? content.topic ?? baseTitle;
-        return { title, url: item.url };
-      });
-    }
-    const rows: { title: string; url: string | null }[] = [];
-    if (content.homeworkIds && content.homeworkIds.length > 0) {
-      content.homeworkIds.forEach(hw => {
-        const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-        if (hw.attachmentIds && hw.attachmentIds.length > 0) {
-          hw.attachmentIds.forEach(att => {
-            rows.push({ title: hwTitle, url: getPdfUrl(att) || null });
-          });
-        } else {
-          rows.push({ title: hwTitle, url: null });
-        }
-      });
-    } else if (content.urls && content.urls.length > 0) {
-      content.urls.forEach(u => {
-        rows.push({ title: u.name ?? baseTitle, url: u.url });
-      });
-    } else {
-      rows.push({ title: baseTitle, url: null });
-    }
-    return rows;
-  }, [data, content, baseTitle]);
-
-  if (isLoading) {
-    return (
-      <>
-        {[1, 2].map(i => (
-          <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
-        ))}
-      </>
-    );
-  }
+  const pdfs = useMemo(() => getPdfsFromContent(content, isDpp), [content, isDpp]);
 
   const dppItemId = (i: number) => `${content._id}-${i}`;
 
