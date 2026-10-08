@@ -35,7 +35,6 @@ import AdminPanel from "@/pages/admin";
 import AccessPage from "@/pages/access";
 import VerifyPage from "@/pages/verify";
 import DownloadVerifyPage from "@/pages/download-verify";
-import DownloadVerifyPage from "@/pages/download-verify";
 import InfinitePractice from "@/pages/infinite-practice";
 import InfinitePracticeHub from "@/pages/infinite-practice-hub";
 

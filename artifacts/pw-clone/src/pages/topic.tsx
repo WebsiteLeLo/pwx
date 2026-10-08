@@ -40,6 +40,31 @@ interface NoteItemProps {
   baseIndex: number;
 }
 
+
+function getPdfsFromContent(content: any, isDpp: boolean) {
+  const baseTitle = content.name ?? content.topic ?? (isDpp ? "DPP Sheet" : "Study Notes");
+  const rows: { title: string; url: string | null }[] = [];
+  if (content.homeworkIds && content.homeworkIds.length > 0) {
+    content.homeworkIds.forEach((hw: any) => {
+      const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
+      if (hw.attachmentIds && hw.attachmentIds.length > 0) {
+        hw.attachmentIds.forEach((att: any) => {
+          rows.push({ title: hwTitle, url: getPdfUrl(att) || null });
+        });
+      } else {
+        rows.push({ title: hwTitle, url: null });
+      }
+    });
+  } else if (content.urls && content.urls.length > 0) {
+    content.urls.forEach((u: any) => {
+      rows.push({ title: u.name ?? baseTitle, url: u.url });
+    });
+  } else {
+    rows.push({ title: baseTitle, url: null });
+  }
+  return rows;
+}
+
 function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
   const { toggle, isCompleted } = useCompletedItems();
   const count = content.homeworkIds?.length || 1;
@@ -170,8 +195,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   const [total, setTotal] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
 
-  const queryClient = useQueryClient();
-
+  
   useEffect(() => {
     if (sessionStorage.getItem("pwx_download_unlocked") === "true") {
       sessionStorage.removeItem("pwx_download_unlocked");
@@ -197,61 +221,16 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     const pdfs: { title: string, url: string }[] = [];
     const isDpp = contentType === "DppNotes";
     
-    // Step 1: Get attachment URLs from React Query cache (populated by NoteItem)
+    // Step 1: Get attachment URLs directly from content
+    const zip = new JSZip();
     for (const content of items) {
-      const baseTitle = content.name ?? content.topic ?? (isDpp ? "DPP Sheet" : "Study Notes");
-      const queryKey = ["attachmentUrlsV4", batchId, subjectId, content._id, isDpp];
-      
-      // Try to get from cache first
-      let cachedData = queryClient.getQueryData<AttachmentUrlItem[]>(queryKey);
-      
-      // If not in cache (e.g. if NoteItem didn't render it yet), fetch it
-      if (!cachedData) {
-        try {
-          const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
-          if (res.ok) {
-            const json = await res.json() as { success: boolean; data: any };
-            const schedData = json.data;
-            let hwList = isDpp
-              ? (schedData.dpp?.homeworkIds?.length ? schedData.dpp.homeworkIds : (schedData.homeworkIds ?? []))
-              : (schedData.homeworkIds ?? []);
-
-            cachedData = [];
-            for (const hw of hwList) {
-              const hwTopic = hw.topic ?? "";
-              const atts = hw.attachmentIds ?? [];
-              for (const att of atts) {
-                cachedData.push({
-                  topic: hwTopic,
-                  baseUrl: att.baseUrl,
-                  key: att.key ?? "",
-                  url: getPdfUrl(att),
-                });
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Failed to fetch details for", baseTitle, err);
+      const extractedPdfs = getPdfsFromContent(content, isDpp);
+      for (const pdf of extractedPdfs) {
+        if (pdf.url) {
+          pdfs.push({ title: pdf.title, url: pdf.url });
         }
       }
-
-      if (cachedData && cachedData.length > 0) {
-        cachedData.forEach((item, i) => {
-          const hw = content.homeworkIds?.[i];
-          const title = hw?.topic ?? hw?.note ?? hw?.slug ?? content.name ?? content.topic ?? baseTitle;
-          pdfs.push({ title, url: item.url });
-        });
-      }
     }
-
-    if (pdfs.length === 0) {
-      setDownloading(false);
-      return;
-    }
-
-    setTotal(pdfs.length);
-    const zip = new JSZip();
-
     for (let i = 0; i < pdfs.length; i++) {
       const { title, url } = pdfs[i];
       try {
