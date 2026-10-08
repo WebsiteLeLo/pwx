@@ -116,6 +116,65 @@ function getPdfsFromContent(content: any, isDpp: boolean) {
   return rows;
 }
 
+
+function OpenPdfButton({ batchId, subjectId, contentId, isDpp, index, fallbackUrl }: { batchId: string, subjectId: string, contentId: string, isDpp: boolean, index: number, fallbackUrl: string }) {
+  const [loading, setLoading] = useState(false);
+  
+  const handleOpen = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`);
+      const json = await res.json();
+      const schedData = json.data;
+      
+      const urls: string[] = [];
+      const extractAtts = (atts: any[]) => {
+        if (!atts) return;
+        atts.forEach(att => {
+           const u = getPdfUrl(att);
+           if (u && (u.includes('.pdf') || u.includes('.doc'))) urls.push(u);
+        });
+      };
+      
+      if (isDpp) {
+         if (schedData.dpp?.homeworkIds) {
+           schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         } else if (schedData.homeworkIds) {
+           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         }
+      } else {
+         if (schedData.homeworkIds) {
+           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         }
+         extractAtts(schedData.attachmentIds);
+      }
+      if (schedData.urls) {
+         schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+      }
+      
+      const finalUrl = urls[index] || fallbackUrl;
+      window.open(finalUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error(err);
+      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      className="flex items-center gap-1.5 cursor-pointer touch-manipulation"
+      onClick={handleOpen}
+      disabled={loading}
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+      Open
+    </Button>
+  );
+}
+
 function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteItemProps) {
   const { toggle, isCompleted } = useCompletedItems();
   const isDpp = contentType === "DppNotes";
@@ -170,14 +229,14 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
                 </button>
               )}
               {url ? (
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1.5 cursor-pointer touch-manipulation"
-                  onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open
-                </Button>
+                <OpenPdfButton 
+                  batchId={batchId} 
+                  subjectId={subjectId} 
+                  contentId={content._id} 
+                  isDpp={isDpp} 
+                  index={i} 
+                  fallbackUrl={url} 
+                />
               ) : (
                 <span className="text-xs text-muted-foreground">Unavailable</span>
               )}
@@ -232,14 +291,66 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
     
     // Step 1: Get attachment URLs directly from content
     const zip = new JSZip();
+
+    const extractRealUrls = (schedData: any, isDpp: boolean) => {
+      const urls: string[] = [];
+      const extractAtts = (atts: any[]) => {
+        if (!atts) return;
+        atts.forEach(att => {
+           const u = getPdfUrl(att);
+           if (u && (u.includes('.pdf') || u.includes('.doc'))) urls.push(u);
+        });
+      };
+      
+      if (isDpp) {
+         if (schedData.dpp?.homeworkIds) {
+           schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         } else if (schedData.homeworkIds) {
+           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         }
+      } else {
+         if (schedData.homeworkIds) {
+           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+         }
+         extractAtts(schedData.attachmentIds);
+      }
+      if (schedData.urls) {
+         schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+      }
+      return urls;
+    };
+
     for (const content of items) {
       const extractedPdfs = getPdfsFromContent(content, isDpp);
-      for (const pdf of extractedPdfs) {
-        if (pdf.url) {
-          pdfs.push({ title: pdf.title, url: pdf.url });
+      
+      // Try to get real URLs from schedule-details
+      let realUrls: string[] = [];
+      try {
+        const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${content._id}/schedule-details`);
+        if (res.ok) {
+          const json = await res.json() as { success: boolean; data: any };
+          realUrls = extractRealUrls(json.data, isDpp);
+        }
+      } catch (err) {
+        console.error("Failed to fetch schedule-details", err);
+      }
+
+      for (let i = 0; i < extractedPdfs.length; i++) {
+        const pdf = extractedPdfs[i];
+        const finalUrl = realUrls[i] || pdf.url;
+        if (finalUrl) {
+          pdfs.push({ title: pdf.title, url: finalUrl });
         }
       }
     }
+
+    if (pdfs.length === 0) {
+      setDownloading(false);
+      return;
+    }
+
+    setTotal(pdfs.length);
+
     for (let i = 0; i < pdfs.length; i++) {
       const { title, url } = pdfs[i];
       try {
