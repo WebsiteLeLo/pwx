@@ -11,9 +11,9 @@ export async function getPwApiUrl() {
       .select()
       .from(siteSettingsTable)
       .where(eq(siteSettingsTable.key, "pw_api_url"));
-    return (setting?.value as string) || "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
+    return (setting?.value as string) || "https://pwsecure.gourav23032009.workers.dev/api/pw";
   } catch (e) {
-    return "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
+    return "https://pwsecure.gourav23032009.workers.dev/api/pw";
   }
 }
 

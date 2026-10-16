@@ -111,16 +111,16 @@ export interface NoteContent {
 }
 
 export function getPdfUrl(attachment: Attachment): string {
+  if (!attachment) return "";
   let raw = "";
-  if (attachment.key) {
+  if (attachment.key && typeof attachment.key === "string" && attachment.key.trim() !== "") {
     raw = attachment.baseUrl
       ? `${attachment.baseUrl}${attachment.key}`
       : attachment.key;
-  } else {
-    raw = attachment.baseUrl
-      ? `${attachment.baseUrl}${attachment._id}`
-      : attachment._id;
+  } else if ((attachment as any).url && typeof (attachment as any).url === "string" && /^https?:\/\//i.test((attachment as any).url)) {
+    raw = (attachment as any).url;
   }
+  if (!raw) return "";
   if (!raw.startsWith("http")) raw = `https://${raw}`;
   return raw;
 }

@@ -86,31 +86,6 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
   const teacherName: string = raw.teacherName || raw.teacher?.name || raw.instructorName || "";
   const meta = getSubjectMeta(subjectName);
 
-  const buildLiveSrcs = (): LiveSrcs => {
-    const title = item.data.topic.trim();
-    const akpParams = new URLSearchParams({
-      batch_id:    batchId,
-      subject_id:  subjectId,
-      video_id:    scheduleId,
-      schedule_id: scheduleId,
-      title,
-    });
-    const vcParams = new URLSearchParams({
-      batch_id:   batchId,
-      subject_id: subjectId,
-      topic_id:   topicId,
-      video_id:   scheduleId,
-      video_name: title,
-      video_img:  thumbUrl ?? "",
-      video_type: "live",
-      play_type:  "Lecture",
-    });
-    return {
-      akp:      `https://learnbyakp.online/study-v2/player?${akpParams.toString()}`,
-      vidcloud: `https://vidcloud.eu.org/play.php?${vcParams.toString()}`,
-    };
-  };
-
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
     const params = new URLSearchParams({
@@ -142,7 +117,6 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
 
   return (
     <>
-      {liveModal && <LivePlayerModal srcs={liveModal} title={item.data.topic.trim()} onClose={() => setLiveModal(null)} />}
 
       <motion.div
         initial={{ opacity: 0, x: 16 }}

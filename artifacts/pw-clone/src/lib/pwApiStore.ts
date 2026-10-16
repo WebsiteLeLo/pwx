@@ -1,6 +1,6 @@
 import { apiUrl } from "@/lib/apiUrl";
 
-export let PW_API = "https://proxy.streamvideo.co.in/fetch/api.penpencil.co";
+export let PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 
 export async function initializePwApi() {
   try {

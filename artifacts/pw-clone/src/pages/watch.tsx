@@ -87,10 +87,12 @@ export default function Watch() {
   
   const hwList = schedData?.homeworkIds ?? [];
   const attachments = hwList.flatMap(hw => 
-    (hw.attachmentIds ?? []).map(att => ({
-      name: att.name || hw.topic || "Attachment",
-      url: getPdfUrl(att)
-    }))
+    (hw.attachmentIds ?? [])
+      .map(att => ({
+        name: att.name || hw.topic || "Attachment",
+        url: getPdfUrl(att)
+      }))
+      .filter(a => !!a.url && (a.url.includes('.pdf') || a.url.includes('.doc') || a.url.startsWith('http')))
   );
 
   const slides = slidesData?.data?.slides ?? [];

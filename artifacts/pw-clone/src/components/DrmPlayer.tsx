@@ -173,6 +173,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
     } else if (status === "ready") {
       setLoadProgress(100);
     }
+    return undefined;
   }, [status, attempt]);
 
   const resetHideTimer = useCallback(() => {

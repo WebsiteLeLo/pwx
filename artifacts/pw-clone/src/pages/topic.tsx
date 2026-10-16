@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2, Loader2 } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
+import { useToast } from "@/hooks/use-toast";
 import { PW_API } from "@/lib/pwApiStore";
 import { apiUrl } from "@/lib/apiUrl";
 import JSZip from "jszip";
@@ -119,44 +120,72 @@ function getPdfsFromContent(content: any, isDpp: boolean) {
 
 function OpenPdfButton({ batchId, subjectId, contentId, isDpp, index, fallbackUrl }: { batchId: string, subjectId: string, contentId: string, isDpp: boolean, index: number, fallbackUrl: string }) {
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
   
   const handleOpen = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`);
-      const json = await res.json();
-      const schedData = json.data;
+      let finalUrl = fallbackUrl && (fallbackUrl.includes('.pdf') || fallbackUrl.includes('.doc') || fallbackUrl.startsWith('http')) ? fallbackUrl : "";
       
-      const urls: string[] = [];
-      const extractAtts = (atts: any[]) => {
-        if (!atts) return;
-        atts.forEach(att => {
-           const u = getPdfUrl(att);
-           if (u && (u.includes('.pdf') || u.includes('.doc'))) urls.push(u);
-        });
-      };
+      try {
+        const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`);
+        if (res.ok) {
+          const json = await res.json();
+          const schedData = json.data;
+          
+          const urls: string[] = [];
+          const extractAtts = (atts: any[]) => {
+            if (!atts) return;
+            atts.forEach(att => {
+               const u = getPdfUrl(att);
+               if (u && (u.includes('.pdf') || u.includes('.doc') || u.startsWith('http'))) urls.push(u);
+            });
+          };
+          
+          if (isDpp) {
+             if (schedData?.dpp?.homeworkIds) {
+               schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+             } else if (schedData?.homeworkIds) {
+               schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+             }
+          } else {
+             if (schedData?.homeworkIds) {
+               schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+             }
+             if (schedData?.attachmentIds) {
+               extractAtts(schedData.attachmentIds);
+             }
+          }
+          if (schedData?.urls) {
+             schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+          }
+          
+          if (urls[index]) {
+            finalUrl = urls[index];
+          } else if (urls.length > 0 && !finalUrl) {
+            finalUrl = urls[0];
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch schedule-details", err);
+      }
       
-      if (isDpp) {
-         if (schedData.dpp?.homeworkIds) {
-           schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         } else if (schedData.homeworkIds) {
-           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         }
+      if (finalUrl && (finalUrl.includes('.pdf') || finalUrl.includes('.doc') || finalUrl.startsWith('http'))) {
+        window.open(finalUrl, "_blank", "noopener,noreferrer");
       } else {
-         if (schedData.homeworkIds) {
-           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         }
-         extractAtts(schedData.attachmentIds);
+        toast({
+          title: "Document Not Found",
+          description: "PW server par iss lecture ki PDF file / key upload nahi ki gayi hai.",
+          variant: "destructive"
+        });
       }
-      if (schedData.urls) {
-         schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
-      }
-      
-      const finalUrl = urls[index] || fallbackUrl;
-      window.open(finalUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error(err);
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+      toast({
+        title: "Error",
+        description: "Document open karte waqt error aaya.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -228,18 +257,14 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
                   <CheckCircle2 className="w-4 h-4" />
                 </button>
               )}
-              {url ? (
-                <OpenPdfButton 
-                  batchId={batchId} 
-                  subjectId={subjectId} 
-                  contentId={content._id} 
-                  isDpp={isDpp} 
-                  index={i} 
-                  fallbackUrl={url} 
-                />
-              ) : (
-                <span className="text-xs text-muted-foreground">Unavailable</span>
-              )}
+              <OpenPdfButton 
+                batchId={batchId} 
+                subjectId={subjectId} 
+                contentId={content._id} 
+                isDpp={isDpp} 
+                index={i} 
+                fallbackUrl={url || ""} 
+              />
             </div>
           </motion.div>
         );

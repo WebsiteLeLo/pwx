@@ -211,6 +211,7 @@ export function useVideoCache() {
           } catch { /* vidcloud extraction optional */ }
         }
 
+        if (!resolvedMpdUrl) throw new Error("Video not available for offline download");
         const mpdUrl = resolvedMpdUrl;
 
         if (signal?.aborted) return "error";

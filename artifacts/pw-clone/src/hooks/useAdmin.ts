@@ -68,6 +68,8 @@ export function useAccessGateSetting() {
   });
 }
 
+export const useTelegramGateSetting = useAccessGateSetting;
+
 // ─── Admin ───────────────────────────────────────────────────────
 
 export function useAdminNotifications() {
