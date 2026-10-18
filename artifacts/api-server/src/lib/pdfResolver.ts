@@ -237,10 +237,11 @@ async function resolveViaCdp(
       }, 4000);
 
       ws.onopen = () => {
+        const targetSubj = SUBJECT_ID_TO_SLUG[subjectId] || subjectId;
         const expr = `(async () => {
           try {
             const url = "/api/GetPdf?BatchId=" + encodeURIComponent("${batchId}") +
-                        "&SubjectId=" + encodeURIComponent("${subjectId}") +
+                        "&SubjectId=" + encodeURIComponent("${targetSubj}") +
                         "&PdfId=" + encodeURIComponent("${pdfId}") +
                         "&HomeworkId=" + encodeURIComponent("${homeworkId || ""}");
             const r = await fetch(url);
