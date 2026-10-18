@@ -76,8 +76,58 @@ function loadCache() {
 
 loadCache();
 
+const PWTHOR_TOKEN =
+  process.env.PWTHOR_AUTH_TOKEN ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtb2JpbGUiOiI3OTM0MDUwMDEwNjgiLCJuYW1lIjoiUFdUaG9yIFVzZXIgZjAwMDcxMDUiLCJyYW5kb21JZCI6ImYwMDA3MTA1LTRmZjgtNDJmOC1hZDY5LWQ1ZjNiMGJiZmEzOCIsImF1dGhUeXBlIjoiZGlyZWN0X2xvZ2luIiwiZGlyZWN0TG9naW4iOnRydWUsImlhdCI6MTc5MjMyMzc5MywiZXhwIjoxODAwMDk5NzkzfQ.GXgzTgGvm-D3uvJEjIRgFnYzS5PmM64gUebTd7Iny5I";
+
 /**
- * Resolve via Chrome CDP bridge (connects to running Chrome session on port 9222)
+ * Cloud-compatible Direct HTTP Resolver
+ * Resolves PDF keys on Render, Railway, VPS, Docker, or localhost without requiring Chrome.
+ */
+async function resolveViaPwThorHttp(
+  batchId: string,
+  subjectId: string,
+  pdfId: string,
+  homeworkId?: string
+): Promise<ResolvedPdf | null> {
+  try {
+    const url = `https://pwthor.live/api/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Referer": "https://pwthor.live/",
+        "Accept": "application/json, text/plain, */*",
+        "Cookie": `auth_token=${PWTHOR_TOKEN}`,
+      },
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const json = (await res.json()) as any;
+    const d = json.data;
+    if (d && d.key) {
+      const baseUrl = d.baseUrl || "https://static.pw.live/";
+      return {
+        _id: d._id || homeworkId || pdfId,
+        baseUrl,
+        key: d.key,
+        name: d.name || "Class Notes.pdf",
+        status: d.status || "Active",
+        type: d.type || "ADMIN",
+        fullUrl: baseUrl + d.key,
+      };
+    }
+  } catch (err) {
+    console.warn("[PdfResolver] pwthor HTTP exception:", err);
+  }
+  return null;
+}
+
+/**
+ * Resolve via Chrome CDP bridge (connects to running Chrome session on port 9222 if present)
  */
 async function resolveViaCdp(
   batchId: string,
@@ -86,7 +136,7 @@ async function resolveViaCdp(
   homeworkId?: string
 ): Promise<ResolvedPdf | null> {
   try {
-    const listRes = await fetch("http://127.0.0.1:9222/json");
+    const listRes = await fetch("http://127.0.0.1:9222/json", { signal: AbortSignal.timeout(1000) });
     if (!listRes.ok) return null;
     const tabs = (await listRes.json()) as any[];
     let page = tabs.find((t: any) => t.type === "page" && t.url && t.url.includes("pwthor"));
@@ -94,7 +144,7 @@ async function resolveViaCdp(
     if (!page) {
       // Auto-launch pwthor tab if missing
       try {
-        const newTabRes = await fetch("http://127.0.0.1:9222/json/new?https://pwthor.live");
+        const newTabRes = await fetch("http://127.0.0.1:9222/json/new?https://pwthor.live", { method: "PUT" });
         if (newTabRes.ok) {
           page = await newTabRes.json();
           await new Promise((r) => setTimeout(r, 1200));
@@ -113,7 +163,7 @@ async function resolveViaCdp(
           ws.close();
         } catch {}
         resolve(null);
-      }, 5000);
+      }, 4000);
 
       ws.onopen = () => {
         const expr = `(async () => {
@@ -168,8 +218,7 @@ async function resolveViaCdp(
         resolve(null);
       };
     });
-  } catch (err) {
-    console.warn("[PdfResolver] CDP bridge exception:", err);
+  } catch {
     return null;
   }
 }
@@ -192,6 +241,7 @@ async function resolveViaScheduleDetails(
         "client-type": "WEB",
         "client-version": "2.2.7",
       },
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as any;
@@ -225,7 +275,11 @@ async function resolveViaScheduleDetails(
 }
 
 /**
- * Master PDF key resolver
+ * Master PDF key resolver:
+ * 1. Checks memory & persistent disk cache
+ * 2. Checks pwthor HTTP API (works on Render, Railway, Cloud, and localhost)
+ * 3. Checks direct upstream schedule-details (for normal batches)
+ * 4. Checks local Chrome CDP bridge
  */
 export async function resolvePdfKey(
   batchId: string,
@@ -246,7 +300,17 @@ export async function resolvePdfKey(
     return memoryCache.get(pdfId)!;
   }
 
-  // 2. Direct upstream schedule-details check
+  // 2. Direct Cloud-Compatible HTTP Resolution (pwthor backend with auth token)
+  const httpResolved = await resolveViaPwThorHttp(batchId, subjectId, pdfId, homeworkId);
+  if (httpResolved && httpResolved.key) {
+    memoryCache.set(cacheKey, httpResolved);
+    if (pdfId) memoryCache.set(pdfId, httpResolved);
+    if (homeworkId) memoryCache.set(homeworkId, httpResolved);
+    savePersistentCache();
+    return httpResolved;
+  }
+
+  // 3. Direct upstream schedule-details check
   const directResolved = await resolveViaScheduleDetails(batchId, subjectId, pdfId, homeworkId);
   if (directResolved && directResolved.key) {
     memoryCache.set(cacheKey, directResolved);
@@ -256,7 +320,7 @@ export async function resolvePdfKey(
     return directResolved;
   }
 
-  // 3. Live Chrome DevTools Protocol resolver
+  // 4. Live Chrome DevTools Protocol resolver (local fallback)
   const cdpResolved = await resolveViaCdp(batchId, subjectId, pdfId, homeworkId);
   if (cdpResolved && cdpResolved.key) {
     memoryCache.set(cacheKey, cdpResolved);
