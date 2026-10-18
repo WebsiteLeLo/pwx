@@ -33,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API routes
 app.use("/api", router);
+app.use(router);
 
 // Dynamic sitemap — served at root so Googlebot finds it without a redirect
 app.get("/sitemap.xml", (_req, res) => {

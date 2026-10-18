@@ -42,137 +42,195 @@ interface NoteItemProps {
 }
 
 
-function getPdfsFromContent(content: any, isDpp: boolean) {
+interface ExtractedPdf {
+  title: string;
+  url: string | null;
+  homeworkId?: string;
+  pdfId: string;
+  attachmentId?: string;
+}
+
+function getPdfsFromContent(content: any, isDpp: boolean): ExtractedPdf[] {
   const baseTitle = content.name ?? content.topic ?? (isDpp ? "DPP Sheet" : "Study Notes");
-  const candidates: { title: string; url: string | null; priority: number }[] = [];
+  const candidates: (ExtractedPdf & { priority: number })[] = [];
 
   // Helper to extract from an array of Attachment objects
-  const extractAttachments = (atts: any[], title: string, priority: number) => {
+  const extractAttachments = (atts: any[], title: string, hwId: string | undefined, priority: number) => {
     if (!atts || atts.length === 0) return false;
     let found = false;
     atts.forEach((att: any) => {
-      let url = getPdfUrl(att);
+      let url: string | null = getPdfUrl(att);
+      let p = priority;
       if (url) {
-        // If url doesn't end with .pdf and doesn't contain a file extension, it might be a bad _id fallback
         if (!url.includes('.pdf') && !url.includes('.doc')) {
-           priority -= 50; // lower priority for suspected bad URLs
+           p -= 50; // lower priority for suspected bad URLs
         }
-        candidates.push({ title, url, priority });
-        found = true;
+      } else {
+        url = null;
+        p -= 10;
       }
+      candidates.push({ title, url, homeworkId: hwId, pdfId: content._id, attachmentId: att?._id, priority: p });
+      found = true;
     });
     return found;
   };
 
   // 1. Try content.homeworkIds (Priority 30)
-  let hasHwAttachments = false;
   if (content.homeworkIds && content.homeworkIds.length > 0) {
     content.homeworkIds.forEach((hw: any) => {
       const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-      const found = extractAttachments(hw.attachmentIds, hwTitle, 30);
-      if (found) hasHwAttachments = true;
+      const found = extractAttachments(hw.attachmentIds, hwTitle, hw._id, 30);
+      if (!found) {
+        candidates.push({ title: hwTitle, url: null, homeworkId: hw._id, pdfId: content._id, priority: 25 });
+      }
     });
   }
 
   // 2. Try content.attachmentIds (Top-level) (Priority 20)
-  let hasTopAttachments = false;
   if (content.attachmentIds && content.attachmentIds.length > 0) {
-    hasTopAttachments = extractAttachments(content.attachmentIds, baseTitle, 20);
+    extractAttachments(content.attachmentIds, baseTitle, undefined, 20);
   }
 
   // 3. Try content.urls (Priority 10)
-  let hasUrls = false;
   if (content.urls && content.urls.length > 0) {
     content.urls.forEach((u: any) => {
-      candidates.push({ title: u.name ?? baseTitle, url: u.url, priority: 10 });
-      hasUrls = true;
+      candidates.push({ title: u.name ?? baseTitle, url: u.url, pdfId: content._id, priority: 10 });
     });
   }
 
-  // Filter candidates to only return the highest priority ones
-  // If there are any candidates with priority > 0, return those.
+  // Filter candidates to prioritize items with valid URLs
   let bestCandidates = candidates;
   if (candidates.length > 0) {
-    const maxPriority = Math.max(...candidates.map(c => c.priority));
-    // If the best we have is a bad URL (priority < 0) from homeworkIds, maybe top-level attachmentIds has a good URL!
-    // So we pick the candidate(s) that have the highest priority.
-    bestCandidates = candidates.filter(c => c.priority === maxPriority);
+    const withUrls = candidates.filter(c => !!c.url);
+    if (withUrls.length > 0) {
+      const maxPriority = Math.max(...withUrls.map(c => c.priority));
+      bestCandidates = withUrls.filter(c => c.priority === maxPriority);
+    } else {
+      const maxPriority = Math.max(...candidates.map(c => c.priority));
+      bestCandidates = candidates.filter(c => c.priority === maxPriority);
+    }
   }
 
-  const rows = bestCandidates.map(c => ({ title: c.title, url: c.url }));
+  const rows: ExtractedPdf[] = bestCandidates.map(c => ({
+    title: c.title,
+    url: c.url,
+    homeworkId: c.homeworkId,
+    pdfId: c.pdfId,
+    attachmentId: c.attachmentId
+  }));
 
   // Fallback if nothing found
   if (rows.length === 0) {
-    // If homeworkIds was present but had NO attachments at all, we used to push null.
-    if (content.homeworkIds && content.homeworkIds.length > 0 && !hasHwAttachments) {
-       content.homeworkIds.forEach((hw: any) => {
-          const hwTitle = hw.topic ?? hw.note ?? hw.slug ?? baseTitle;
-          rows.push({ title: hwTitle, url: null });
-       });
-    } else {
-       rows.push({ title: baseTitle, url: null });
-    }
+    rows.push({ title: baseTitle, url: null, pdfId: content._id });
   }
 
   return rows;
 }
 
 
-function OpenPdfButton({ batchId, subjectId, contentId, isDpp, index, fallbackUrl }: { batchId: string, subjectId: string, contentId: string, isDpp: boolean, index: number, fallbackUrl: string }) {
+function OpenPdfButton({
+  batchId,
+  subjectId,
+  contentId,
+  homeworkId,
+  isDpp,
+  index,
+  fallbackUrl
+}: {
+  batchId: string;
+  subjectId: string;
+  contentId: string;
+  homeworkId?: string;
+  isDpp: boolean;
+  index: number;
+  fallbackUrl: string;
+}) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   
   const handleOpen = async () => {
+    // Open a blank tab synchronously during user gesture so browser doesn't block it
+    const newTab = window.open("", "_blank");
+    if (newTab) {
+      newTab.opener = null;
+    }
+
     setLoading(true);
     try {
       let finalUrl = fallbackUrl && (fallbackUrl.includes('.pdf') || fallbackUrl.includes('.doc') || fallbackUrl.startsWith('http')) ? fallbackUrl : "";
       
-      try {
-        const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`);
-        if (res.ok) {
-          const json = await res.json();
-          const schedData = json.data;
-          
-          const urls: string[] = [];
-          const extractAtts = (atts: any[]) => {
-            if (!atts) return;
-            atts.forEach(att => {
-               const u = getPdfUrl(att);
-               if (u && (u.includes('.pdf') || u.includes('.doc') || u.startsWith('http'))) urls.push(u);
-            });
-          };
-          
-          if (isDpp) {
-             if (schedData?.dpp?.homeworkIds) {
-               schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-             } else if (schedData?.homeworkIds) {
-               schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-             }
-          } else {
-             if (schedData?.homeworkIds) {
-               schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-             }
-             if (schedData?.attachmentIds) {
-               extractAtts(schedData.attachmentIds);
-             }
+      // 1. Lazy on-demand key resolution via /api/GetPdf
+      if (!finalUrl) {
+        try {
+          const res = await fetch(
+            apiUrl(`/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(contentId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`)
+          );
+          if (res.ok) {
+            const json = await res.json();
+            const d = json.data;
+            if (d && d.key) {
+              finalUrl = d.fullUrl || ((d.baseUrl || "https://static.pw.live/") + d.key);
+            }
           }
-          if (schedData?.urls) {
-             schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
-          }
-          
-          if (urls[index]) {
-            finalUrl = urls[index];
-          } else if (urls.length > 0 && !finalUrl) {
-            finalUrl = urls[0];
-          }
+        } catch (err) {
+          console.warn("GetPdf resolution error:", err);
         }
-      } catch (err) {
-        console.warn("Failed to fetch schedule-details", err);
+      }
+
+      // 2. Fallback to schedule-details
+      if (!finalUrl) {
+        try {
+          const res = await fetch(`${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${contentId}/schedule-details`);
+          if (res.ok) {
+            const json = await res.json();
+            const schedData = json.data;
+            
+            const urls: string[] = [];
+            const extractAtts = (atts: any[]) => {
+              if (!atts) return;
+              atts.forEach(att => {
+                 const u = getPdfUrl(att);
+                 if (u && (u.includes('.pdf') || u.includes('.doc') || u.startsWith('http'))) urls.push(u);
+              });
+            };
+            
+            if (isDpp) {
+               if (schedData?.dpp?.homeworkIds) {
+                 schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+               } else if (schedData?.homeworkIds) {
+                 schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+               }
+            } else {
+               if (schedData?.homeworkIds) {
+                 schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+               }
+               if (schedData?.attachmentIds) {
+                 extractAtts(schedData.attachmentIds);
+               }
+            }
+            if (schedData?.urls) {
+               schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+            }
+            
+            if (urls[index]) {
+              finalUrl = urls[index];
+            } else if (urls.length > 0 && !finalUrl) {
+              finalUrl = urls[0];
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to fetch schedule-details", err);
+        }
       }
       
       if (finalUrl && (finalUrl.includes('.pdf') || finalUrl.includes('.doc') || finalUrl.startsWith('http'))) {
-        window.open(finalUrl, "_blank", "noopener,noreferrer");
+        if (newTab) {
+          newTab.location.href = finalUrl;
+        } else {
+          window.open(finalUrl, "_blank", "noopener,noreferrer");
+        }
       } else {
+        if (newTab) newTab.close();
         toast({
           title: "Document Not Found",
           description: "PW server par iss lecture ki PDF file / key upload nahi ki gayi hai.",
@@ -180,6 +238,7 @@ function OpenPdfButton({ batchId, subjectId, contentId, isDpp, index, fallbackUr
         });
       }
     } catch (err) {
+      if (newTab) newTab.close();
       console.error(err);
       toast({
         title: "Error",
@@ -214,12 +273,12 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
 
   return (
     <>
-      {pdfs.map(({ title, url }, i) => {
+      {pdfs.map(({ title, url, homeworkId }, i) => {
         const itemId = dppItemId(i);
         const done = contentType === "DppNotes" && isCompleted(itemId);
         return (
           <motion.div
-            key={url ?? itemId}
+            key={url ?? `${content._id}-${homeworkId ?? i}`}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2, delay: (baseIndex + i) * 0.04 }}
@@ -261,6 +320,7 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
                 batchId={batchId} 
                 subjectId={subjectId} 
                 contentId={content._id} 
+                homeworkId={homeworkId}
                 isDpp={isDpp} 
                 index={i} 
                 fallbackUrl={url || ""} 
@@ -362,7 +422,28 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
 
       for (let i = 0; i < extractedPdfs.length; i++) {
         const pdf = extractedPdfs[i];
-        const finalUrl = realUrls[i] || pdf.url;
+        let finalUrl = realUrls[i] || pdf.url;
+        
+        // If not found in schedule-details, resolve on-demand via /api/GetPdf
+        if (!finalUrl || (!finalUrl.includes('.pdf') && !finalUrl.includes('.doc') && !finalUrl.startsWith('http'))) {
+          try {
+            const hwId = pdf.homeworkId || content.homeworkIds?.[i]?._id || content.homeworkIds?.[0]?._id;
+            const res = await fetch(
+              apiUrl(
+                `/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(content._id)}&HomeworkId=${encodeURIComponent(hwId || "")}`
+              )
+            );
+            if (res.ok) {
+              const json = await res.json();
+              if (json.data?.key) {
+                finalUrl = json.data.fullUrl || ((json.data.baseUrl || "https://static.pw.live/") + json.data.key);
+              }
+            }
+          } catch (e) {
+            console.warn("Download resolution failed for item:", pdf.title, e);
+          }
+        }
+
         if (finalUrl) {
           pdfs.push({ title: pdf.title, url: finalUrl });
         }

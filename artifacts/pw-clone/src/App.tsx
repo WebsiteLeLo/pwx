@@ -121,6 +121,7 @@ function Router() {
                   <Route path="/batch/:batchId/subject/:subjectId/topic/:topicId" component={Topic} />
                   <Route path="/batch/:batchId/calendar" component={BatchCalendar} />
                   <Route path="/watch" component={Watch} />
+                  <Route path="/schedule-details" component={Watch} />
                   <Route path="/live-watch" component={LiveWatch} />
                   <Route path="/schedule-watch" component={ScheduleWatch} />
                   <Route path="/materials" component={Materials} />

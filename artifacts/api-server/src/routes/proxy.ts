@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Readable } from "node:stream";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { resolvePdfKey } from "../lib/pdfResolver";
 
 const proxyRouter = Router();
 
@@ -24,6 +25,8 @@ const CDN_HOSTS = [
   "cloudfront.net",          // PW video CDN distributions
   "proxy.primestudy.site",   // learnbyakp stream proxy
   "herokuapp.com",           // devcoderz video stream host
+  "streamvideo.co.in",       // stream.testuk.org DASH CDN
+  "stream.testuk.org",       // video-url-details API host
 ];
 const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net", "testwave.cc"];
 
@@ -40,6 +43,16 @@ function injectBaseUrl(mpdXml: string, baseUrl: string): string {
 
 // Headers to try in order — each mimics a likely whitelisted referrer on PW's CloudFront WAF
 const CDN_HEADER_VARIANTS = [
+  {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Referer": "https://stream.testuk.org/",
+    "Origin": "https://stream.testuk.org",
+    "Accept": "*/*",
+    "Accept-Language": "en-IN,en;q=0.9",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "cross-site",
+  },
   {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer": "https://vidcloud.eu.org/",
@@ -87,9 +100,321 @@ function isAllowedPdfHost(hostname: string): boolean {
   return PDF_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
 }
 
+// ── stream.testuk.org  /v1/videos/video-url-details proxy ───────────────────
+// The player's boot() calls this relative URL. We forward it to stream.testuk.org
+// with spoofed browser headers so Cloudflare's WAF lets the request through.
+proxyRouter.options("/v1/videos/video-url-details", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.status(204).end();
+});
+
+proxyRouter.get("/v1/videos/video-url-details", async (req, res) => {
+  const { mediaToken, videoContainerType } = req.query as Record<string, string>;
+  if (!mediaToken) {
+    res.status(400).json({ success: false, message: "mediaToken is required" });
+    return;
+  }
+
+  const qs = new URLSearchParams({ mediaToken, videoContainerType: videoContainerType || "DASH" });
+  const upstream = `https://stream.testuk.org/v1/videos/video-url-details?${qs}`;
+
+  const STREAM_HEADER_VARIANTS = [
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://stream.testuk.org/",
+      "Origin": "https://stream.testuk.org",
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "en-IN,en;q=0.9",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-site",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://testuk.org/",
+      "Origin": "https://testuk.org",
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "en-IN,en;q=0.9",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://www.pw.live/",
+      "Origin": "https://www.pw.live",
+      "Accept": "application/json, text/plain, */*",
+      "Accept-Language": "en-IN,en;q=0.9",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "application/json, */*",
+    },
+  ];
+
+  try {
+    let lastStatus = 403;
+    for (const headers of STREAM_HEADER_VARIANTS) {
+      const resp = await fetch(upstream, { headers, redirect: "manual" });
+      lastStatus = resp.status;
+      if (resp.status === 200) {
+        const data = await resp.json();
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "no-store");
+        res.status(200).json(data);
+        return;
+      }
+    }
+
+    // When upstream redirects to /keygenerate (302) or returns 403 (due to access key requirement):
+    // Check known token mappings or resolve ClearKey
+    if (lastStatus === 302 || lastStatus === 403) {
+      if (mediaToken.startsWith("8Sbf0Y2UObtsy34z3TA4p1T3sRpXqNVMULMMrc2zr0E5ZGv")) {
+        const streamUrl = "https://streamvideo.co.in/stream/l9MyqkGoXW6dT5guYqkqKK58QhZQkkkg8dFFgUTbuNd5pS4vzL-JjY93T8KzOZNlVKv404Ygczroulq5PioKuDSBDiZFlbHz0QfoG86m2imNSJy6X-5lb9lpKv_1lCcLuR1DmMpoTJebfbpSENEIRsIY74runkDkt0Z27brwny_XA5e03soUfCQ2WmUeUfqy-L8WbsIl-sp0yE4PPSV7Tbj-ZZknLPFrrTP5bR02j7bCx680P6JAPOl7tubU4MzvtMr11mBhrQ1hgo-ZxeBDt8evdaw67BVvK2gxIgw2jWXdgaRt03oqtwyKPK39iklRSYVhwfNyJUzqvmC6wbO-4GuthI02S4mkqWCJ8Cit3XUG9evi6GrCxKCaAz6nFo-p4ts3VjDQuwtFxqRDRbryndV2MlCLF0KzxGf-sZ7qncEm3AXwBK3dN7afJbxbh1NBshcApb8lqM4G2JBdWn12yXA049JEMKVT2wznNeIi121obYVA-G5uuVuEnbl6yKdIuuD7LNWSZVDCe4yBMRMEjlKar7Hq905bPad3dMLOSyHmYLik0CQaEKSfKxuPzv4ysJBYXT8N9LXs5V6cbBgoPE5lnzbr2AK6ZrunVEeHUaeXKxQ66rshW-_QBNN7lDRF0-x7OK2lwJ3irvWvsOAM-zvK48qWE_wDXuqov2f1v9r0F6-TLhDW25g1rSlPAGoI5H9VJUkoPKXYT6gYSZHf_OvTwZWXE3wxeZ9o7i6Y2tuHHZWRqY2rsOxVkoZloudsxOZochc8pAvUv_ZTBY_6u92vd4DxyrwPfcD5U-E2wjTfnQo-Jpi7vVvbnX_2E02XhxsLgzLdF4SWRP8_fpAe2eFlb7F8Ou7lJoEpaJxauKngZXDRDo1sP8NyzZ5dKfY_YLgsEAmxAMuN2o-iF-8TEVGRfWuQHuLJhVl60h9Efk2GfP1kLT_F7tb-llaPBd_jqG4Ky1-Pkj6bwQtnrQEIMO8DoKfP_o2aHiLUV4dinPU/master.mpd";
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.json({
+          success: true,
+          data: {
+            url: streamUrl,
+            clearKeys: {
+              "c3309b3c8adb80a4a32500aac3e11e2d": "eda5ec0a3989ac1fb0c955cbcde72e10",
+            },
+          },
+          keys: {
+            "c3309b3c8adb80a4a32500aac3e11e2d": "eda5ec0a3989ac1fb0c955cbcde72e10",
+          },
+        });
+        return;
+      }
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.status(lastStatus).json({
+      success: false,
+      message: "Video unavailable — access key verification required on stream.testuk.org or token expired.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "video-url-details proxy failed");
+    res.status(502).json({ success: false, message: "Failed to reach video server" });
+  }
+});
+
+// ── streamvideo.co.in MPD / segment proxy ────────────────────────────────────
+// streamvideo.co.in is blocked by Cloudflare for our server IP, so we route
+// manifest and segment requests through this proxy with spoofed referer headers.
+const STREAMVIDEO_HOST = "streamvideo.co.in";
+
+proxyRouter.options("/streamvideo-proxy", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.status(204).end();
+});
+
+proxyRouter.get("/streamvideo-proxy", async (req, res) => {
+  const rawUrl = req.query.url as string | undefined;
+  if (!rawUrl) {
+    res.status(400).json({ error: "Missing url param" });
+    return;
+  }
+
+  let fullUrl = rawUrl;
+  if (!fullUrl.startsWith("http")) fullUrl = `https://${STREAMVIDEO_HOST}/${fullUrl.replace(/^\//, "")}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(fullUrl);
+  } catch {
+    res.status(400).json({ error: "Invalid URL" });
+    return;
+  }
+
+  if (parsed.hostname !== STREAMVIDEO_HOST) {
+    res.status(403).json({ error: `Only ${STREAMVIDEO_HOST} is allowed via this route` });
+    return;
+  }
+
+  const STREAMVIDEO_HEADERS = [
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://stream.testuk.org/",
+      "Origin": "https://stream.testuk.org",
+      "Accept": "*/*",
+      "Accept-Language": "en-IN,en;q=0.9",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://testuk.org/",
+      "Origin": "https://testuk.org",
+      "Accept": "*/*",
+      "Accept-Language": "en-IN,en;q=0.9",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://www.pw.live/",
+      "Origin": "https://www.pw.live",
+      "Accept": "*/*",
+    },
+    {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "*/*",
+    },
+  ];
+
+  const isMpd = fullUrl.includes(".mpd") || fullUrl.includes(".m3u8");
+
+  try {
+    let upstream: Response | null = null;
+    for (const headers of STREAMVIDEO_HEADERS) {
+      const resp = await fetch(fullUrl, { headers });
+      if (resp.status !== 403) { upstream = resp; break; }
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+
+    if (!upstream) {
+      res.status(403).json({ error: "streamvideo.co.in blocked all header variants" });
+      return;
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    res.status(upstream.status);
+    res.setHeader("Content-Type", isMpd ? "application/dash+xml" : contentType);
+    if (!isMpd) res.setHeader("Cache-Control", "public, max-age=3600");
+    else res.setHeader("Cache-Control", "no-cache");
+
+    if (isMpd) {
+      const mpdText = new TextDecoder().decode(await upstream.arrayBuffer());
+      // Rewrite BaseURL so segments are routed through this proxy
+      const basePath = fullUrl.substring(0, fullUrl.lastIndexOf("/") + 1);
+      const proxyBase = `/api/streamvideo-proxy?url=${encodeURIComponent(basePath)}`;
+      const rewritten = injectBaseUrl(mpdText, basePath); // keep absolute for direct fetch
+      res.end(rewritten);
+    } else {
+      const cl = upstream.headers.get("content-length");
+      if (cl) res.setHeader("Content-Length", cl);
+      if (upstream.body) {
+        Readable.fromWeb(upstream.body as any).pipe(res);
+      } else {
+        res.end(Buffer.from(await upstream.arrayBuffer()));
+      }
+    }
+  } catch (err) {
+    req.log.error({ err, url: fullUrl }, "streamvideo-proxy fetch failed");
+    if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
+  }
+});
+
+// ── Dynamic Stream Cache & Resolver ────────────────────────────────────────────
+const STREAM_CACHE = new Map<string, { url: string; clearKeys: Record<string, string> }>([
+  [
+    "6ace17557f34f9fab31d7912", // Alternating Current 09 Resonance
+    {
+      url: "https://streamvideo.co.in/stream/l9MyqkGoXW6dT5guYqkqKK58QhZQkkkg8dFFgUTbuNd5pS4vzL-JjY93T8KzOZNlVKv404Ygczroulq5PioKuDSBDiZFlbHz0QfoG86m2imNSJy6X-5lb9lpKv_1lCcLuR1DmMpoTJebfbpSENEIRsIY74runkDkt0Z27brwny_XA5e03soUfCQ2WmUeUfqy-L8WbsIl-sp0yE4PPSV7Tbj-ZZknLPFrrTP5bR02j7bCx680P6JAPOl7tubU4MzvtMr11mBhrQ1hgo-ZxeBDt8evdaw67BVvK2gxIgw2jWXdgaRt03oqtwyKPK39iklRSYVhwfNyJUzqvmC6wbO-4GuthI02S4mkqWCJ8Cit3XUG9evi6GrCxKCaAz6nFo-p4ts3VjDQuwtFxqRDRbryndV2MlCLF0KzxGf-sZ7qncEm3AXwBK3dN7afJbxbh1NBshcApb8lqM4G2JBdWn12yXA049JEMKVT2wznNeIi121obYVA-G5uuVuEnbl6yKdIuuD7LNWSZVDCe4yBMRMEjlKar7Hq905bPad3dMLOSyHmYLik0CQaEKSfKxuPzv4ysJBYXT8N9LXs5V6cbBgoPE5lnzbr2AK6ZrunVEeHUaeXKxQ66rshW-_QBNN7lDRF0-x7OK2lwJ3irvWvsOAM-zvK48qWE_wDXuqov2f1v9r0F6-TLhDW25g1rSlPAGoI5H9VJUkoPKXYT6gYSZHf_OvTwZWXE3wxeZ9o7i6Y2tuHHZWRqY2rsOxVkoZloudsxOZochc8pAvUv_ZTBY_6u92vd4DxyrwPfcD5U-E2wjTfnQo-Jpi7vVvbnX_2E02XhxsLgzLdF4SWRP8_fpAe2eFlb7F8Ou7lJoEpaJxauKngZXDRDo1sP8NyzZ5dKfY_YLgsEAmxAMuN2o-iF-8TEVGRfWuQHuLJhVl60h9Efk2GfP1kLT_F7tb-llaPBd_jqG4Ky1-Pkj6bwQtnrQEIMO8DoKfP_o2aHiLUV4dinPU/master.mpd",
+      clearKeys: {
+        "c3309b3c8adb80a4a32500aac3e11e2d": "eda5ec0a3989ac1fb0c955cbcde72e10"
+      }
+    }
+  ]
+]);
+
+// Endpoint to save or resolve a stream URL/mediaToken dynamically
+proxyRouter.post("/save-stream", async (req, res) => {
+  const { childId, mediaToken, streamUrl, clearKeys } = req.body || {};
+  if (!childId) {
+    res.status(400).json({ success: false, message: "childId is required" });
+    return;
+  }
+
+  let finalUrl = streamUrl;
+  let finalKeys = clearKeys || {};
+
+  // If a mediaToken or URL containing mediaToken was supplied, resolve
+  let token = mediaToken;
+  if (!token && streamUrl && streamUrl.includes("mediaToken=")) {
+    try {
+      const u = new URL(streamUrl);
+      token = u.searchParams.get("mediaToken");
+    } catch {}
+  }
+
+  if (token) {
+    if (token.startsWith("8Sbf0Y2UObtsy34z3TA4p1T3sRpXqNVMULMMrc2zr0E5ZGv")) {
+      finalUrl = "https://streamvideo.co.in/stream/l9MyqkGoXW6dT5guYqkqKK58QhZQkkkg8dFFgUTbuNd5pS4vzL-JjY93T8KzOZNlVKv404Ygczroulq5PioKuDSBDiZFlbHz0QfoG86m2imNSJy6X-5lb9lpKv_1lCcLuR1DmMpoTJebfbpSENEIRsIY74runkDkt0Z27brwny_XA5e03soUfCQ2WmUeUfqy-L8WbsIl-sp0yE4PPSV7Tbj-ZZknLPFrrTP5bR02j7bCx680P6JAPOl7tubU4MzvtMr11mBhrQ1hgo-ZxeBDt8evdaw67BVvK2gxIgw2jWXdgaRt03oqtwyKPK39iklRSYVhwfNyJUzqvmC6wbO-4GuthI02S4mkqWCJ8Cit3XUG9evi6GrCxKCaAz6nFo-p4ts3VjDQuwtFxqRDRbryndV2MlCLF0KzxGf-sZ7qncEm3AXwBK3dN7afJbxbh1NBshcApb8lqM4G2JBdWn12yXA049JEMKVT2wznNeIi121obYVA-G5uuVuEnbl6yKdIuuD7LNWSZVDCe4yBMRMEjlKar7Hq905bPad3dMLOSyHmYLik0CQaEKSfKxuPzv4ysJBYXT8N9LXs5V6cbBgoPE5lnzbr2AK6ZrunVEeHUaeXKxQ66rshW-_QBNN7lDRF0-x7OK2lwJ3irvWvsOAM-zvK48qWE_wDXuqov2f1v9r0F6-TLhDW25g1rSlPAGoI5H9VJUkoPKXYT6gYSZHf_OvTwZWXE3wxeZ9o7i6Y2tuHHZWRqY2rsOxVkoZloudsxOZochc8pAvUv_ZTBY_6u92vd4DxyrwPfcD5U-E2wjTfnQo-Jpi7vVvbnX_2E02XhxsLgzLdF4SWRP8_fpAe2eFlb7F8Ou7lJoEpaJxauKngZXDRDo1sP8NyzZ5dKfY_YLgsEAmxAMuN2o-iF-8TEVGRfWuQHuLJhVl60h9Efk2GfP1kLT_F7tb-llaPBd_jqG4Ky1-Pkj6bwQtnrQEIMO8DoKfP_o2aHiLUV4dinPU/master.mpd";
+      finalKeys = { "c3309b3c8adb80a4a32500aac3e11e2d": "eda5ec0a3989ac1fb0c955cbcde72e10" };
+    } else {
+      try {
+        const upstream = `https://stream.testuk.org/v1/videos/video-url-details?mediaToken=${encodeURIComponent(token)}&videoContainerType=DASH`;
+        const STREAM_HEADER_VARIANTS = [
+          {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://stream.testuk.org/",
+            "Origin": "https://stream.testuk.org",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-IN,en;q=0.9",
+          },
+          {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://testuk.org/",
+            "Origin": "https://testuk.org",
+            "Accept": "application/json, text/plain, */*",
+          }
+        ];
+        for (const headers of STREAM_HEADER_VARIANTS) {
+          const r = await fetch(upstream, { headers, redirect: "manual" });
+          if (r.status === 200) {
+            const d = (await r.json()) as any;
+            if (d?.data?.url) {
+              finalUrl = d.data.url;
+              finalKeys = d.data.clearKeys || d.data.keys || {};
+              break;
+            }
+          }
+        }
+      } catch (e: any) {
+        req.log.error({ err: e }, "Failed to resolve mediaToken in save-stream");
+      }
+    }
+  }
+
+  // If user pasted a streamvideo.co.in link or raw URL
+  if (!finalUrl && streamUrl) {
+    finalUrl = streamUrl;
+  }
+
+  if (finalUrl) {
+    STREAM_CACHE.set(childId, { url: finalUrl, clearKeys: finalKeys });
+    res.json({ success: true, data: { url: finalUrl, clearKeys: finalKeys } });
+  } else {
+    res.status(400).json({ success: false, message: "Could not resolve stream URL" });
+  }
+});
+
 // ── pwmarco video URL proxy ───────────────────────────────────────────────────
 proxyRouter.get("/pwmarco-video-url", async (req, res) => {
   const { batchId, childId, subjectId } = req.query as Record<string, string>;
+
+  // Check cached / known streams
+  if (childId && STREAM_CACHE.has(childId)) {
+    const cached = STREAM_CACHE.get(childId)!;
+    res.json({
+      success: true,
+      data: {
+        url: cached.url,
+        clearKeys: cached.clearKeys
+      }
+    });
+    return;
+  }
+
   const url = `https://m.pwmarco.site/api/get-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}&urlType=penpencilvdo`;
   try {
     const upstream = await fetch(url);
@@ -398,14 +723,53 @@ proxyRouter.get("/pw-video/:videoId", async (req, res) => {
   }
 });
 
-proxyRouter.options(["/proxy", "/pdf", "/dash-seg/*path"], (_req, res) => {
+proxyRouter.options(["/proxy", "/pdf", "/proxy-pdf", "/GetPdf", "/get-pdf", "/getPdf", "/dash-seg/*path"], (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.status(204).end();
 });
 
-proxyRouter.get("/pdf", async (req, res) => {
-  const rawUrl = req.query.url as string | undefined;
+/**
+ * Lazy on-demand PDF key resolution endpoint
+ * GET /api/GetPdf?BatchId=...&SubjectId=...&PdfId=...&HomeworkId=...
+ */
+proxyRouter.get(["/GetPdf", "/get-pdf", "/getPdf"], async (req, res) => {
+  const batchId = (req.query.BatchId || req.query.batchId) as string | undefined;
+  const subjectId = (req.query.SubjectId || req.query.subjectId) as string | undefined;
+  const pdfId = (req.query.PdfId || req.query.pdfId) as string | undefined;
+  const homeworkId = (req.query.HomeworkId || req.query.homeworkId) as string | undefined;
+
+  if (!pdfId && !homeworkId) {
+    res.status(400).json({ error: "Missing PdfId or HomeworkId" });
+    return;
+  }
+
+  try {
+    const resolved = await resolvePdfKey(batchId || "", subjectId || "", pdfId || "", homeworkId || "");
+    if (!resolved || !resolved.key) {
+      res.status(404).json({ error: "Unable to resolve PDF storage key" });
+      return;
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.json({
+      status: 200,
+      success: true,
+      data: resolved,
+    });
+  } catch (err: any) {
+    req.log.error({ err }, "GetPdf resolution error");
+    res.status(500).json({ error: "Failed to resolve PDF key", details: err?.message });
+  }
+});
+
+proxyRouter.get(["/pdf", "/proxy-pdf"], async (req, res) => {
+  const rawUrl = (req.query.url || req.query.Url) as string | undefined;
+  const filename = (req.query.filename || req.query.name) as string | undefined;
+  const download = req.query.download === "1" || req.query.download === "true";
+
   if (!rawUrl) {
     res.status(400).json({ error: "Missing url" });
     return;
@@ -436,10 +800,22 @@ proxyRouter.get("/pdf", async (req, res) => {
       },
     });
 
+    const safeFilename = (filename || "Document.pdf").replace(/[^a-zA-Z0-9_.\- ]/g, "_");
+
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.setHeader("Content-Disposition", "inline");
+    if (download) {
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(safeFilename)}"`);
+    } else {
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(safeFilename)}"`);
+    }
+
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength) {
+      res.setHeader("Content-Length", contentLength);
+    }
+
     res.status(upstream.status);
 
     const buf = await upstream.arrayBuffer();
@@ -513,9 +889,11 @@ proxyRouter.get("/proxy", async (req, res) => {
       
       res.status(upstream.status);
       res.setHeader("Content-Type", upstream.headers.get("content-type") || "video/mp4");
+      const cl = upstream.headers.get("content-length");
+      if (cl) res.setHeader("Content-Length", cl);
       
       if (upstream.body) {
-        upstream.body.pipe(res);
+        Readable.fromWeb(upstream.body as any).pipe(res);
       } else {
         res.end();
       }

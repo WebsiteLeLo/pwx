@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-
+import { apiUrl } from "@/lib/apiUrl";
 import { PW_API as API_BASE } from "@/lib/pwApiStore";
 const MIN = 1000 * 60;
 
@@ -132,6 +132,30 @@ export interface AttachmentUrlItem {
   url: string;
 }
 
+export async function resolvePdfUrl(
+  batchId: string,
+  subjectId: string,
+  pdfId: string,
+  homeworkId?: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      apiUrl(
+        `/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`
+      )
+    );
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data?.key) {
+        return json.data.fullUrl || ((json.data.baseUrl || "https://static.pw.live/") + json.data.key);
+      }
+    }
+  } catch (err) {
+    console.warn("resolvePdfUrl failed:", err);
+  }
+  return null;
+}
+
 export function useAttachmentUrls(batchId: string, subjectId: string, contentId: string, count = 1, isDpp = false) {
   return useQuery({
     queryKey: ["attachmentUrlsV4", batchId, subjectId, contentId, isDpp],
@@ -155,11 +179,16 @@ export function useAttachmentUrls(batchId: string, subjectId: string, contentId:
         const atts = hw.attachmentIds ?? [];
         if (atts.length > 0) {
           for (const att of atts) {
+            let u = getPdfUrl(att);
+            if (!u && contentId) {
+              const resolved = await resolvePdfUrl(batchId, subjectId, contentId, hw._id);
+              if (resolved) u = resolved;
+            }
             results.push({
               topic: hwTopic,
               baseUrl: att.baseUrl,
               key: att.key ?? "",
-              url: getPdfUrl(att),
+              url: u,
             });
           }
         } else {

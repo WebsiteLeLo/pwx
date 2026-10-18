@@ -19,7 +19,7 @@ export default function Watch() {
   useEffect(() => {
     // Parse URL params
     const searchParams = new URLSearchParams(window.location.search);
-    const vId = searchParams.get("videoId") || searchParams.get("childId") || "";
+    const vId = searchParams.get("videoId") || searchParams.get("childId") || searchParams.get("scheduleId") || searchParams.get("schId") || "";
     
     if (vId) {
       setParams({

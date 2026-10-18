@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
-import { RefreshCw, ArrowDownToLine } from "lucide-react";
+import { RefreshCw, ArrowDownToLine, ExternalLink, Play } from "lucide-react";
 import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
@@ -149,6 +149,46 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   const [menuOpen, setMenuOpen]           = useState(false);
   const [topMenuPanel, setTopMenuPanel]   = useState<"main" | "download" | "attachments">("main");
   const [isMobile, setIsMobile]           = useState(false);
+  const [customLinkInput, setCustomLinkInput] = useState("");
+  const [isSavingCustomLink, setIsSavingCustomLink] = useState(false);
+  const [customLinkError, setCustomLinkError] = useState("");
+
+  const handleSaveCustomStream = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customLinkInput.trim()) return;
+    setIsSavingCustomLink(true);
+    setCustomLinkError("");
+    try {
+      const res = await fetch(`${PROXY_BASE}/save-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId,
+          streamUrl: customLinkInput.trim(),
+          mediaToken: customLinkInput.trim()
+        })
+      });
+      const data = await res.json();
+      if (data?.success && data?.data?.url) {
+        localStorage.setItem(`pw_custom_stream_${childId}`, JSON.stringify({
+          hlsUrl: data.data.url,
+          clearKeys: data.data.clearKeys
+        }));
+        drmCache.set(`${batchId}:${subjectId}:${childId}`, {
+          hlsUrl: data.data.url,
+          clearKeys: data.data.clearKeys
+        });
+        recoveryAttemptsRef.current = 0;
+        setAttempt(a => a + 1);
+      } else {
+        setCustomLinkError(data?.message || "Invalid link or could not resolve stream.");
+      }
+    } catch (err: any) {
+      setCustomLinkError(err.message || "Network error while saving stream.");
+    } finally {
+      setIsSavingCustomLink(false);
+    }
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -225,6 +265,43 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           cached = undefined;
         }
 
+        // Check localStorage for saved stream/clearKeys
+        if (!cached) {
+          try {
+            const localStored = localStorage.getItem(`pw_custom_stream_${childId}`);
+            if (localStored) {
+              const parsed = JSON.parse(localStored);
+              if (parsed?.hlsUrl) {
+                cached = { hlsUrl: parsed.hlsUrl, clearKeys: parsed.clearKeys };
+              }
+            }
+          } catch {}
+        }
+
+        // Check URL search parameters for direct stream link or mediaToken
+        if (!cached) {
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const directUrl = urlParams.get("vUrl") || urlParams.get("streamUrl");
+            const tokenParam = urlParams.get("mediaToken");
+            if (directUrl) {
+              cached = { hlsUrl: directUrl };
+            } else if (tokenParam) {
+              const res = await fetch(`${PROXY_BASE}/save-stream`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ childId, mediaToken: tokenParam })
+              });
+              if (res.ok) {
+                const d = await res.json();
+                if (d?.data?.url) {
+                  cached = { hlsUrl: d.data.url, clearKeys: d.data.clearKeys };
+                }
+              }
+            }
+          } catch {}
+        }
+
         if (!cached) {
           setStatusMsg("Fetching video URL…");
           let videoUrl: string | undefined;
@@ -241,11 +318,16 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
               const data = await pwMarcoRes.json();
               if (data?.v === "1" && data?.d) {
                 const decoded = decodePwMarco(data.d);
-                if (decoded?.success && decoded?.data?.url) {
+                if (decoded?.success && decoded?.data?.url && !decoded.data.url.includes("ForBiggerBlazes") && !decoded.data.url.includes("sample")) {
                   videoUrl = "https://m.pwmarco.site" + decoded.data.url;
                   if (decoded.data.clearKeys) {
                     cached = { hlsUrl: "", clearKeys: decoded.data.clearKeys };
                   }
+                }
+              } else if (data?.success && data?.data?.url && !data.data.url.includes("ForBiggerBlazes") && !data.data.url.includes("sample")) {
+                videoUrl = data.data.url;
+                if (data.data.clearKeys) {
+                  cached = { hlsUrl: "", clearKeys: data.data.clearKeys };
                 }
               }
             }
@@ -358,8 +440,8 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             // Prevent infinite proxy loops
             if (uri.includes("/api/proxy") || uri.includes(PROXY_BASE + "/proxy")) return;
 
-            // Intercept CDN URLs (devcoderz & PW) to bypass CORS & WAF!
-            const cdnHosts = ["herokuapp.com", "cloudfront.net", "pw.live"];
+            // Intercept CDN URLs (devcoderz & PW & streamvideo) to bypass CORS & WAF!
+            const cdnHosts = ["herokuapp.com", "cloudfront.net", "pw.live", "streamvideo.co.in", "stream.testuk.org"];
             if (cdnHosts.some((h) => uri.includes(h))) {
               // MUST be an absolute URL, otherwise Shaka resolves it against the MPD's <BaseURL>!
               request.uris[0] = `${window.location.origin}${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
@@ -823,17 +905,69 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
       )}
 
       {status === "error" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-5 text-center" style={{ background: "rgba(0,0,0,.88)" }}>
-          <span className="text-4xl">⚠️</span>
-          <p className="text-sm text-[#ff6584] max-w-[300px] leading-relaxed">{error}</p>
-          <button
-            onClick={(e) => { e.stopPropagation(); recoveryAttemptsRef.current = 0; setAttempt((a) => a + 1); }}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg text-white text-sm font-medium"
-            style={{ background: ACCENT }}
-          >
-            <RefreshCw className="w-4 h-4" />
-            Retry
-          </button>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center z-40 overflow-y-auto py-8" style={{ background: "rgba(10,12,20,.95)" }}>
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-2xl shadow-lg">
+            ⚠️
+          </div>
+
+          <div className="max-w-[420px] space-y-1.5">
+            <h3 className="text-white text-base font-semibold">
+              {error.includes("1001") || error.includes("403") ? "CloudFront Protected Lecture" : "Playback Interrupted"}
+            </h3>
+            <p className="text-xs text-white/60 leading-relaxed">
+              {error.includes("1001") || error.includes("403")
+                ? "This lecture requires stream authentication because Physics Wallah uses private AWS CloudFront signatures."
+                : error}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 mt-1">
+            <a
+              href={`https://stream.testuk.org/schedule-details?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${childId}&tap=video`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Watch on Stream Platform
+            </a>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); recoveryAttemptsRef.current = 0; setAttempt((a) => a + 1); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/80 hover:text-white text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors border border-white/10"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry
+            </button>
+          </div>
+
+          {/* Paste Stream / Token Box */}
+          <form onSubmit={handleSaveCustomStream} className="w-full max-w-[400px] mt-2 p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-left">
+            <div className="text-[11px] font-medium text-white/70 mb-2 flex items-center justify-between">
+              <span>Have a stream link or mediaToken?</span>
+              <span className="text-[10px] text-indigo-400 font-mono">Auto-Resolves</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customLinkInput}
+                onChange={(e) => setCustomLinkInput(e.target.value)}
+                placeholder="Paste mediaToken or streamvideo URL..."
+                className="flex-1 bg-black/60 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500 transition-colors font-mono"
+              />
+              <button
+                type="submit"
+                disabled={isSavingCustomLink || !customLinkInput.trim()}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white transition-colors flex items-center gap-1.5 shrink-0 shadow-lg shadow-emerald-600/20"
+              >
+                {isSavingCustomLink ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3 h-3 fill-white" />}
+                Play
+              </button>
+            </div>
+            {customLinkError && (
+              <p className="text-[11px] text-red-400 mt-2 font-medium">{customLinkError}</p>
+            )}
+          </form>
         </div>
       )}
 

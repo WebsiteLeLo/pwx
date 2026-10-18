@@ -55,6 +55,10 @@ export default defineConfig({
         target: process.env.VITE_API_TARGET || `http://localhost:${process.env.API_PORT || 8080}`,
         changeOrigin: true,
       },
+      "/v1": {
+        target: process.env.VITE_API_TARGET || `http://localhost:${process.env.API_PORT || 8080}`,
+        changeOrigin: true,
+      },
     },
   },
   preview: {
