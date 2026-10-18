@@ -347,11 +347,46 @@ async function resolveViaScheduleDetails(
 }
 
 /**
+ * Cloudflare Pages Edge resolver (routes via pwx.pages.dev edge worker, bypassing datacenter IP bans)
+ */
+async function resolveViaPagesEdge(
+  batchId: string,
+  subjectId: string,
+  pdfId: string,
+  homeworkId?: string
+): Promise<ResolvedPdf | null> {
+  try {
+    const hwParam = homeworkId ? `&HomeworkId=${encodeURIComponent(homeworkId)}` : "";
+    const url = `https://pwx.pages.dev/api/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}${hwParam}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const json = (await res.json()) as any;
+    const d = json.data;
+    if (d && d.key) {
+      const baseUrl = d.baseUrl || "https://static.pw.live/";
+      return {
+        _id: d._id || homeworkId || pdfId,
+        baseUrl,
+        key: d.key,
+        name: d.name || "Class Notes.pdf",
+        status: d.status || "Active",
+        type: d.type || "ADMIN",
+        fullUrl: baseUrl + d.key,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
  * Master PDF key resolver:
  * 1. Checks memory & persistent disk cache
- * 2. Checks pwthor HTTP API (works on Render, Railway, Cloud, and localhost)
- * 3. Checks direct upstream schedule-details (for normal batches)
- * 4. Checks local Chrome CDP bridge
+ * 2. Checks pwthor HTTP API (works on residential IPs, VPS, or localhost)
+ * 3. Checks Cloudflare Pages Edge route (bypasses datacenter Cloudflare bot block)
+ * 4. Checks direct upstream schedule-details (for normal batches)
+ * 5. Checks local Chrome CDP bridge
  */
 export async function resolvePdfKey(
   batchId: string,
@@ -380,6 +415,16 @@ export async function resolvePdfKey(
     if (homeworkId) memoryCache.set(homeworkId, httpResolved);
     savePersistentCache();
     return httpResolved;
+  }
+
+  // 2.5 Cloudflare Pages Edge route (bypasses datacenter Cloudflare block)
+  const edgeResolved = await resolveViaPagesEdge(batchId, subjectId, pdfId, homeworkId);
+  if (edgeResolved && edgeResolved.key) {
+    memoryCache.set(cacheKey, edgeResolved);
+    if (pdfId) memoryCache.set(pdfId, edgeResolved);
+    if (homeworkId) memoryCache.set(homeworkId, edgeResolved);
+    savePersistentCache();
+    return edgeResolved;
   }
 
   // 3. Direct upstream schedule-details check

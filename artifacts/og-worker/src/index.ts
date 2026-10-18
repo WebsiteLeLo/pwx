@@ -134,10 +134,61 @@ export interface Env {
   FRONTEND_URL?: string;
 }
 
+const PWTHOR_TOKEN =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtb2JpbGUiOiI3OTM0MDUwMDEwNjgiLCJuYW1lIjoiUFdUaG9yIFVzZXIgZjAwMDcxMDUiLCJyYW5kb21JZCI6ImYwMDA3MTA1LTRmZjgtNDJmOC1hZDY5LWQ1ZjNiMGJiZmEzOCIsImF1dGhUeXBlIjoiZGlyZWN0X2xvZ2luIiwiZGlyZWN0TG9naW4iOnRydWUsImlhdCI6MTc5MjMyMzc5MywiZXhwIjoxODAwMDk5NzkzfQ.GXgzTgGvm-D3uvJEjIRgFnYzS5PmM64gUebTd7Iny5I";
+
+async function handleGetPdf(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const batchId = url.searchParams.get("BatchId") || url.searchParams.get("batchId") || "";
+  const subjectId = url.searchParams.get("SubjectId") || url.searchParams.get("subjectId") || "";
+  const pdfId = url.searchParams.get("PdfId") || url.searchParams.get("pdfId") || "";
+  const homeworkId = url.searchParams.get("HomeworkId") || url.searchParams.get("homeworkId") || "";
+
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Content-Type": "application/json",
+    "Cache-Control": "public, max-age=86400",
+  };
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (!batchId || !pdfId) {
+    return new Response(JSON.stringify({ error: "Missing BatchId or PdfId" }), { status: 400, headers: corsHeaders });
+  }
+
+  try {
+    const hwParam = homeworkId ? `&HomeworkId=${encodeURIComponent(homeworkId)}` : "";
+    const pwthorUrl = `https://pwthor.live/api/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}${hwParam}`;
+
+    const res = await fetch(pwthorUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Referer": "https://pwthor.live/",
+        "Cookie": `auth_token=${PWTHOR_TOKEN}`,
+      },
+    });
+
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: `Upstream error ${res.status}` }), { status: res.status, headers: corsHeaders });
+    }
+
+    const data = await res.json();
+    return new Response(JSON.stringify(data), { status: 200, headers: corsHeaders });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message || "Failed" }), { status: 502, headers: corsHeaders });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
+
+    if (pathname === "/api/GetPdf" || pathname === "/GetPdf") return handleGetPdf(request);
 
     if (pathname === "/og/img") return handleImageProxy(request);
 

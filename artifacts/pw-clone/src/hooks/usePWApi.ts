@@ -138,12 +138,25 @@ export async function resolvePdfUrl(
   pdfId: string,
   homeworkId?: string
 ): Promise<string | null> {
+  const query = `BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`;
+
+  // 1. Try Cloudflare Pages Edge route (/api/GetPdf)
   try {
-    const res = await fetch(
-      apiUrl(
-        `/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`
-      )
-    );
+    const edgeRes = await fetch(`/api/GetPdf?${query}`, { signal: AbortSignal.timeout(5000) });
+    if (edgeRes.ok) {
+      const json = await edgeRes.json();
+      if (json.data?.key) {
+        return json.data.fullUrl || ((json.data.baseUrl || "https://static.pw.live/") + json.data.key);
+      }
+    }
+  } catch {
+    // Continue to backend fallback
+  }
+
+  // 2. Try Backend API server (Render or local dev server)
+  try {
+    const backendUrl = apiUrl(`/GetPdf?${query}`);
+    const res = await fetch(backendUrl, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const json = await res.json();
       if (json.data?.key) {
@@ -153,6 +166,7 @@ export async function resolvePdfUrl(
   } catch (err) {
     console.warn("resolvePdfUrl failed:", err);
   }
+
   return null;
 }
 
