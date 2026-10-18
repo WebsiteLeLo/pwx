@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import seedCacheJson from "./seedNotesCache.json";
+
 export interface ResolvedPdf {
   _id?: string;
   baseUrl: string;
@@ -33,8 +35,37 @@ function savePersistentCache() {
   }
 }
 
+// Known common subject ID to slug map
+const SUBJECT_ID_TO_SLUG: Record<string, string> = {
+  "69b5698ee506a608ee297ed1": "physics-by-rajwant-singh-sir-964222",
+  "69b569aeeffdf9567d75f816": "physical-chemistry-by-rahul-dudi-sir-814758",
+  "69b569cab32b3601588a690b": "inorganic-chemistry-by-kunwar-om-pandey-sir-618931",
+  "69b569e8cd9eea58b9fe60da": "maths-by-sachin-jakhar-sir-095452",
+  "69b56a34e90793e4f312def2": "inorganic-chemistry-by-amitabh-sharma-sir-612450",
+  "69b57278504f6b8cced25f84": "organic-chemistry-by-ashutosh-gautam-sir-294061",
+  "69b5729d45cca26612727f1a": "maths-by-amarnath-anand-sir--anna-sir--438005",
+  "69b572d3c9a2b804fd67bbc5": "physical-chemistry-by-vijay-kumar-tripathi-sir--vkt-sir--164171",
+  "69b572f65582e24e8c2c361e": "physics-by-varun-chauhan-sir-420204",
+  "69b5746d613c5163ab7a709e": "organic-chemistry-by-pankaj-sijariya-sir-348754",
+  "6a6b44faf834f38ed6f9120d": "physics-by-saleem-ahmad-sir-886822",
+};
+
 // Helper to load cache on boot
 function loadCache() {
+  // 1. Load bundled seed cache (bundled directly into build, always available)
+  try {
+    if (seedCacheJson && typeof seedCacheJson === "object") {
+      for (const [k, v] of Object.entries(seedCacheJson)) {
+        if (v && (v as any).key) {
+          memoryCache.set(k, v as ResolvedPdf);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[PdfResolver] Failed loading bundled seed cache:", err);
+  }
+
+  // 2. Load persistent runtime disk cache if present
   try {
     if (fs.existsSync(CACHE_FILE)) {
       const raw = fs.readFileSync(CACHE_FILE, "utf-8");
@@ -47,7 +78,7 @@ function loadCache() {
     console.warn("[PdfResolver] Failed loading persistent cache:", err);
   }
 
-  // Also check if REATEST seed data exists in parent directory
+  // 3. Also check if external REATEST seed data exists in parent directory
   try {
     const seedPath = path.resolve(import.meta.dirname, "../../../../REATEST/all_notes_resolved.json");
     if (fs.existsSync(seedPath)) {
@@ -90,40 +121,80 @@ async function resolveViaPwThorHttp(
   pdfId: string,
   homeworkId?: string
 ): Promise<ResolvedPdf | null> {
-  try {
-    const url = `https://pwthor.live/api/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subjectId)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`;
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "Referer": "https://pwthor.live/",
-        "Accept": "application/json, text/plain, */*",
-        "Cookie": `auth_token=${PWTHOR_TOKEN}`,
-      },
-    });
+  // Determine slugs to attempt (both original and mapped if ID provided)
+  const candidateSubjects = [subjectId];
+  if (SUBJECT_ID_TO_SLUG[subjectId] && !candidateSubjects.includes(SUBJECT_ID_TO_SLUG[subjectId])) {
+    candidateSubjects.push(SUBJECT_ID_TO_SLUG[subjectId]);
+  }
 
-    if (!res.ok) {
-      return null;
-    }
+  for (const subj of candidateSubjects) {
+    try {
+      const url = `https://pwthor.live/api/GetPdf?BatchId=${encodeURIComponent(batchId)}&SubjectId=${encodeURIComponent(subj)}&PdfId=${encodeURIComponent(pdfId)}&HomeworkId=${encodeURIComponent(homeworkId || "")}`;
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          "Referer": "https://pwthor.live/",
+          "Accept": "application/json, text/plain, */*",
+          "Cookie": `auth_token=${PWTHOR_TOKEN}`,
+        },
+        signal: AbortSignal.timeout(6000),
+      });
 
-    const json = (await res.json()) as any;
-    const d = json.data;
-    if (d && d.key) {
-      const baseUrl = d.baseUrl || "https://static.pw.live/";
-      return {
-        _id: d._id || homeworkId || pdfId,
-        baseUrl,
-        key: d.key,
-        name: d.name || "Class Notes.pdf",
-        status: d.status || "Active",
-        type: d.type || "ADMIN",
-        fullUrl: baseUrl + d.key,
-      };
+      if (!res.ok) {
+        continue;
+      }
+
+      const json = (await res.json()) as any;
+      const d = json.data;
+      if (d && d.key) {
+        const baseUrl = d.baseUrl || "https://static.pw.live/";
+        return {
+          _id: d._id || homeworkId || pdfId,
+          baseUrl,
+          key: d.key,
+          name: d.name || "Class Notes.pdf",
+          status: d.status || "Active",
+          type: d.type || "ADMIN",
+          fullUrl: baseUrl + d.key,
+        };
+      }
+    } catch (err) {
+      console.warn("[PdfResolver] pwthor HTTP exception:", err);
     }
-  } catch (err) {
-    console.warn("[PdfResolver] pwthor HTTP exception:", err);
   }
   return null;
+}
+
+export async function getResolverDiagnostics() {
+  let pwthorPing: any = null;
+  try {
+    const testUrl = "https://pwthor.live/api/GetPdf?BatchId=698ad3519549b300a5e1cc6a&SubjectId=maths-by-sachin-jakhar-sir-095452&PdfId=6a940abcea1638c3a6570d6c&HomeworkId=6ad0c72e5b2a8b12b7877ee6";
+    const res = await fetch(testUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://pwthor.live/",
+        "Cookie": `auth_token=${PWTHOR_TOKEN}`,
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    const text = await res.text();
+    pwthorPing = {
+      status: res.status,
+      statusText: res.statusText,
+      ok: res.ok,
+      preview: text.slice(0, 300),
+    };
+  } catch (err: any) {
+    pwthorPing = { error: err?.message || String(err) };
+  }
+
+  return {
+    version: "2026-10-18T19:15-v3",
+    cacheSize: memoryCache.size,
+    hasToken: Boolean(PWTHOR_TOKEN),
+    pwthorPing,
+  };
 }
 
 /**

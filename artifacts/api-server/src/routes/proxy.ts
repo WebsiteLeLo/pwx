@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Readable } from "node:stream";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { resolvePdfKey } from "../lib/pdfResolver";
+import { resolvePdfKey, getResolverDiagnostics } from "../lib/pdfResolver";
 
 const proxyRouter = Router();
 
@@ -728,6 +728,16 @@ proxyRouter.options(["/proxy", "/pdf", "/proxy-pdf", "/GetPdf", "/get-pdf", "/ge
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.status(204).end();
+});
+
+proxyRouter.get("/resolver-status", async (_req, res) => {
+  try {
+    const diag = await getResolverDiagnostics();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json(diag);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
 });
 
 /**
