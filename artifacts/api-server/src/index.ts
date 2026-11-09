@@ -1,3 +1,6 @@
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureTables } from "./lib/migrate";

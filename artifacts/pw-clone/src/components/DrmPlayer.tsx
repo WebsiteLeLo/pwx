@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
-import { RefreshCw, ArrowDownToLine, ExternalLink, Play } from "lucide-react";
+import { RefreshCw, ArrowDownToLine, ExternalLink, Play, Tv } from "lucide-react";
 import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
@@ -9,7 +9,20 @@ import { decodePwMarco } from "@/lib/pwmarco";
 const PROXY_BASE = apiUrl("/api");
 const ACCENT = "#5a4bda";
 
-interface DrmCache { hlsUrl: string; clearKeys?: Record<string, string>; }
+function proxyUrl(u: string): string {
+  if (!u) return u;
+  if (u.includes("streamvideo.co.in") && !u.includes("/api/streamvideo-proxy")) {
+    return `${PROXY_BASE}/streamvideo-proxy?url=${encodeURIComponent(u)}`;
+  }
+  return u;
+}
+
+interface DrmCache {
+  hlsUrl: string;
+  clearKeys?: Record<string, string>;
+  licenseUrl?: string;
+  licenseToken?: string;
+}
 const drmCache = new Map<string, DrmCache>();
 
 function formatTime(secs: number): string {
@@ -100,6 +113,8 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 }, ref) => {
   const videoRef      = useRef<HTMLVideoElement>(null);
   const playerRef     = useRef<any>(null);
+  const hlsRef        = useRef<any>(null);
+  const currentVideoUrlRef = useRef<string>("");
   const containerRef  = useRef<HTMLDivElement>(null);
   const seekBarRef    = useRef<HTMLDivElement>(null);
   const hideTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,6 +131,20 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   const [loadProgress, setLoadProgress] = useState(0);
   const [error, setError]           = useState("");
   const [attempt, setAttempt]       = useState(0);
+  const [useEmbedPlayer, setUseEmbedPlayer] = useState(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get("player") === "embed" || sp.get("embed") === "1" || !!sp.get("embedUrl");
+    }
+    return false;
+  });
+  const [embedProvider, setEmbedProvider] = useState<"aryavidya" | "vidcloud">(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("provider") === "vidcloud") return "vidcloud";
+    }
+    return "aryavidya";
+  });
 
   useImperativeHandle(ref, () => ({
     seekTo: (t: number) => {
@@ -306,14 +335,17 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setStatusMsg("Fetching video URL…");
           let videoUrl: string | undefined;
 
-          // Try pwmarco API first
+          // 1. Try pwmarco API with short timeout
           try {
             const apiEndpoint = videoType === "live" ? "/pwmarco-stream-url" : "/pwmarco-video-url";
             const qs = videoType === "live" 
               ? `?parentId=${batchId}&subjectId=${subjectId}&childId=${childId}&urlType=penpencilvdo&videoId=${childId}&topicId=${topicId || childId}`
               : `?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}`;
             
-            const pwMarcoRes = await fetch(`${PROXY_BASE}${apiEndpoint}${qs}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            const pwMarcoRes = await fetch(`${PROXY_BASE}${apiEndpoint}${qs}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (pwMarcoRes.ok) {
               const data = await pwMarcoRes.json();
               if (data?.v === "1" && data?.d) {
@@ -332,32 +364,100 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
               }
             }
           } catch (e) {
-            console.error("pwmarco fetch failed", e);
+            console.warn("pwmarco fetch failed, trying fallbacks", e);
           }
 
-          // Fallback to the slides API if devcoderz didn't provide a URL
+          // 1. Try our stream resolver (decrypts CloudFront signatures and ClearKeys)
           if (!videoUrl) {
-            const slidesRes = await fetch(
-              `${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${childId}/slides`
-            );
-            if (slidesRes.ok) {
-              const slidesData = await slidesRes.json();
-              videoUrl = slidesData?.data?.url;
+            try {
+              setStatusMsg("Decrypting lecture stream…");
+              const resRes = await fetch(`${PROXY_BASE}/resolve-stream?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(childId)}`);
+              if (resRes.ok) {
+                const resData = await resRes.json();
+                if (resData.success && resData.streamUrl) {
+                  videoUrl = resData.streamUrl;
+                  if (resData.clearKeys) {
+                    cached = { hlsUrl: "", clearKeys: resData.clearKeys };
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn("resolve-stream fetch failed", e);
             }
           }
 
-          // Fallback to the videos API if the URL wasn't found in slides
+          // 2. Try learnbyakp API
           if (!videoUrl) {
-            const videoRes = await fetch(
-              `${PW_API}/v1/videos/${encodeURIComponent(childId)}`
-            );
-            if (videoRes.ok) {
-              const videoData = await videoRes.json();
-              videoUrl = videoData?.data?.videoUrl;
+            try {
+              const akpRes = await fetch(`${PROXY_BASE}/akp-video-url?batchId=${batchId}&childId=${childId}`);
+              if (akpRes.ok) {
+                const akpData = await akpRes.json();
+                if (akpData?.url || akpData?.directUrl || akpData?.streamUrl) {
+                  videoUrl = akpData.url || akpData.directUrl || akpData.streamUrl;
+                  if (akpData.clearKeys) {
+                    cached = { hlsUrl: "", clearKeys: akpData.clearKeys };
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn("akp-video-url fetch failed", e);
             }
           }
 
-          if (!videoUrl) throw new Error("No video URL in video details");
+          // 3. Try vidcloud-stream extractor
+          if (!videoUrl) {
+            try {
+              const vcRes = await fetch(`${PROXY_BASE}/vidcloud-stream?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(childId)}`);
+              if (vcRes.ok) {
+                const vcData = await vcRes.json();
+                if (vcData.urls && vcData.urls.length > 0) {
+                  const signed = (vcData.urls as string[]).find(u => u.includes("Policy=") || u.includes("Signature="));
+                  videoUrl = signed || vcData.urls[0];
+                }
+              }
+            } catch (e) {
+              console.warn("vidcloud-stream fetch failed", e);
+            }
+          }
+
+          // 4. Try server-side pw-video endpoint
+          if (!videoUrl) {
+            try {
+              const pvRes = await fetch(`${PROXY_BASE}/pw-video/${encodeURIComponent(childId)}`);
+              if (pvRes.ok) {
+                const pvData = await pvRes.json();
+                videoUrl = pvData?.data?.videoUrl || pvData?.data?.url;
+              }
+            } catch {}
+          }
+
+          // 5. Fallback to the slides API if not found
+          if (!videoUrl) {
+            try {
+              const slidesRes = await fetch(
+                `${PW_API}/v1/batches/${batchId}/subject/${subjectId}/schedule/${childId}/slides`
+              );
+              if (slidesRes.ok) {
+                const slidesData = await slidesRes.json();
+                videoUrl = slidesData?.data?.url;
+              }
+            } catch {}
+          }
+
+          // 6. Fallback to the videos API if the URL wasn't found in slides
+          if (!videoUrl) {
+            try {
+              const videoRes = await fetch(
+                `${PW_API}/v1/videos/${encodeURIComponent(childId)}`
+              );
+              if (videoRes.ok) {
+                const videoData = await videoRes.json();
+                videoUrl = videoData?.data?.videoUrl;
+              }
+            } catch {}
+          }
+
+          if (!videoUrl) throw new Error("No video URL available in video details");
 
           const uuidMatch = videoUrl.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
           let hlsUrl = videoUrl;
@@ -376,23 +476,124 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setStatusMsg("Loading from cache…");
         }
 
-        const { hlsUrl, clearKeys } = cached;
+        const { hlsUrl, clearKeys, licenseUrl, licenseToken } = cached;
+        currentVideoUrlRef.current = hlsUrl;
         if (cancelled) return;
         setStatus("loading");
         setStatusMsg("Initializing player…");
 
+        const video = videoRef.current;
+        if (!video || cancelled) return;
+
+        // Cleanup any previous player instances
+        if (hlsRef.current) {
+          try { hlsRef.current.destroy(); } catch {}
+          hlsRef.current = null;
+        }
+        if (playerRef.current) {
+          try { await playerRef.current.destroy(); } catch {}
+          playerRef.current = null;
+        }
+
+        const queryParams = hlsUrl.includes("?") ? hlsUrl.substring(hlsUrl.indexOf("?")) : "";
+        const loUrl = hlsUrl.toLowerCase().split("?")[0];
+        const isHlsStream = loUrl.endsWith(".m3u8") || loUrl.includes("m3u8") || loUrl.includes("/hls/") || loUrl.endsWith(".pdf") || loUrl.endsWith(".docx");
+
+        /* ── Path A: HLS Stream (Hls.js) ───────────────────────────── */
+        if (isHlsStream) {
+          const HlsModule = await import("hls.js");
+          const Hls = (HlsModule as any).default ?? HlsModule;
+          if (cancelled) return;
+
+          if (Hls.isSupported()) {
+            const isDisguisedChunk = loUrl.endsWith(".pdf") || loUrl.endsWith(".docx");
+            const hlsConfig: any = {
+              enableWorker: true,
+              lowLatencyMode: false,
+              maxBufferLength: isDisguisedChunk ? 330 : 60,
+              maxMaxBufferLength: isDisguisedChunk ? 600 : 120,
+              maxBufferSize: 60 * 1024 * 1024,
+              xhrSetup: (xhr: XMLHttpRequest, reqUrl: string) => {
+                let finalUrl = reqUrl;
+                // Rewrite PenPencil HLS key request directly to CDN
+                if (reqUrl.includes("/v1/videos/get-hls-key") || (reqUrl.includes(".key") && !reqUrl.includes("pimaxer"))) {
+                  const hlsIndex = hlsUrl.indexOf("/hls/");
+                  if (hlsIndex !== -1) {
+                    const cdnBase = hlsUrl.substring(0, hlsIndex);
+                    finalUrl = `${cdnBase}/hls/enc.key${queryParams}`;
+                  }
+                } else if (queryParams && !reqUrl.includes("?") && !reqUrl.includes(".key")) {
+                  finalUrl = reqUrl + queryParams;
+                }
+                xhr.open("GET", proxyUrl(finalUrl), true);
+              }
+            };
+
+            const hls = new Hls(hlsConfig);
+            hlsRef.current = hls;
+
+            hls.on(Hls.Events.MANIFEST_PARSED, (_: any, data: any) => {
+              if (cancelled) return;
+              const seen = new Set<number>();
+              const tracks: QualityTrack[] = [];
+              if (data.levels && Array.isArray(data.levels)) {
+                data.levels.forEach((l: any, i: number) => {
+                  const h = l.height || parseInt(l.attrs?.RESOLUTION?.split("x")[1]) || 0;
+                  if (h && !seen.has(h)) {
+                    seen.add(h);
+                    tracks.push({ height: h, bandwidth: l.bitrate || 0, raw: { ...l, levelIndex: i } });
+                  }
+                });
+                tracks.sort((a, b) => b.height - a.height);
+                setQualities(tracks);
+              }
+            });
+
+            hls.on(Hls.Events.ERROR, (_: any, data: any) => {
+              if (cancelled || !data.fatal) return;
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                hls.startLoad();
+              } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError();
+              } else {
+                scheduleRecovery("HLS stream playback failed.");
+              }
+            });
+
+            hls.loadSource(proxyUrl(hlsUrl));
+            hls.attachMedia(video);
+
+            if (!cancelled) {
+              recoveryAttemptsRef.current = 0;
+              setStatus("ready");
+              try {
+                const saved = parseFloat(localStorage.getItem(RESUME_KEY(childId)) || "0");
+                if (saved > 0 && saved < (video.duration || Infinity) - 5) {
+                  video.currentTime = saved;
+                }
+              } catch {}
+              video.play().catch(() => {});
+            }
+            return;
+          } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = proxyUrl(hlsUrl);
+            video.load();
+            if (!cancelled) {
+              recoveryAttemptsRef.current = 0;
+              setStatus("ready");
+              video.play().catch(() => {});
+            }
+            return;
+          }
+        }
+
+        /* ── Path B: DASH / DRM Stream (Shaka Player) ───────────────── */
         const shakaModule = await import("shaka-player");
         const shaka = (shakaModule as any).default ?? shakaModule;
         if (cancelled) return;
 
         shaka.polyfill.installAll();
-        const video = videoRef.current;
-        if (!video || cancelled) return;
-
-        if (playerRef.current) {
-          await playerRef.current.destroy();
-          playerRef.current = null;
-        }
+        if (cancelled) return;
 
         const player = new shaka.Player();
         await player.attach(video);
@@ -414,40 +615,112 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           },
         };
 
-        if (clearKeys) {
+        if (licenseToken || licenseUrl) {
+          config.drm = {
+            servers: {
+              "com.widevine.alpha": licenseUrl || "https://license-global.pallycon.com/ri/licenseManager.do"
+            },
+            advanced: {
+              "com.widevine.alpha": {
+                videoRobustness: "SW_SECURE_CRYPTO",
+                audioRobustness: "SW_SECURE_CRYPTO"
+              }
+            }
+          };
+        } else if (clearKeys && Object.keys(clearKeys).length > 0) {
           config.drm = { clearKeys };
         }
 
         player.configure(config);
 
-        // Intercept and rewrite HLS requests to route through Render backend proxy
+        // Intercept and rewrite requests in Shaka
         const netEngine = player.getNetworkingEngine();
         if (netEngine) {
+          const requestType = shaka.net.NetworkingEngine.RequestType;
+
           netEngine.registerRequestFilter((type: number, request: any) => {
             const uri = request.uris[0];
             if (!uri) return;
 
-            // Key requests
-            if (uri.includes(".key")) {
+            // 1. Append query params to segments & manifests (fixes 403 Forbidden / Error 1001)
+            if ((type === requestType.SEGMENT || type === requestType.MANIFEST) && queryParams) {
+              request.uris = request.uris.map((u: string) => {
+                const qp = queryParams.replace(/^\?/, "");
+                const firstParam = qp.split("&")[0].split("=")[0];
+                if (firstParam && !u.includes(firstParam + "=")) {
+                  const sep = u.includes("?") ? "&" : "?";
+                  return u + sep + qp;
+                }
+                return u;
+              });
+            }
+
+            // 2. Intercept PenPencil HLS Key requests and redirect directly to CDN
+            if (type === requestType.KEY && (uri.includes("/v1/videos/get-hls-key") || uri.includes("penpencil.co") || uri.includes("penpencil.xyz"))) {
+              try {
+                const u = new URL(uri);
+                const videoKey = u.searchParams.get("videoKey");
+                if (videoKey && hlsUrl) {
+                  const hlsIndex = hlsUrl.indexOf("/hls/");
+                  let cdnBase = "";
+                  if (hlsIndex !== -1) {
+                    cdnBase = hlsUrl.substring(0, hlsIndex);
+                  } else {
+                    cdnBase = new URL(hlsUrl).origin + "/" + videoKey;
+                  }
+                  const newParams = new URLSearchParams();
+                  u.searchParams.forEach((val, key) => {
+                    if (key !== "videoKey" && key !== "key" && key !== "URLPrefix") {
+                      newParams.set(key, val);
+                    }
+                  });
+                  if (!newParams.has("Signature") && queryParams) {
+                    try {
+                      const vUrlObj = new URL(hlsUrl);
+                      vUrlObj.searchParams.forEach((val, key) => newParams.set(key, val));
+                    } catch {}
+                  }
+                  const searchStr = newParams.toString() ? "?" + newParams.toString() : "";
+                  request.uris[0] = `${cdnBase}/hls/enc.key${searchStr}`;
+                  return;
+                }
+              } catch (e) {
+                console.error("Failed to parse key URI:", e);
+              }
+            }
+
+            // 3. Pimaxer key requests
+            if (uri.includes(".key") && uri.includes("pimaxer.in")) {
               const match = uri.match(/pimaxer\.in\/([0-9a-fA-F\-]+)\//);
               if (match) {
                 const uuid = match[1];
                 request.uris[0] = `https://stream.srv-1.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
+                return;
               }
+            }
+
+            // 4. Widevine / PallyCon License request
+            if (type === requestType.LICENSE && (licenseToken || licenseUrl)) {
+              if (licenseToken) {
+                request.headers["pallycon-customdata-v2"] = licenseToken;
+              }
+              request.headers["Content-Type"] = "application/octet-stream";
+              request.headers["Origin"] = "https://pw.live";
+              request.headers["Referer"] = "https://pw.live/";
               return;
             }
 
-            // Prevent infinite proxy loops
-            if (uri.includes("/api/proxy") || uri.includes(PROXY_BASE + "/proxy")) return;
-
-            // Intercept CDN URLs (devcoderz & PW & streamvideo) to bypass CORS & WAF!
-            const cdnHosts = ["herokuapp.com", "cloudfront.net", "pw.live", "streamvideo.co.in", "stream.testuk.org"];
-            if (cdnHosts.some((h) => uri.includes(h))) {
-              // MUST be an absolute URL, otherwise Shaka resolves it against the MPD's <BaseURL>!
-              request.uris[0] = `${window.location.origin}${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
-              return;
+            // 5. Origin and Referer for PW Live requests
+            if (uri.includes("pw.live") || uri.includes("sec-prod-mediacdn")) {
+              request.headers["Origin"] = "https://pw.live";
+              request.headers["Referer"] = "https://pw.live/";
             }
 
+            // 6. Route streamvideo.co.in through dedicated streamvideo-proxy
+            if (uri.includes("streamvideo.co.in") && !uri.includes("/api/streamvideo-proxy")) {
+              request.uris[0] = proxyUrl(uri);
+              return;
+            }
           });
         }
 
@@ -484,7 +757,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setQualities(tracks);
         });
 
-        await player.load(hlsUrl);
+        await player.load(proxyUrl(hlsUrl));
 
         if (!cancelled) {
           recoveryAttemptsRef.current = 0;
@@ -515,6 +788,10 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
       cancelled = true;
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (hlsRef.current) {
+        try { hlsRef.current.destroy(); } catch {}
+        hlsRef.current = null;
+      }
       if (playerRef.current) {
         playerRef.current.destroy().catch(() => {});
         playerRef.current = null;
@@ -662,16 +939,28 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   }
 
   function selectQuality(height: number | "auto") {
-    if (!playerRef.current) return;
-    if (height === "auto") {
-      playerRef.current.configure({ abr: { enabled: true } });
-      setActiveQuality("auto");
-    } else {
-      playerRef.current.configure({ abr: { enabled: false } });
-      const tracks = playerRef.current.getVariantTracks();
-      const best = (tracks as any[]).filter((t) => t.height === height).sort((a: any, b: any) => b.bandwidth - a.bandwidth)[0];
-      if (best) playerRef.current.selectVariantTrack(best, true);
-      setActiveQuality(height);
+    if (hlsRef.current) {
+      if (height === "auto") {
+        hlsRef.current.currentLevel = -1;
+        setActiveQuality("auto");
+      } else {
+        const item = qualities.find((q) => q.height === height);
+        if (item && item.raw && typeof item.raw.levelIndex === "number") {
+          hlsRef.current.currentLevel = item.raw.levelIndex;
+          setActiveQuality(height);
+        }
+      }
+    } else if (playerRef.current) {
+      if (height === "auto") {
+        playerRef.current.configure({ abr: { enabled: true } });
+        setActiveQuality("auto");
+      } else {
+        playerRef.current.configure({ abr: { enabled: false } });
+        const tracks = playerRef.current.getVariantTracks();
+        const best = (tracks as any[]).filter((t) => t.height === height).sort((a: any, b: any) => b.bandwidth - a.bandwidth)[0];
+        if (best) playerRef.current.selectVariantTrack(best, true);
+        setActiveQuality(height);
+      }
     }
     setSettingsPanel("main");
     setShowSettings(false);
@@ -682,12 +971,16 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
     setMenuOpen(false);
     setTopMenuPanel("main");
 
-    // Get the base video URL from shaka player
+    // Get the base video URL from shaka player, hls, or ref
+    const manifestUrl =
+      playerRef.current?.getAssetUri?.() ||
+      hlsRef.current?.url ||
+      currentVideoUrlRef.current ||
+      videoRef.current.src;
+
     const uuidMatch = videoRef.current.src?.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//) 
-      || playerRef.current?.getAssetUri()?.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
+      || manifestUrl?.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
     
-    // We can extract it from playerRef or just use the batchId/childId for name
-    const manifestUrl = playerRef.current?.getAssetUri();
     if (!manifestUrl) {
       alert("Unable to fetch video URL for download.");
       return;
@@ -836,6 +1129,69 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
   const hasPanel = !!(onOpenTimeline || onOpenSlides || (attachments && attachments.length > 0));
 
+  if (useEmbedPlayer) {
+    const sp = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const directQueryUrl = sp?.get("embedUrl") || sp?.get("playUrl");
+    const aryavidyaEmbedSrc = directQueryUrl && directQueryUrl.includes("stream.aryavidya.cc")
+      ? `${PROXY_BASE}/aryavidya-embed?url=${encodeURIComponent(directQueryUrl)}`
+      : `${PROXY_BASE}/aryavidya-embed?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(childId)}&title=${encodeURIComponent(title || "")}&poster=${encodeURIComponent(poster || "")}&video_type=${encodeURIComponent(videoType || "pw")}&topicId=${encodeURIComponent(topicId || childId)}`;
+    const proxiedVidcloudUrl = `${PROXY_BASE}/vidcloud-embed?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(childId)}`;
+
+    const currentEmbedSrc = embedProvider === "vidcloud" ? proxiedVidcloudUrl : aryavidyaEmbedSrc;
+
+    return (
+      <div className="relative w-full h-full bg-black flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2 bg-zinc-950/90 border-b border-zinc-800 z-30 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-white/90">Embed Player:</span>
+            <div className="inline-flex rounded-lg bg-zinc-800/80 p-0.5 border border-zinc-700/60">
+              <button
+                onClick={() => setEmbedProvider("aryavidya")}
+                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  embedProvider === "aryavidya"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Aryavidya
+              </button>
+              <button
+                onClick={() => setEmbedProvider("vidcloud")}
+                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  embedProvider === "vidcloud"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                VidCloud
+              </button>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+              {embedProvider === "vidcloud" ? "VidCloud" : "Aryavidya"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setUseEmbedPlayer(false); setAttempt((a) => a + 1); }}
+              className="text-xs px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors"
+            >
+              Switch to Native Player
+            </button>
+          </div>
+        </div>
+        <iframe
+          key={embedProvider}
+          src={currentEmbedSrc}
+          className="w-full flex-1 border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          title={title || "Video Player"}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -921,16 +1277,22 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 mt-1">
-            <a
-              href={`https://stream.testuk.org/schedule-details?batchId=${batchId}&subjectId=${subjectId}&scheduleId=${childId}&tap=video`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/30"
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/30"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Watch on Stream Platform
-            </a>
+              <Tv className="w-3.5 h-3.5" />
+              Try Embed Player (Aryavidya)
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-purple-700 hover:bg-purple-600 transition-colors shadow-lg shadow-purple-700/30"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              Try Embed Player (VidCloud)
+            </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); recoveryAttemptsRef.current = 0; setAttempt((a) => a + 1); }}
@@ -1081,6 +1443,24 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                           </button>
                         )}
                         
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
+                        >
+                          <Tv className="w-4 h-4 text-violet-400" />
+                          Embed Player (Aryavidya)
+                        </button>
+
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
+                        >
+                          <Tv className="w-4 h-4 text-purple-400" />
+                          Embed Player (VidCloud)
+                        </button>
+
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                           onClick={(e) => { e.stopPropagation(); setTopMenuPanel("download"); }}

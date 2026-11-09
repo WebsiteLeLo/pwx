@@ -19,15 +19,15 @@ export default function Watch() {
   useEffect(() => {
     // Parse URL params
     const searchParams = new URLSearchParams(window.location.search);
-    const vId = searchParams.get("videoId") || searchParams.get("childId") || searchParams.get("scheduleId") || searchParams.get("schId") || "";
+    const vId = searchParams.get("videoId") || searchParams.get("childId") || searchParams.get("scheduleId") || searchParams.get("schId") || searchParams.get("video_id") || "";
     
     if (vId) {
       setParams({
-        batchId: searchParams.get("batchId") || "",
-        subjectId: searchParams.get("subjectId") || "",
+        batchId: searchParams.get("batchId") || searchParams.get("batch_id") || "",
+        subjectId: searchParams.get("subjectId") || searchParams.get("subject_id") || searchParams.get("subject_id_original") || "",
         videoId: vId,
-        videoType: searchParams.get("video_type") || "",
-        topicId: searchParams.get("topicId") || vId,
+        videoType: searchParams.get("video_type") || searchParams.get("videoType") || "",
+        topicId: searchParams.get("topicId") || searchParams.get("topic_id") || vId,
       });
     }
   }, []);
@@ -83,7 +83,9 @@ export default function Watch() {
   }
 
   const schedData = scheduleData?.data;
-  const title = schedData?.topic || "Video Player";
+  const sp = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const title = schedData?.topic || sp?.get("title") || "Video Player";
+  const poster = (schedData as any)?.image || sp?.get("poster") || "";
   
   const hwList = schedData?.homeworkIds ?? [];
   const attachments = hwList.flatMap(hw => 
@@ -106,6 +108,7 @@ export default function Watch() {
           subjectId={params.subjectId}
           childId={params.videoId}
           title={title}
+          poster={poster}
           videoType={params.videoType}
           topicId={params.topicId}
           attachments={attachments}

@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { resolvePdfKey, getResolverDiagnostics } from "../lib/pdfResolver";
+import { resolveStreamWithVidcloud } from "../lib/streamResolver";
 
 const proxyRouter = Router();
 
@@ -42,7 +43,7 @@ function injectBaseUrl(mpdXml: string, baseUrl: string): string {
 }
 
 // Headers to try in order — each mimics a likely whitelisted referrer on PW's CloudFront WAF
-const CDN_HEADER_VARIANTS = [
+const CDN_HEADER_VARIANTS: Record<string, string>[] = [
   {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Referer": "https://stream.testuk.org/",
@@ -120,7 +121,7 @@ proxyRouter.get("/v1/videos/video-url-details", async (req, res) => {
   const qs = new URLSearchParams({ mediaToken, videoContainerType: videoContainerType || "DASH" });
   const upstream = `https://stream.testuk.org/v1/videos/video-url-details?${qs}`;
 
-  const STREAM_HEADER_VARIANTS = [
+  const STREAM_HEADER_VARIANTS: Record<string, string>[] = [
     {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       "Referer": "https://stream.testuk.org/",
@@ -234,7 +235,7 @@ proxyRouter.get("/streamvideo-proxy", async (req, res) => {
     return;
   }
 
-  const STREAMVIDEO_HEADERS = [
+  const STREAMVIDEO_HEADERS: Record<string, string>[] = [
     {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       "Referer": "https://stream.testuk.org/",
@@ -353,7 +354,7 @@ proxyRouter.post("/save-stream", async (req, res) => {
     } else {
       try {
         const upstream = `https://stream.testuk.org/v1/videos/video-url-details?mediaToken=${encodeURIComponent(token)}&videoContainerType=DASH`;
-        const STREAM_HEADER_VARIANTS = [
+        const STREAM_HEADER_VARIANTS: Record<string, string>[] = [
           {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Referer": "https://stream.testuk.org/",
@@ -442,13 +443,15 @@ proxyRouter.get("/pwmarco-stream-url", async (req, res) => {
 // Fetches vidcloud's play.php page (which has PW auth baked in) and extracts
 // any CloudFront signed MPD/HLS/M3U8 URLs embedded in the page source.
 proxyRouter.get("/vidcloud-stream", async (req, res) => {
-  const { batchId, subjectId, videoId } = req.query as Record<string, string>;
-  if (!batchId || !videoId) {
+  const bId = (req.query.batchId || req.query.batch_id) as string;
+  const sId = (req.query.subjectId || req.query.subject_id || "") as string;
+  const vId = (req.query.videoId || req.query.childId || req.query.video_id) as string;
+  if (!bId || !vId) {
     res.status(400).json({ error: "Missing batchId or videoId" });
     return;
   }
 
-  const vidcloudUrl = `https://vidcloud.eu.org/play.php?batch_id=${encodeURIComponent(batchId)}&subject_id=${encodeURIComponent(subjectId || "")}&video_id=${encodeURIComponent(videoId)}&video_type=new`;
+  const vidcloudUrl = `https://vidcloud.eu.org/play.php?batch_id=${encodeURIComponent(bId)}&subject_id=${encodeURIComponent(sId)}&video_id=${encodeURIComponent(vId)}&video_type=new`;
 
   try {
     const upstream = await fetch(vidcloudUrl, {
@@ -486,12 +489,253 @@ proxyRouter.get("/vidcloud-stream", async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.json({
       urls: [...found],
+      playUrl: vidcloudUrl,
       // Also include the raw page length for debugging
       pageLength: html.length,
     });
   } catch (err) {
     req.log.error({ err }, "vidcloud-stream fetch failed");
-    res.status(502).json({ error: "Failed to fetch vidcloud page" });
+    res.status(502).json({ error: "Failed to fetch vidcloud page", playUrl: vidcloudUrl });
+  }
+});
+
+// ── Vidcloud embedded player proxy ───────────────────────────────────────────
+// Proxies vidcloud's play.php page server-side to avoid cross-origin iframe
+// 302 redirects to testwave.cc. Serves the full HTML with updated script URLs.
+proxyRouter.get("/vidcloud-embed", async (req, res) => {
+  const bId = (req.query.batchId || req.query.batch_id) as string;
+  const sId = (req.query.subjectId || req.query.subject_id || "") as string;
+  const vId = (req.query.videoId || req.query.childId || req.query.video_id) as string;
+  if (!bId || !vId) {
+    res.status(400).send("Missing batchId or videoId");
+    return;
+  }
+
+  const vidcloudUrl = `https://vidcloud.eu.org/play.php?batch_id=${encodeURIComponent(bId)}&subject_id=${encodeURIComponent(sId)}&video_id=${encodeURIComponent(vId)}&video_type=new`;
+
+  try {
+    const upstream = await fetch(vidcloudUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.pw.live/",
+      },
+    });
+
+    if (!upstream.ok) {
+      res.status(upstream.status).send(`Failed to fetch upstream player: ${upstream.statusText}`);
+      return;
+    }
+
+    let html = await upstream.text();
+    // Point relative scripts to absolute vidcloud URL
+    html = html.replace(/src=["']video-script\.js\?v=102["']/g, 'src="https://vidcloud.eu.org/video-script.js?v=102"');
+    html = html.replace(/<script[^>]*rocket-loader[^>]*><\/script>/gi, '');
+
+    res.removeHeader("X-Frame-Options");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(html);
+  } catch (err) {
+    req.log.error({ err }, "vidcloud-embed fetch failed");
+    res.status(502).send("Failed to proxy vidcloud player");
+  }
+});
+
+// ── Aryavidya embedded player proxy ──────────────────────────────────────────
+const aryavidyaCookieJar = new Map<string, { cookieHeader: string; token: string; ts: number }>();
+
+function solveAryavidyaDomChallenge(html: string): string {
+  try {
+    const spanMatches = [...html.matchAll(/<span id=['"]([^'"]+)['"](?: data-([a-z0-9]+)=['"]([^'"]+)['"])?>([^<]*)<\/span>/g)];
+    const map: Record<string, { text: string; data?: string }> = {};
+    for (const m of spanMatches) {
+      map[m[1]] = { text: m[4], data: m[3] };
+    }
+    const lines = html.match(/_p(?:\[[^\]]*\]\s*=\s*|\.push\s*\()\s*document\.getElementById\(['"]([^'"]+)['"]\)\.(innerHTML|getAttribute\(['"][^'"]+['"]\))/g) || [];
+    let token = "";
+    for (const line of lines) {
+      const id = line.match(/getElementById\(['"]([^'"]+)['"]\)/)?.[1];
+      if (id && map[id]) {
+        token += line.includes("getAttribute") ? (map[id].data || "") : map[id].text;
+      }
+    }
+    return token;
+  } catch {
+    return "";
+  }
+}
+
+proxyRouter.get("/aryavidya-embed", async (req, res) => {
+  const bId = (req.query.batchId || req.query.batch_id || "") as string;
+  const sId = (req.query.subjectId || req.query.subject_id || req.query.subject_id_original || "") as string;
+  const vId = (req.query.videoId || req.query.childId || req.query.video_id || "") as string;
+  const title = (req.query.title || "") as string;
+  const poster = (req.query.poster || "") as string;
+  const topicId = (req.query.topicId || req.query.topic_id || vId) as string;
+  const subjectSlug = (req.query.subject_slug || "") as string;
+  const topicSlug = (req.query.topic_slug || "") as string;
+  const videoKey = (req.query.video_key || vId) as string;
+  const urlType = (req.query.urlType || "penpencilvdo") as string;
+  const videoType = (req.query.video_type || req.query.videoType || "pw") as string;
+
+  const targetUrl = (req.query.targetUrl || req.query.url) as string ||
+    `https://stream.aryavidya.cc/play.php?video_url=&title=${encodeURIComponent(title)}&poster=${encodeURIComponent(poster)}&video_id=${encodeURIComponent(vId)}&batch_id=${encodeURIComponent(bId)}&subject_id=${encodeURIComponent(sId)}&video_type=${encodeURIComponent(videoType)}&subject_id_original=${encodeURIComponent(sId)}&topic_id=${encodeURIComponent(topicId)}&subject_slug=${encodeURIComponent(subjectSlug)}&topic_slug=${encodeURIComponent(topicSlug)}&video_key=${encodeURIComponent(videoKey)}&urlType=${encodeURIComponent(urlType)}`;
+
+  try {
+    const upstream1 = await fetch(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://stream.aryavidya.cc/",
+      },
+    });
+
+    let html = await upstream1.text();
+    let token = "";
+    let cookieHeader = "";
+
+    // Check if anti-scraper challenge returned
+    if (html.includes("Securing Player...") || html.includes("Verifying secure connection...") || html.includes("pw_chk_")) {
+      const setCookie = upstream1.headers.get("set-cookie") || "";
+      const phpsessid = setCookie.match(/PHPSESSID=([^;]+)/)?.[1] || "";
+      token = solveAryavidyaDomChallenge(html);
+
+      cookieHeader = `PHPSESSID=${phpsessid}; _pw_sec_chk=${token}`;
+      if (vId) aryavidyaCookieJar.set(vId, { cookieHeader, token, ts: Date.now() });
+
+      const upstream2 = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Referer": "https://stream.aryavidya.cc/",
+          "Cookie": cookieHeader,
+        },
+      });
+
+      if (upstream2.ok) {
+        html = await upstream2.text();
+      }
+    }
+
+    // Rewrite relative API calls to our backend proxy
+    html = html.replace(/(["\x27`])(?:\.\/)?api\//g, "$1/api/aryavidya-proxy/api/");
+    html = html.replace(/<script[^>]*rocket-loader[^>]*><\/script>/gi, '');
+
+    // Inject document.cookie and guarantee getCookie('_pw_sec_chk') returns the token
+    if (token) {
+      html = html.replace("getCookie('_pw_sec_chk')", `(getCookie('_pw_sec_chk') || '${token}')`);
+      const cookieInject = `<script>try{document.cookie = "_pw_sec_chk=${token}; path=/; max-age=86400;"; window._pw_sec_token = "${token}";}catch(e){}</script>`;
+      html = html.replace("<head>", `<head>${cookieInject}`);
+    }
+
+    res.removeHeader("X-Frame-Options");
+    res.removeHeader("Content-Security-Policy");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (token) {
+      res.setHeader("Set-Cookie", `_pw_sec_chk=${token}; Path=/; SameSite=Lax`);
+    }
+    res.send(html);
+  } catch (err) {
+    req.log.error({ err }, "aryavidya-embed fetch failed");
+    res.status(502).send("Failed to proxy aryavidya player");
+  }
+});
+
+proxyRouter.all("/aryavidya-proxy/*path", async (req, res) => {
+  const rawPath = (req.params as any).path;
+  const subPath = Array.isArray(rawPath)
+    ? rawPath.join("/")
+    : typeof rawPath === "string"
+      ? rawPath
+      : req.url.replace(/^\/aryavidya-proxy\/?/, "");
+  const qIdx = req.url.indexOf("?");
+  const queryString = qIdx >= 0 ? req.url.slice(qIdx) : "";
+  const fullSubPath = subPath + (subPath.includes("?") ? "" : queryString);
+  const targetUrl = `https://stream.aryavidya.cc/${fullSubPath}`;
+
+  try {
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Referer": "https://stream.aryavidya.cc/play.php",
+      "Origin": "https://stream.aryavidya.cc",
+    };
+
+    if (req.headers["content-type"]) {
+      headers["Content-Type"] = req.headers["content-type"] as string;
+    }
+
+    let cookie = (req.headers["cookie"] as string) || "";
+    if (!cookie.includes("_pw_sec_chk")) {
+      const last = Array.from(aryavidyaCookieJar.values()).pop();
+      if (last?.cookieHeader) cookie = last.cookieHeader;
+    }
+    if (cookie) headers["Cookie"] = cookie;
+
+    const body = ["POST", "PUT", "PATCH"].includes(req.method)
+      ? (typeof req.body === "string" ? req.body : JSON.stringify(req.body))
+      : undefined;
+
+    const upstream = await fetch(targetUrl, {
+      method: req.method,
+      headers,
+      body,
+    });
+
+    res.status(upstream.status);
+    upstream.headers.forEach((val, key) => {
+      const lower = key.toLowerCase();
+      if (lower !== "content-encoding" && lower !== "transfer-encoding") {
+        res.setHeader(key, val);
+      }
+    });
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.send(buffer);
+  } catch (err) {
+    req.log.error({ err, targetUrl }, "aryavidya-proxy forward failed");
+    res.status(502).json({ error: "Failed to forward request to aryavidya" });
+  }
+});
+
+// ── Stream Decryption Resolver ───────────────────────────────────────────────
+// Resolves private PW CloudFront signed streams and DRM clearKeys
+proxyRouter.options("/resolve-stream", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.status(204).end();
+});
+
+proxyRouter.get("/resolve-stream", async (req, res) => {
+  const bId = (req.query.batchId || req.query.batch_id) as string;
+  const sId = (req.query.subjectId || req.query.subject_id || "") as string;
+  const vId = (req.query.videoId || req.query.childId || req.query.video_id) as string;
+
+  if (!bId || !vId) {
+    res.status(400).json({ success: false, error: "Missing batchId or videoId" });
+    return;
+  }
+
+  try {
+    const result = await resolveStreamWithVidcloud(bId, sId, vId);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (result && result.streamUrl) {
+      res.json({
+        success: true,
+        streamUrl: result.streamUrl,
+        clearKeys: result.clearKeys || null,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: "Unable to resolve stream decryption keys",
+      });
+    }
+  } catch (err) {
+    req.log.error({ err }, "resolve-stream failed");
+    res.status(500).json({ success: false, error: "Stream resolver failed" });
   }
 });
 
@@ -505,13 +749,14 @@ proxyRouter.options("/akp-video-url", (_req, res) => {
 });
 
 proxyRouter.get("/akp-video-url", async (req, res) => {
-  const { batchId, childId } = req.query as Record<string, string>;
-  if (!batchId || !childId) {
+  const bId = (req.query.batchId || req.query.batch_id) as string;
+  const cId = (req.query.childId || req.query.child_id || req.query.videoId || req.query.video_id) as string;
+  if (!bId || !cId) {
     res.status(400).json({ error: "Missing batchId or childId" });
     return;
   }
 
-  const upstream = `https://learnbyakp.onrender.com/api/video-url?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}`;
+  const upstream = `https://learnbyakp.onrender.com/api/video-url?batchId=${encodeURIComponent(bId)}&childId=${encodeURIComponent(cId)}`;
 
   try {
     const resp = await fetch(upstream, {

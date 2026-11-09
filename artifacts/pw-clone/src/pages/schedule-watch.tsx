@@ -12,6 +12,13 @@ export default function ScheduleWatch() {
     batchId: "", subjectId: "", scheduleId: "",
     title: "", thumbnail: "",
   });
+  const [provider, setProvider] = useState<"aryavidya" | "vidcloud">(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("provider") === "vidcloud") return "vidcloud";
+    }
+    return "aryavidya";
+  });
   const [historyAdded, setHistoryAdded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const { addToHistory } = useWatchHistory();
@@ -27,11 +34,11 @@ export default function ScheduleWatch() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const p = {
-      batchId: sp.get("batchId") || "",
-      subjectId: sp.get("subjectId") || "",
-      scheduleId: sp.get("scheduleId") || "",
+      batchId: sp.get("batchId") || sp.get("batch_id") || "",
+      subjectId: sp.get("subjectId") || sp.get("subject_id") || sp.get("subject_id_original") || "",
+      scheduleId: sp.get("scheduleId") || sp.get("childId") || sp.get("videoId") || sp.get("video_id") || "",
       title: sp.get("title") || sp.get("topic") || "Lecture Video",
-      thumbnail: sp.get("thumbnail") || "",
+      thumbnail: sp.get("thumbnail") || sp.get("poster") || "",
     };
     setParams(p);
 
@@ -51,7 +58,9 @@ export default function ScheduleWatch() {
   const hasParams = !!(params.batchId && params.scheduleId);
 
   const playerUrl = hasParams
-    ? `${PLAYER_BASE}?batch_id=${encodeURIComponent(params.batchId)}&subject_id=${encodeURIComponent(params.subjectId)}&video_id=${encodeURIComponent(params.scheduleId)}&schedule_id=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title)}`
+    ? (provider === "vidcloud"
+        ? `/api/vidcloud-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}`
+        : `/api/aryavidya-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title)}&poster=${encodeURIComponent(params.thumbnail)}`)
     : "";
 
   const bg        = isDark ? "radial-gradient(ellipse at center, #0d1117 0%, #060a10 100%)" : "radial-gradient(ellipse at center, #eef2ff 0%, #f8faff 100%)";
@@ -70,31 +79,50 @@ export default function ScheduleWatch() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
-      {/* Minimal back button */}
-      <button
-        onClick={() => window.history.back()}
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          zIndex: 20,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 36,
-          height: 36,
-          background: "rgba(0,0,0,0.55)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          borderRadius: "50%",
-          color: "#fff",
-          cursor: "pointer",
-          backdropFilter: "blur(6px)",
-          flexShrink: 0,
-        }}
-        title="Back"
-      >
-        <ArrowLeft size={16} />
-      </button>
+      {/* Top Controls */}
+      <div style={{
+        position: "absolute", top: 10, left: 10, right: 10, zIndex: 20,
+        display: "flex", alignItems: "center", justifyContent: "space-between", pointerEvents: "auto"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => window.history.back()}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 36, height: 36, background: "rgba(0,0,0,0.6)",
+              border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%",
+              color: "#fff", cursor: "pointer", backdropFilter: "blur(6px)", flexShrink: 0,
+            }}
+            title="Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div style={{ display: "inline-flex", borderRadius: 8, background: "rgba(0,0,0,0.6)", padding: 2, border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
+            <button
+              onClick={() => { setProvider("aryavidya"); setLoaded(false); }}
+              style={{
+                fontSize: 11, padding: "3px 9px", borderRadius: 6, fontWeight: 600,
+                background: provider === "aryavidya" ? "#7c3aed" : "transparent",
+                color: provider === "aryavidya" ? "#fff" : "rgba(255,255,255,0.7)",
+                border: "none", cursor: "pointer",
+              }}
+            >
+              Aryavidya
+            </button>
+            <button
+              onClick={() => { setProvider("vidcloud"); setLoaded(false); }}
+              style={{
+                fontSize: 11, padding: "3px 9px", borderRadius: 6, fontWeight: 600,
+                background: provider === "vidcloud" ? "#7c3aed" : "transparent",
+                color: provider === "vidcloud" ? "#fff" : "rgba(255,255,255,0.7)",
+                border: "none", cursor: "pointer",
+              }}
+            >
+              VidCloud
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Loading overlay */}
       <AnimatePresence>
@@ -183,13 +211,13 @@ export default function ScheduleWatch() {
 
       {hasParams ? (
         <iframe
+          key={provider}
           src={playerUrl}
           onLoad={() => setLoaded(true)}
           style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           referrerPolicy="origin-when-cross-origin"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock allow-top-navigation-by-user-activation allow-popups allow-popups-to-escape-sandbox"
           title={params.title}
         />
       ) : (

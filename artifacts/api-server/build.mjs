@@ -88,6 +88,7 @@ async function buildAll() {
       "realm",
       "ref-napi",
       "rocksdb",
+      "jsdom",
       "sass-embedded",
       "sequelize",
       "serialport",
