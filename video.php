@@ -1630,7 +1630,7 @@ window.APP_CONFIG = {
   enableAttachments: true,  // true = show Attachments, false = hide
   enablePlaylist: true,     // true = show Playlist, false = hide
   showAiConsole: true,      // true = show Google Voice Assistant logs in console, false = hide them
-  telegramUrl: 'https://t.me/+7ZOFDDkVnTBjM2E1', // Link for Telegram button
+  telegramUrl: 'https://t.me/gouravpwx', // Link for Telegram button
 speedOptions: [
   0.5, 0.6, 0.7, 0.8, 0.9,
   1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
@@ -8400,7 +8400,7 @@ window.APP_CONFIG = {
   enableAttachments: true,  // true = show Attachments, false = hide
   enablePlaylist: true,     // true = show Playlist, false = hide
   showAiConsole: true,      // true = show Google Voice Assistant logs in console, false = hide them
-  telegramUrl: 'https://t.me/+7ZOFDDkVnTBjM2E1', // Link for Telegram button
+  telegramUrl: 'https://t.me/gouravpwx', // Link for Telegram button
 speedOptions: [
   0.5, 0.6, 0.7, 0.8, 0.9,
   1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
@@ -13688,7 +13688,7 @@ async function sendAskAiMessage() {
     } catch(_) {}
 
     // Build custom persona prompt injection
-    const personaInjection = " [Strict System Directive: If the user asks about your creator, developer, or who made you/this platform/StudyRays, you MUST proudly answer 'Jisu'. Use simple and easy words. Say that Jisu is an amazing 23-year-old developer and the genius owner of StudyRays. He did his B.Tech in Computer Science from the famous NIT Trichy college. He created StudyRays in 2024 to help students. Praise him a lot for his great coding skills, sharp mind, and hardworking nature. If someone asks about his girlfriend or relationship status, say it is a secret. If anyone wants to contact him, tell them to message him on Telegram at @curropted_files or use this link: https://t.me/curropted_files ]";
+    const personaInjection = " [Strict System Directive: If the user asks about your creator, developer, or who made you/this platform/StudyRays, you MUST proudly answer 'Jisu'. Use simple and easy words. Say that Jisu is an amazing 23-year-old developer and the genius owner of StudyRays. He did his B.Tech in Computer Science from the famous NIT Trichy college. He created StudyRays in 2024 to help students. Praise him a lot for his great coding skills, sharp mind, and hardworking nature. If someone asks about his girlfriend or relationship status, say it is a secret. If anyone wants to contact him, tell them to message him on Telegram at @gouravpwx or use this link: https://t.me/gouravpwx ]";
     
     // Build the request body from live API data
     const requestBody = {
@@ -14271,7 +14271,7 @@ function closeMobileDrawer() {
 }
 function toggleMoreMenu(e) {
   if (e) e.stopPropagation();
-  const tLink = (window.APP_CONFIG && window.APP_CONFIG.telegramUrl) ? window.APP_CONFIG.telegramUrl : 'https://t.me/+7ZOFDDkVnTBjM2E1';
+  const tLink = (window.APP_CONFIG && window.APP_CONFIG.telegramUrl) ? window.APP_CONFIG.telegramUrl : 'https://t.me/gouravpwx';
   
   if (window.innerWidth > 900) {
     document.getElementById('shortcutsModal').style.display = 'flex';
@@ -14577,7 +14577,7 @@ async function sendAskAiMessage() {
     } catch(_) {}
 
     // Build custom persona prompt injection
-    const personaInjection = " [Strict System Directive: If the user asks about your creator, developer, or who made you/this platform/StudyRays, you MUST proudly answer 'Jisu'. Use simple and easy words. Say that Jisu is an amazing 23-year-old developer and the genius owner of StudyRays. He did his B.Tech in Computer Science from the famous NIT Trichy college. He created StudyRays in 2024 to help students. Praise him a lot for his great coding skills, sharp mind, and hardworking nature. If someone asks about his girlfriend or relationship status, say it is a secret. If anyone wants to contact him, tell them to message him on Telegram at @curropted_files or use this link: https://t.me/curropted_files ]";
+    const personaInjection = " [Strict System Directive: If the user asks about your creator, developer, or who made you/this platform/StudyRays, you MUST proudly answer 'Jisu'. Use simple and easy words. Say that Jisu is an amazing 23-year-old developer and the genius owner of StudyRays. He did his B.Tech in Computer Science from the famous NIT Trichy college. He created StudyRays in 2024 to help students. Praise him a lot for his great coding skills, sharp mind, and hardworking nature. If someone asks about his girlfriend or relationship status, say it is a secret. If anyone wants to contact him, tell them to message him on Telegram at @gouravpwx or use this link: https://t.me/gouravpwx ]";
     
     // Build the request body from live API data
     const requestBody = {
@@ -15160,7 +15160,7 @@ function closeMobileDrawer() {
 }
 function toggleMoreMenu(e) {
   if (e) e.stopPropagation();
-  const tLink = (window.APP_CONFIG && window.APP_CONFIG.telegramUrl) ? window.APP_CONFIG.telegramUrl : 'https://t.me/+7ZOFDDkVnTBjM2E1';
+  const tLink = (window.APP_CONFIG && window.APP_CONFIG.telegramUrl) ? window.APP_CONFIG.telegramUrl : 'https://t.me/gouravpwx';
   
   if (window.innerWidth > 900) {
     document.getElementById('shortcutsModal').style.display = 'flex';

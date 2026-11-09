@@ -623,6 +623,10 @@ proxyRouter.get("/aryavidya-embed", async (req, res) => {
     html = html.replace(/(["\x27`])(?:\.\/)?api\//g, "$1/api/aryavidya-proxy/api/");
     html = html.replace(/<script[^>]*rocket-loader[^>]*><\/script>/gi, '');
 
+    // Replace Telegram links with user's Telegram link
+    html = html.replace(/https:\/\/t\.me\/\+7ZOFDDkVnTBjM2E1/g, "https://t.me/gouravpwx");
+    html = html.replace(/https:\/\/t\.me\/curropted_files/g, "https://t.me/gouravpwx");
+
     // Inject document.cookie and guarantee getCookie('_pw_sec_chk') returns the token
     if (token) {
       html = html.replace("getCookie('_pw_sec_chk')", `(getCookie('_pw_sec_chk') || '${token}')`);
