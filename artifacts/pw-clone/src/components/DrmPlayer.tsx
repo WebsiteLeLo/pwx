@@ -141,9 +141,10 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   const [embedProvider, setEmbedProvider] = useState<"aryavidya" | "vidcloud">(() => {
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
+      if (sp.get("provider") === "aryavidya") return "aryavidya";
       if (sp.get("provider") === "vidcloud") return "vidcloud";
     }
-    return "aryavidya";
+    return "vidcloud";
   });
 
   useImperativeHandle(ref, () => ({
@@ -1146,16 +1147,6 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             <span className="text-xs font-semibold text-white/90">Embed Player:</span>
             <div className="inline-flex rounded-lg bg-zinc-800/80 p-0.5 border border-zinc-700/60">
               <button
-                onClick={() => setEmbedProvider("aryavidya")}
-                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
-                  embedProvider === "aryavidya"
-                    ? "bg-violet-600 text-white shadow-sm"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                Aryavidya
-              </button>
-              <button
                 onClick={() => setEmbedProvider("vidcloud")}
                 className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
                   embedProvider === "vidcloud"
@@ -1164,6 +1155,16 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                 }`}
               >
                 VidCloud
+              </button>
+              <button
+                onClick={() => setEmbedProvider("aryavidya")}
+                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  embedProvider === "aryavidya"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Aryavidya
               </button>
             </div>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
@@ -1279,19 +1280,19 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
           <div className="flex flex-wrap items-center justify-center gap-3 mt-1">
             <button
-              onClick={(e) => { e.stopPropagation(); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
+              onClick={(e) => { e.stopPropagation(); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/30"
             >
               <Tv className="w-3.5 h-3.5" />
-              Try Embed Player (Aryavidya)
+              Try Embed Player (VidCloud)
             </button>
 
             <button
-              onClick={(e) => { e.stopPropagation(); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-purple-700 hover:bg-purple-600 transition-colors shadow-lg shadow-purple-700/30"
+              onClick={(e) => { e.stopPropagation(); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 transition-colors border border-zinc-700/60"
             >
               <Tv className="w-3.5 h-3.5" />
-              Try Embed Player (VidCloud)
+              Try Embed Player (Aryavidya)
             </button>
 
             <button
@@ -1446,19 +1447,19 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
+                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
                         >
                           <Tv className="w-4 h-4 text-violet-400" />
-                          Embed Player (Aryavidya)
+                          Embed Player (VidCloud)
                         </button>
 
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
+                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
                         >
-                          <Tv className="w-4 h-4 text-purple-400" />
-                          Embed Player (VidCloud)
+                          <Tv className="w-4 h-4 text-zinc-400" />
+                          Embed Player (Aryavidya)
                         </button>
 
                         <button

@@ -4,6 +4,7 @@ import { ArrowLeft, PlaySquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
+import { apiUrl } from "@/lib/apiUrl";
 
 const PLAYER_BASE = "https://learnbyakp.online/study-v2/player";
 
@@ -15,9 +16,10 @@ export default function ScheduleWatch() {
   const [provider, setProvider] = useState<"aryavidya" | "vidcloud">(() => {
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
+      if (sp.get("provider") === "aryavidya") return "aryavidya";
       if (sp.get("provider") === "vidcloud") return "vidcloud";
     }
-    return "aryavidya";
+    return "vidcloud";
   });
   const [historyAdded, setHistoryAdded] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -59,8 +61,8 @@ export default function ScheduleWatch() {
 
   const playerUrl = hasParams
     ? (provider === "vidcloud"
-        ? `/api/vidcloud-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}`
-        : `/api/aryavidya-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title)}&poster=${encodeURIComponent(params.thumbnail)}`)
+        ? apiUrl(`/api/vidcloud-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}`)
+        : apiUrl(`/api/aryavidya-embed?batchId=${encodeURIComponent(params.batchId)}&subjectId=${encodeURIComponent(params.subjectId)}&videoId=${encodeURIComponent(params.scheduleId)}&title=${encodeURIComponent(params.title)}&poster=${encodeURIComponent(params.thumbnail)}`))
     : "";
 
   const bg        = isDark ? "radial-gradient(ellipse at center, #0d1117 0%, #060a10 100%)" : "radial-gradient(ellipse at center, #eef2ff 0%, #f8faff 100%)";
@@ -99,17 +101,6 @@ export default function ScheduleWatch() {
           </button>
           <div style={{ display: "inline-flex", borderRadius: 8, background: "rgba(0,0,0,0.6)", padding: 2, border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
             <button
-              onClick={() => { setProvider("aryavidya"); setLoaded(false); }}
-              style={{
-                fontSize: 11, padding: "3px 9px", borderRadius: 6, fontWeight: 600,
-                background: provider === "aryavidya" ? "#7c3aed" : "transparent",
-                color: provider === "aryavidya" ? "#fff" : "rgba(255,255,255,0.7)",
-                border: "none", cursor: "pointer",
-              }}
-            >
-              Aryavidya
-            </button>
-            <button
               onClick={() => { setProvider("vidcloud"); setLoaded(false); }}
               style={{
                 fontSize: 11, padding: "3px 9px", borderRadius: 6, fontWeight: 600,
@@ -119,6 +110,17 @@ export default function ScheduleWatch() {
               }}
             >
               VidCloud
+            </button>
+            <button
+              onClick={() => { setProvider("aryavidya"); setLoaded(false); }}
+              style={{
+                fontSize: 11, padding: "3px 9px", borderRadius: 6, fontWeight: 600,
+                background: provider === "aryavidya" ? "#7c3aed" : "transparent",
+                color: provider === "aryavidya" ? "#fff" : "rgba(255,255,255,0.7)",
+                border: "none", cursor: "pointer",
+              }}
+            >
+              Aryavidya
             </button>
           </div>
         </div>
