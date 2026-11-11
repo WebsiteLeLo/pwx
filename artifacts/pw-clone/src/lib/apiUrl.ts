@@ -1,4 +1,12 @@
-const rawBase = import.meta.env.VITE_API_URL;
+const envBase = import.meta.env.VITE_API_URL;
+const rawBase =
+  envBase ||
+  (typeof window !== "undefined" &&
+  window.location.hostname !== "localhost" &&
+  window.location.hostname !== "127.0.0.1" &&
+  !window.location.hostname.startsWith("192.168.")
+    ? "https://getpwx2.onrender.com"
+    : "");
 
 export const apiUrl = (path: string) => {
   const normalizedPath = path ? (path.startsWith("/") ? path : `/${path}`) : "";

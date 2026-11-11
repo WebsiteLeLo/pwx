@@ -3,4 +3,7 @@
 /sitemap.xml    /sitemap.xml    200
 /robots.txt     /robots.txt     200
 
+# Proxy all API requests to the deployed backend
+/api/*          https://getpwx2.onrender.com/api/:splat  200
+
 /*              /index.html     200
