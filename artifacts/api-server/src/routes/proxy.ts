@@ -628,8 +628,8 @@ proxyRouter.get("/aryavidya-embed", async (req, res) => {
     html = html.replace(/<script[^>]*rocket-loader[^>]*><\/script>/gi, '');
 
     // Replace Telegram links with user's Telegram link
-    html = html.replace(/https:\/\/t\.me\/\+7ZOFDDkVnTBjM2E1/g, "https://t.me/gouravpwx");
-    html = html.replace(/https:\/\/t\.me\/curropted_files/g, "https://t.me/gouravpwx");
+    html = html.replace(/https:\/\/t\.me\/\+7ZOFDDkVnTBjM2E1/g, "https://t.me/the_pwx");
+    html = html.replace(/https:\/\/t\.me\/curropted_files/g, "https://t.me/the_pwx");
 
     // Inject document.cookie and guarantee getCookie('_pw_sec_chk') returns the token
     if (token) {

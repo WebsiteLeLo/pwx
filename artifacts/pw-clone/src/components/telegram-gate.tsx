@@ -76,7 +76,7 @@ const t = {
 const STORAGE_KEY = "pwx_tg_auth";
 const SESSION_KEY = "pwx_tg_session"; // sessionStorage key for current session
 const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week)
-const CHANNEL_URL = "https://t.me/pwxonrender";
+const CHANNEL_URL = "https://t.me/the_pwx";
 
 interface StoredAuth {
   user: { id: string; name: string };

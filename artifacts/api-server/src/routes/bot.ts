@@ -14,8 +14,8 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 // Channel config keyed by prefix
 const APPS: Record<string, { channel: string; channelUrl: string; label: string }> = {
   pwx: {
-    channel:    process.env.TELEGRAM_CHANNEL ?? "@pwxonrender",
-    channelUrl: "https://t.me/pwxonrender",
+    channel:    process.env.TELEGRAM_CHANNEL ?? "@the_pwx",
+    channelUrl: "https://t.me/the_pwx",
     label:      "PWX",
   },
   ss: {

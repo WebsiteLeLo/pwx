@@ -151,7 +151,7 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
 
             {/* Telegram */}
             <a
-              href="https://t.me/gouravpwx"
+              href="https://t.me/the_pwx"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#29a7e0] hover:bg-[#29a7e0]/10 transition-colors"
