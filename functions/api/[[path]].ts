@@ -1,6 +1,15 @@
 // Cloudflare Pages Function: Universal /api/* proxy to getpwx2.onrender.com
+import { onRequest as proxyHandler } from "./proxy";
+
 export async function onRequest(context: { request: Request }): Promise<Response> {
   const req = context.request;
+  const url = new URL(req.url);
+
+  // If request is for video proxy, handle directly on Cloudflare Edge with 0 Render bandwidth
+  if (url.pathname === "/api/proxy") {
+    return proxyHandler(context);
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,

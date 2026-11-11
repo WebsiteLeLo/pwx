@@ -6,7 +6,8 @@ import { NetworkPing } from "@/components/NetworkPing";
 
 import { PW_API } from "@/lib/pwApiStore";
 import { decodePwMarco } from "@/lib/pwmarco";
-const PROXY_BASE = apiUrl("/api");
+// Use same-origin /api so Cloudflare Pages Function handles video chunks directly at the edge with 0 Render bandwidth
+const PROXY_BASE = "/api";
 const ACCENT = "#5a4bda";
 
 function proxyUrl(u: string): string {
