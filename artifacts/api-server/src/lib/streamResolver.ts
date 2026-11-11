@@ -156,6 +156,14 @@ export async function resolveStreamWithVidcloud(
       // Script may attempt DOM manipulation not supported by jsdom
     }
 
+    // Wait for async execution of video-script to load the player
+    for (let i = 0; i < 30; i++) {
+      if (loadedUrl) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    logger.info({ loadedUrl, hasKeys: !!extractedClearKeys }, "resolveStreamWithVidcloud finished waiting");
+
     if (loadedUrl) {
       const result: ResolvedStream = {
         streamUrl: loadedUrl,

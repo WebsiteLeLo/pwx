@@ -722,6 +722,18 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
               request.uris[0] = proxyUrl(uri);
               return;
             }
+
+            // 7. Route CloudFront manifests and segments through backend proxy to eliminate CORS errors on deployed origins
+            if (uri.includes("cloudfront.net") && !uri.includes("/proxy?url=")) {
+              request.uris[0] = `${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
+              return;
+            }
+
+            // 8. Route testwave.cc streams through backend proxy
+            if (uri.includes("testwave.cc") && !uri.includes("/pdf?url=") && !uri.includes("/proxy?url=")) {
+              request.uris[0] = `${PROXY_BASE}/pdf?url=${encodeURIComponent(uri)}`;
+              return;
+            }
           });
         }
 
@@ -758,7 +770,13 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setQualities(tracks);
         });
 
-        await player.load(proxyUrl(hlsUrl));
+        let streamToLoad = hlsUrl;
+        if (streamToLoad.includes("cloudfront.net") && !streamToLoad.includes("/proxy?url=")) {
+          streamToLoad = `${PROXY_BASE}/proxy?url=${encodeURIComponent(streamToLoad)}`;
+        } else if (streamToLoad.includes("testwave.cc") && !streamToLoad.includes("/pdf?url=") && !streamToLoad.includes("/proxy?url=")) {
+          streamToLoad = `${PROXY_BASE}/pdf?url=${encodeURIComponent(streamToLoad)}`;
+        }
+        await player.load(proxyUrl(streamToLoad));
 
         if (!cancelled) {
           recoveryAttemptsRef.current = 0;
