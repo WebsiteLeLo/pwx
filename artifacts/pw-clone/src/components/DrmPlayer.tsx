@@ -14,6 +14,12 @@ function proxyUrl(u: string): string {
   if (u.includes("streamvideo.co.in") && !u.includes("/api/streamvideo-proxy")) {
     return `${PROXY_BASE}/streamvideo-proxy?url=${encodeURIComponent(u)}`;
   }
+  if (u.includes("cloudfront.net") && !u.includes("/proxy?url=")) {
+    return `${PROXY_BASE}/proxy?url=${encodeURIComponent(u)}`;
+  }
+  if (u.includes("testwave.cc") && !u.includes("/pdf?url=") && !u.includes("/proxy?url=")) {
+    return `${PROXY_BASE}/pdf?url=${encodeURIComponent(u)}`;
+  }
   return u;
 }
 
@@ -640,63 +646,64 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           const requestType = shaka.net.NetworkingEngine.RequestType;
 
           netEngine.registerRequestFilter((type: number, request: any) => {
-            const uri = request.uris[0];
-            if (!uri) return;
+            if (!request.uris || request.uris.length === 0) return;
 
-            // 1. Append query params to segments & manifests (fixes 403 Forbidden / Error 1001)
+            // 1. Append query params (Signature, Key-Pair-Id, Policy) to segments & manifests
             if ((type === requestType.SEGMENT || type === requestType.MANIFEST) && queryParams) {
+              const qp = queryParams.replace(/^\?/, "");
               request.uris = request.uris.map((u: string) => {
-                const qp = queryParams.replace(/^\?/, "");
-                const firstParam = qp.split("&")[0].split("=")[0];
-                if (firstParam && !u.includes(firstParam + "=")) {
-                  const sep = u.includes("?") ? "&" : "?";
-                  return u + sep + qp;
+                if (u.includes("Signature=") || u.includes("Policy=")) {
+                  return u;
                 }
-                return u;
+                const sep = u.includes("?") ? "&" : "?";
+                return u + sep + qp;
               });
             }
 
             // 2. Intercept PenPencil HLS Key requests and redirect directly to CDN
-            if (type === requestType.KEY && (uri.includes("/v1/videos/get-hls-key") || uri.includes("penpencil.co") || uri.includes("penpencil.xyz"))) {
-              try {
-                const u = new URL(uri);
-                const videoKey = u.searchParams.get("videoKey");
-                if (videoKey && hlsUrl) {
-                  const hlsIndex = hlsUrl.indexOf("/hls/");
-                  let cdnBase = "";
-                  if (hlsIndex !== -1) {
-                    cdnBase = hlsUrl.substring(0, hlsIndex);
-                  } else {
-                    cdnBase = new URL(hlsUrl).origin + "/" + videoKey;
-                  }
-                  const newParams = new URLSearchParams();
-                  u.searchParams.forEach((val, key) => {
-                    if (key !== "videoKey" && key !== "key" && key !== "URLPrefix") {
-                      newParams.set(key, val);
+            if (type === requestType.KEY) {
+              const uri = request.uris[0];
+              if (uri && (uri.includes("/v1/videos/get-hls-key") || uri.includes("penpencil.co") || uri.includes("penpencil.xyz"))) {
+                try {
+                  const u = new URL(uri);
+                  const videoKey = u.searchParams.get("videoKey");
+                  if (videoKey && hlsUrl) {
+                    const hlsIndex = hlsUrl.indexOf("/hls/");
+                    let cdnBase = "";
+                    if (hlsIndex !== -1) {
+                      cdnBase = hlsUrl.substring(0, hlsIndex);
+                    } else {
+                      cdnBase = new URL(hlsUrl).origin + "/" + videoKey;
                     }
-                  });
-                  if (!newParams.has("Signature") && queryParams) {
-                    try {
-                      const vUrlObj = new URL(hlsUrl);
-                      vUrlObj.searchParams.forEach((val, key) => newParams.set(key, val));
-                    } catch {}
+                    const newParams = new URLSearchParams();
+                    u.searchParams.forEach((val, key) => {
+                      if (key !== "videoKey" && key !== "key" && key !== "URLPrefix") {
+                        newParams.set(key, val);
+                      }
+                    });
+                    if (!newParams.has("Signature") && queryParams) {
+                      try {
+                        const vUrlObj = new URL(hlsUrl);
+                        vUrlObj.searchParams.forEach((val, key) => newParams.set(key, val));
+                      } catch {}
+                    }
+                    const searchStr = newParams.toString() ? "?" + newParams.toString() : "";
+                    request.uris[0] = `${cdnBase}/hls/enc.key${searchStr}`;
+                    return;
                   }
-                  const searchStr = newParams.toString() ? "?" + newParams.toString() : "";
-                  request.uris[0] = `${cdnBase}/hls/enc.key${searchStr}`;
+                } catch (e) {
+                  console.error("Failed to parse key URI:", e);
+                }
+              }
+
+              // 3. Pimaxer key requests
+              if (uri && uri.includes(".key") && uri.includes("pimaxer.in")) {
+                const match = uri.match(/pimaxer\.in\/([0-9a-fA-F\-]+)\//);
+                if (match) {
+                  const uuid = match[1];
+                  request.uris[0] = `https://stream.srv-1.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
                   return;
                 }
-              } catch (e) {
-                console.error("Failed to parse key URI:", e);
-              }
-            }
-
-            // 3. Pimaxer key requests
-            if (uri.includes(".key") && uri.includes("pimaxer.in")) {
-              const match = uri.match(/pimaxer\.in\/([0-9a-fA-F\-]+)\//);
-              if (match) {
-                const uuid = match[1];
-                request.uris[0] = `https://stream.srv-1.pimaxer.in/${uuid}/hls-key?videoKey=${uuid}&key=enc.key`;
-                return;
               }
             }
 
@@ -712,28 +719,14 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             }
 
             // 5. Origin and Referer for PW Live requests
-            if (uri.includes("pw.live") || uri.includes("sec-prod-mediacdn")) {
+            const primaryUri = request.uris[0] || "";
+            if (primaryUri.includes("pw.live") || primaryUri.includes("sec-prod-mediacdn")) {
               request.headers["Origin"] = "https://pw.live";
               request.headers["Referer"] = "https://pw.live/";
             }
 
-            // 6. Route streamvideo.co.in through dedicated streamvideo-proxy
-            if (uri.includes("streamvideo.co.in") && !uri.includes("/api/streamvideo-proxy")) {
-              request.uris[0] = proxyUrl(uri);
-              return;
-            }
-
-            // 7. Route CloudFront manifests and segments through backend proxy to eliminate CORS errors on deployed origins
-            if (uri.includes("cloudfront.net") && !uri.includes("/proxy?url=")) {
-              request.uris[0] = `${PROXY_BASE}/proxy?url=${encodeURIComponent(uri)}`;
-              return;
-            }
-
-            // 8. Route testwave.cc streams through backend proxy
-            if (uri.includes("testwave.cc") && !uri.includes("/pdf?url=") && !uri.includes("/proxy?url=")) {
-              request.uris[0] = `${PROXY_BASE}/pdf?url=${encodeURIComponent(uri)}`;
-              return;
-            }
+            // 6. Route through backend proxies (proxyUrl handles streamvideo, cloudfront, testwave, preserving all signatures)
+            request.uris = request.uris.map((u: string) => proxyUrl(u));
           });
         }
 

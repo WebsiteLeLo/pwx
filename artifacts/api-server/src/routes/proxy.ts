@@ -83,7 +83,11 @@ const CDN_HEADER_VARIANTS: Record<string, string>[] = [
 ];
 
 async function fetchCdn(url: string): Promise<{ status: number; contentType: string; buffer: ArrayBuffer }> {
-  for (const headers of CDN_HEADER_VARIANTS) {
+  const variants = url.includes("cloudfront.net")
+    ? [CDN_HEADER_VARIANTS[2], CDN_HEADER_VARIANTS[0], CDN_HEADER_VARIANTS[1], CDN_HEADER_VARIANTS[3]]
+    : CDN_HEADER_VARIANTS;
+
+  for (const headers of variants) {
     const resp = await fetch(url, { headers });
     if (resp.status !== 403) {
       return {
@@ -1086,10 +1090,24 @@ proxyRouter.get(["/pdf", "/proxy-pdf"], async (req, res) => {
 });
 
 proxyRouter.get("/proxy", async (req, res) => {
-  const rawUrl = req.query.url as string | undefined;
+  let rawUrl = req.query.url as string | undefined;
   if (!rawUrl) {
     res.status(400).json({ error: "Missing url" });
     return;
+  }
+
+  // Safeguard: If query parameters like Signature, Key-Pair-Id, Policy were split by Express query parser
+  const extraParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(req.query)) {
+    if (key !== "url" && typeof value === "string") {
+      if (!rawUrl.includes(key + "=")) {
+        extraParams.set(key, value);
+      }
+    }
+  }
+  const extraStr = extraParams.toString();
+  if (extraStr) {
+    rawUrl += (rawUrl.includes("?") ? "&" : "?") + extraStr;
   }
 
   let parsed: URL;
@@ -1139,15 +1157,34 @@ proxyRouter.get("/proxy", async (req, res) => {
     // For large video segments (.m4s, .mp4, .ts), stream directly instead of buffering in memory
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
     
     try {
-      let upstream = await fetch(rawUrl, { headers: CDN_HEADER_VARIANTS[0] });
-      if (upstream.status === 403) {
-        upstream = await fetch(rawUrl, { headers: CDN_HEADER_VARIANTS[1] });
+      const variants = rawUrl.includes("cloudfront.net")
+        ? [CDN_HEADER_VARIANTS[2], CDN_HEADER_VARIANTS[0], CDN_HEADER_VARIANTS[1], CDN_HEADER_VARIANTS[3]]
+        : CDN_HEADER_VARIANTS;
+
+      let upstream: Response | null = null;
+      for (const baseHeaders of variants) {
+        const headers: Record<string, string> = { ...baseHeaders };
+        if (req.headers.range) {
+          headers["Range"] = req.headers.range;
+        }
+        upstream = await fetch(rawUrl, { headers });
+        if (upstream.status !== 403) break;
+      }
+      if (!upstream) {
+        const headers: Record<string, string> = {};
+        if (req.headers.range) headers["Range"] = req.headers.range;
+        upstream = await fetch(rawUrl, { headers });
       }
       
       res.status(upstream.status);
       res.setHeader("Content-Type", upstream.headers.get("content-type") || "video/mp4");
+      const cr = upstream.headers.get("content-range");
+      if (cr) res.setHeader("Content-Range", cr);
+      const ar = upstream.headers.get("accept-ranges");
+      if (ar) res.setHeader("Accept-Ranges", ar);
       const cl = upstream.headers.get("content-length");
       if (cl) res.setHeader("Content-Length", cl);
       
