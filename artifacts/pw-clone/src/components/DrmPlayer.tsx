@@ -145,14 +145,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
     }
     return false;
   });
-  const [embedProvider, setEmbedProvider] = useState<"aryavidya" | "vidcloud">(() => {
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.get("provider") === "aryavidya") return "aryavidya";
-      if (sp.get("provider") === "vidcloud") return "vidcloud";
-    }
-    return "vidcloud";
-  });
+  const [embedProvider] = useState<"vidcloud">("vidcloud");
 
   useImperativeHandle(ref, () => ({
     seekTo: (t: number) => {
@@ -1143,45 +1136,13 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
   const hasPanel = !!(onOpenTimeline || onOpenSlides || (attachments && attachments.length > 0));
 
   if (useEmbedPlayer) {
-    const sp = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const directQueryUrl = sp?.get("embedUrl") || sp?.get("playUrl");
-    const aryavidyaEmbedSrc = directQueryUrl && directQueryUrl.includes("stream.aryavidya.cc")
-      ? `${PROXY_BASE}/aryavidya-embed?url=${encodeURIComponent(directQueryUrl)}`
-      : `${PROXY_BASE}/aryavidya-embed?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&videoId=${encodeURIComponent(childId)}&title=${encodeURIComponent(title || "")}&poster=${encodeURIComponent(poster || "")}&video_type=${encodeURIComponent(videoType || "pw")}&topicId=${encodeURIComponent(topicId || childId)}`;
     const proxiedVidcloudUrl = `${PROXY_BASE}/vidcloud-embed?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(childId)}`;
-
-    const currentEmbedSrc = embedProvider === "vidcloud" ? proxiedVidcloudUrl : aryavidyaEmbedSrc;
 
     return (
       <div className="relative w-full h-full bg-black flex flex-col">
         <div className="flex items-center justify-between px-4 py-2 bg-zinc-950/90 border-b border-zinc-800 z-30 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white/90">Embed Player:</span>
-            <div className="inline-flex rounded-lg bg-zinc-800/80 p-0.5 border border-zinc-700/60">
-              <button
-                onClick={() => setEmbedProvider("vidcloud")}
-                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
-                  embedProvider === "vidcloud"
-                    ? "bg-violet-600 text-white shadow-sm"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                VidCloud
-              </button>
-              <button
-                onClick={() => setEmbedProvider("aryavidya")}
-                className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition-colors ${
-                  embedProvider === "aryavidya"
-                    ? "bg-violet-600 text-white shadow-sm"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                Aryavidya
-              </button>
-            </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-              {embedProvider === "vidcloud" ? "VidCloud" : "Aryavidya"}
-            </span>
+            <span className="text-xs font-semibold text-white/90">Embed Player (Backup)</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1194,8 +1155,8 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           </div>
         </div>
         <iframe
-          key={embedProvider}
-          src={currentEmbedSrc}
+          key="vidcloud"
+          src={proxiedVidcloudUrl}
           className="w-full flex-1 border-0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
@@ -1292,27 +1253,19 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
           <div className="flex flex-wrap items-center justify-center gap-3 mt-1">
             <button
-              onClick={(e) => { e.stopPropagation(); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/30"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              Try Embed Player (VidCloud)
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 transition-colors border border-zinc-700/60"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              Try Embed Player (Aryavidya)
-            </button>
-
-            <button
               onClick={(e) => { e.stopPropagation(); recoveryAttemptsRef.current = 0; setAttempt((a) => a + 1); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/80 hover:text-white text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors border border-white/10"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs font-semibold bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/30"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              Retry
+              Retry Playback
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); setUseEmbedPlayer(true); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/80 hover:text-white text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors border border-white/10"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              Try Backup Player
             </button>
           </div>
 
@@ -1459,19 +1412,10 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                         <button
                           className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
                           style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("vidcloud"); setUseEmbedPlayer(true); }}
+                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setUseEmbedPlayer(true); }}
                         >
                           <Tv className="w-4 h-4 text-violet-400" />
-                          Embed Player (VidCloud)
-                        </button>
-
-                        <button
-                          className="w-full flex items-center gap-3 px-4 py-3.5 text-white text-[14px] cursor-pointer bg-transparent border-none text-left hover:bg-white/5 transition-colors"
-                          style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setEmbedProvider("aryavidya"); setUseEmbedPlayer(true); }}
-                        >
-                          <Tv className="w-4 h-4 text-zinc-400" />
-                          Embed Player (Aryavidya)
+                          Backup Embed Player
                         </button>
 
                         <button
