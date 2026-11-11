@@ -89,7 +89,14 @@ export default function VerifyPage() {
         if (success) {
           clearPendingGeneration();
           setStatus("success");
-          setTimeout(() => setLocation("/pw"), 1800);
+          const redirectTarget =
+            new URLSearchParams(window.location.search).get("redirect") ||
+            localStorage.getItem("pwx_access_redirect") ||
+            "/pw";
+          try {
+            localStorage.removeItem("pwx_access_redirect");
+          } catch {}
+          setTimeout(() => setLocation(redirectTarget), 1800);
         } else {
           setStatus("failed");
         }

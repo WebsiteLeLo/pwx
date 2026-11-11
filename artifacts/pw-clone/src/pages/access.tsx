@@ -100,6 +100,12 @@ export default function AccessPage() {
   const handleClick = async () => {
     setRedirecting(true);
     setRedirectError("");
+    const currentRedirect = new URLSearchParams(window.location.search).get("redirect");
+    if (currentRedirect) {
+      try {
+        localStorage.setItem("pwx_access_redirect", currentRedirect);
+      } catch {}
+    }
     try {
       const token = await prepareAccessGeneration();
       storePendingGeneration(token);
@@ -135,7 +141,14 @@ export default function AccessPage() {
     const valid = await verifyAccessKey(key);
     if (valid) {
       storeAccessKey(key);
-      setLocation("/pw");
+      const redirectTarget =
+        new URLSearchParams(window.location.search).get("redirect") ||
+        localStorage.getItem("pwx_access_redirect") ||
+        "/pw";
+      try {
+        localStorage.removeItem("pwx_access_redirect");
+      } catch {}
+      setLocation(redirectTarget);
       return;
     }
     setError("This key is invalid, revoked, or already assigned to another device.");

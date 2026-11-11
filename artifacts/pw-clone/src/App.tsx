@@ -59,28 +59,51 @@ function ScrollToTop() {
   return null;
 }
 
-// Gate: the admin can switch this off globally. When enabled, every visitor
-// must present a currently active key from the server.
+// Content Protection Gate: When enabled, protected content (videos, materials, quizzes)
+// requires a valid access key. Public routes (Home, Batches, Subjects, Topics, Syllabus, Calendar)
+// remain completely open for visitor exploration and search engine SEO indexing.
+const PROTECTED_ROUTES = [
+  "/watch",
+  "/live-watch",
+  "/schedule-watch",
+  "/schedule-details",
+  "/materials",
+  "/dpp-quiz",
+];
+
+function isProtectedContentRoute(path: string): boolean {
+  if (path.includes("/infinite-practice")) return true;
+  return PROTECTED_ROUTES.some(
+    (prefix) => path === prefix || path.startsWith(prefix + "/") || path.startsWith(prefix + "?")
+  );
+}
+
 function AccessGate({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const exempt = location === "/access" || location === "/verify";
+  const isProtected = isProtectedContentRoute(location);
   const { data: setting, isLoading: settingLoading } = useAccessGateSetting();
   const accessGateEnabled = setting?.value?.enabled ?? true;
   const storedKey = getStoredAccessKey();
   const verification = useQuery({
     queryKey: ["access-key-verification", storedKey],
     queryFn: () => verifyAccessKey(storedKey),
-    enabled: !exempt && accessGateEnabled && Boolean(storedKey),
+    enabled: isProtected && accessGateEnabled && Boolean(storedKey),
     staleTime: 1000 * 60,
     refetchOnMount: true,
   });
 
-  if (exempt) return <>{children}</>;
+  // Open / SEO routes are never blocked
+  if (!isProtected) return <>{children}</>;
+
   if (settingLoading || (accessGateEnabled && Boolean(storedKey) && verification.isLoading)) {
     return <div className="min-h-screen bg-[#0a0a0f]" />;
   }
   if (accessGateEnabled && (!storedKey || verification.data !== true)) {
-    return <Redirect to="/access" />;
+    const returnTarget = location + (typeof window !== "undefined" ? window.location.search : "");
+    try {
+      localStorage.setItem("pwx_access_redirect", returnTarget);
+    } catch {}
+    return <Redirect to={`/access?redirect=${encodeURIComponent(returnTarget)}`} />;
   }
   return <>{children}</>;
 }

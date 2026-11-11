@@ -13,6 +13,7 @@ import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { useToast } from "@/hooks/use-toast";
 import { PW_API } from "@/lib/pwApiStore";
 import { apiUrl } from "@/lib/apiUrl";
+import { getStoredAccessKey } from "@/lib/access-key";
 import JSZip from "jszip";
 
 type TabKey = ContentType;
@@ -149,6 +150,17 @@ function OpenPdfButton({
   const { toast } = useToast();
   
   const handleOpen = async () => {
+    // Check access key before opening protected document
+    const key = getStoredAccessKey();
+    if (!key) {
+      const currentUrl = window.location.pathname + window.location.search;
+      try {
+        localStorage.setItem("pwx_access_redirect", currentUrl);
+      } catch {}
+      window.location.href = `/access?redirect=${encodeURIComponent(currentUrl)}`;
+      return;
+    }
+
     // Open a blank tab synchronously during user gesture so browser doesn't block it
     const newTab = window.open("", "_blank");
     if (newTab) {
