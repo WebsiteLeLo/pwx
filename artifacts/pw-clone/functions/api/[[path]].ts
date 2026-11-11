@@ -21,7 +21,6 @@ export async function onRequest(context: { request: Request }): Promise<Response
     });
   }
 
-  const url = new URL(req.url);
   const targetUrl = `https://getpwx2.onrender.com${url.pathname}${url.search}`;
 
   const headers = new Headers(req.headers);
