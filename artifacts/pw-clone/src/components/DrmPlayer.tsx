@@ -6,19 +6,25 @@ import { NetworkPing } from "@/components/NetworkPing";
 
 import { PW_API } from "@/lib/pwApiStore";
 import { decodePwMarco } from "@/lib/pwmarco";
-// Use same-origin /api so Cloudflare Pages Function handles video chunks directly at the edge with 0 Render bandwidth
+import {
+  buildVideoProxyUrl,
+  isAlreadyProxiedUrl,
+  refreshVideoProxyUrl,
+} from "@/lib/videoProxyStore";
+
+// Backend API base (/api -> Cloudflare Pages [[path]].ts -> Render backend)
 const PROXY_BASE = "/api";
 const ACCENT = "#5a4bda";
 
 function proxyUrl(u: string): string {
-  if (!u) return u;
-  if (u.includes("streamvideo.co.in") && !u.includes("/api/streamvideo-proxy")) {
+  if (!u || isAlreadyProxiedUrl(u)) return u;
+  if (u.includes("streamvideo.co.in")) {
     return `${PROXY_BASE}/streamvideo-proxy?url=${encodeURIComponent(u)}`;
   }
-  if (u.includes("cloudfront.net") && !u.includes("/proxy?url=")) {
-    return `${PROXY_BASE}/proxy?url=${encodeURIComponent(u)}`;
+  if (u.includes("cloudfront.net")) {
+    return buildVideoProxyUrl(u);
   }
-  if (u.includes("testwave.cc") && !u.includes("/pdf?url=") && !u.includes("/proxy?url=")) {
+  if (u.includes("testwave.cc")) {
     return `${PROXY_BASE}/pdf?url=${encodeURIComponent(u)}`;
   }
   return u;
@@ -288,6 +294,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
       }
 
       try {
+        await refreshVideoProxyUrl();
         const cacheKey = `${batchId}:${subjectId}:${childId}`;
         let cached = drmCache.get(cacheKey);
 
@@ -646,7 +653,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             if ((type === requestType.SEGMENT || type === requestType.MANIFEST) && queryParams) {
               const qp = queryParams.replace(/^\?/, "");
               request.uris = request.uris.map((u: string) => {
-                if (u.includes("Signature=") || u.includes("Policy=")) {
+                if (isAlreadyProxiedUrl(u) || u.includes("Signature=") || u.includes("Policy=")) {
                   return u;
                 }
                 const sep = u.includes("?") ? "&" : "?";
@@ -757,13 +764,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setQualities(tracks);
         });
 
-        let streamToLoad = hlsUrl;
-        if (streamToLoad.includes("cloudfront.net") && !streamToLoad.includes("/proxy?url=")) {
-          streamToLoad = `${PROXY_BASE}/proxy?url=${encodeURIComponent(streamToLoad)}`;
-        } else if (streamToLoad.includes("testwave.cc") && !streamToLoad.includes("/pdf?url=") && !streamToLoad.includes("/proxy?url=")) {
-          streamToLoad = `${PROXY_BASE}/pdf?url=${encodeURIComponent(streamToLoad)}`;
-        }
-        await player.load(proxyUrl(streamToLoad));
+        await player.load(proxyUrl(hlsUrl));
 
         if (!cancelled) {
           recoveryAttemptsRef.current = 0;

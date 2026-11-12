@@ -1,17 +1,22 @@
 import { apiUrl } from "@/lib/apiUrl";
+import { refreshVideoProxyUrl } from "@/lib/videoProxyStore";
 
 export let PW_API = "https://pwsecure.gourav23032009.workers.dev/api/pw";
 
 export async function initializePwApi() {
-  try {
-    const res = await fetch(apiUrl("/api/settings/pw_api_url"));
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.value) {
-        PW_API = data.value;
+  const loadPwApi = async () => {
+    try {
+      const res = await fetch(apiUrl("/api/settings/pw_api_url"));
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.value) {
+          PW_API = data.value;
+        }
       }
+    } catch (e) {
+      console.error("Failed to fetch dynamic PW API URL", e);
     }
-  } catch (e) {
-    console.error("Failed to fetch dynamic PW API URL", e);
-  }
+  };
+
+  await Promise.all([loadPwApi(), refreshVideoProxyUrl(true)]);
 }

@@ -4,8 +4,15 @@ import {
   Bell, Settings, Shield, LogOut, Plus, Trash2, Eye, EyeOff,
   Wrench, AlertTriangle, CheckCircle, Info, AlertCircle, Loader2,
   Send, ToggleLeft, ToggleRight, X, Save, RefreshCw,
-  KeyRound, Copy, Ban, Clock3, Globe
+  KeyRound, Copy, Ban, Clock3, Globe, Server, RotateCcw, Code2,
+  ChevronDown, ChevronUp, Activity
 } from "lucide-react";
+import {
+  DEFAULT_VIDEO_PROXY_URL,
+  normalizeVideoProxyUrl,
+  buildVideoProxyTestUrl,
+  setVideoProxyUrlCache,
+} from "@/lib/videoProxyStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -303,6 +310,112 @@ function NotificationsTab() {
   );
 }
 
+// ─── Standalone Cloudflare Worker Template ───────────────────────
+
+const STANDALONE_WORKER_CODE = `export default {
+  async fetch(req) {
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "*",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+
+    const reqUrl = new URL(req.url);
+    if (reqUrl.searchParams.get("ping") === "1") {
+      return new Response(JSON.stringify({ ok: true, service: "pwx-video-proxy" }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    let targetUrl = reqUrl.searchParams.get("url");
+    if (!targetUrl) {
+      return new Response(JSON.stringify({ error: "Missing url parameter" }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    const extraParams = new URLSearchParams();
+    for (const [key, value] of reqUrl.searchParams.entries()) {
+      if (key !== "url" && !targetUrl.includes(key + "=")) {
+        extraParams.set(key, value);
+      }
+    }
+    const extraStr = extraParams.toString();
+    if (extraStr) {
+      targetUrl += (targetUrl.includes("?") ? "&" : "?") + extraStr;
+    }
+
+    const upstreamHeaders = new Headers();
+    upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    upstreamHeaders.set("Origin", "https://www.pw.live");
+    upstreamHeaders.set("Referer", "https://www.pw.live/");
+    upstreamHeaders.set("Accept", "*/*");
+    const range = req.headers.get("Range");
+    if (range) upstreamHeaders.set("Range", range);
+
+    try {
+      const upstream = await fetch(targetUrl, {
+        method: req.method,
+        headers: upstreamHeaders,
+        redirect: "follow",
+      });
+
+      const isMpd = targetUrl.includes(".mpd") || targetUrl.includes(".m3u8") || targetUrl.includes(".xml");
+      if (isMpd && upstream.status < 300) {
+        const text = await upstream.text();
+        const basePath = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+        const rewritten = text.includes("<BaseURL>")
+          ? text.replace(/<BaseURL>.*?<\\/BaseURL>/g, \`<BaseURL>\${basePath}</BaseURL>\`)
+          : text.replace(/<Period([^>]*)>/, \`<Period$1>\\n    <BaseURL>\${basePath}</BaseURL>\`);
+        return new Response(rewritten, {
+          status: upstream.status,
+          headers: {
+            "Content-Type": "application/dash+xml",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Cache-Control": "no-cache",
+          },
+        });
+      }
+
+      const respHeaders = new Headers(upstream.headers);
+      respHeaders.set("Access-Control-Allow-Origin", "*");
+      respHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      respHeaders.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
+      respHeaders.delete("x-frame-options");
+      respHeaders.delete("content-security-policy");
+
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: respHeaders,
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ error: "Upstream fetch failed", details: String(err?.message || err) }), {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+  },
+};`;
+
 // ─── Settings Tab ─────────────────────────────────────────────────
 
 function SettingsTab() {
@@ -325,6 +438,12 @@ function SettingsTab() {
 
   const [pwApiUrl, setPwApiUrl] = useState("https://proxy.streamvideo.co.in/fetch/api.penpencil.co");
   const [apiLoaded, setApiLoaded] = useState(false);
+
+  const [videoProxyUrl, setVideoProxyUrl] = useState(DEFAULT_VIDEO_PROXY_URL);
+  const [videoProxyLoaded, setVideoProxyLoaded] = useState(false);
+  const [testingProxy, setTestingProxy] = useState(false);
+  const [proxyTestResult, setProxyTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showWorkerCode, setShowWorkerCode] = useState(false);
 
   const [arolinksValidity, setArolinksValidity] = useState(24);
   const [arolinksLoaded, setArolinksLoaded] = useState(false);
@@ -351,12 +470,18 @@ function SettingsTab() {
       if (p?.value) setPwApiUrl(p.value as string);
       setApiLoaded(true);
     }
+    if (!isLoading && !videoProxyLoaded) {
+      const vp = (settings as any[]).find((s) => s.key === "video_proxy_url");
+      const rawVal = typeof vp?.value === "string" ? vp.value : vp?.value?.url;
+      setVideoProxyUrl(normalizeVideoProxyUrl(rawVal));
+      setVideoProxyLoaded(true);
+    }
     if (!isLoading && !arolinksLoaded) {
       const a = (settings as any[]).find((s) => s.key === "arolinks_validity");
       if (a?.value?.hours) setArolinksValidity(Number(a.value.hours));
       setArolinksLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded, arolinksLoaded]);
+  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded, videoProxyLoaded, arolinksLoaded]);
 
   async function saveMaintenance() {
     try {
@@ -385,6 +510,66 @@ function SettingsTab() {
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
+  }
+
+  async function saveVideoProxyUrl(overrideUrl?: string) {
+    const raw = overrideUrl ?? videoProxyUrl;
+    const trimmed = raw.trim();
+    if (trimmed && !trimmed.startsWith("/") && !/^https?:\/\//i.test(trimmed)) {
+      toast({
+        title: "Invalid Proxy URL",
+        description: "URL must start with https:// or /api/proxy",
+        variant: "destructive",
+      });
+      return;
+    }
+    const normalized = normalizeVideoProxyUrl(trimmed);
+    try {
+      await updateSetting.mutateAsync({ key: "video_proxy_url", value: normalized });
+      setVideoProxyUrl(normalized);
+      setVideoProxyUrlCache(normalized);
+      toast({
+        title: normalized === DEFAULT_VIDEO_PROXY_URL
+          ? "Switched to built-in Edge Proxy (/api/proxy)"
+          : "Backup Video Proxy Worker saved!",
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function testVideoProxyUrl() {
+    const trimmed = videoProxyUrl.trim();
+    if (trimmed && !trimmed.startsWith("/") && !/^https?:\/\//i.test(trimmed)) {
+      setProxyTestResult({ ok: false, msg: "URL must start with https:// or /api/proxy" });
+      return;
+    }
+    setTestingProxy(true);
+    setProxyTestResult(null);
+    const start = performance.now();
+    try {
+      const testUrl = buildVideoProxyTestUrl(trimmed || DEFAULT_VIDEO_PROXY_URL);
+      const res = await fetch(testUrl, { cache: "no-store", signal: AbortSignal.timeout(6000) });
+      const latency = Math.round(performance.now() - start);
+      const data = await res.json().catch(() => null);
+      if (res.ok || (res.status === 400 && data?.error)) {
+        setProxyTestResult({ ok: true, msg: `Worker live & CORS ready (${latency}ms)` });
+      } else {
+        setProxyTestResult({ ok: false, msg: `HTTP ${res.status} — check worker deployment` });
+      }
+    } catch (e: any) {
+      setProxyTestResult({
+        ok: false,
+        msg: e?.name === "TimeoutError" ? "Request timed out (6s)" : "Unreachable or CORS blocked",
+      });
+    } finally {
+      setTestingProxy(false);
+    }
+  }
+
+  async function copyWorkerCode() {
+    await navigator.clipboard.writeText(STANDALONE_WORKER_CODE);
+    toast({ title: "Cloudflare Worker code copied!" });
   }
 
   async function generateKey() {
@@ -649,6 +834,162 @@ function SettingsTab() {
                     {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Save API URL
                   </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Video Proxy Worker Configuration */}
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-900/30 text-emerald-400 flex items-center justify-center shrink-0">
+                <Server className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div>
+                    <h3 className="font-semibold text-white">Video Stream Proxy URL (Edge / Worker)</h3>
+                    <p className="text-zinc-400 text-sm">
+                      Route CloudFront video chunks through a backup Cloudflare Worker if your main account hits the daily 100k request limit.
+                    </p>
+                  </div>
+                  <Badge
+                    className={
+                      normalizeVideoProxyUrl(videoProxyUrl) === DEFAULT_VIDEO_PROXY_URL
+                        ? "bg-emerald-600/15 text-emerald-300 border-emerald-600/30"
+                        : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                    }
+                  >
+                    {normalizeVideoProxyUrl(videoProxyUrl) === DEFAULT_VIDEO_PROXY_URL
+                      ? "Built-in Pages Edge"
+                      : "Custom Worker Active"}
+                  </Badge>
+                </div>
+
+                <div>
+                  <Label className="text-zinc-300 text-xs mb-1.5 block">
+                    Video Proxy Base URL
+                  </Label>
+                  <Input
+                    value={videoProxyUrl}
+                    onChange={(e) => {
+                      setVideoProxyUrl(e.target.value);
+                      setProxyTestResult(null);
+                    }}
+                    placeholder="/api/proxy or https://pwx-proxy-2.account.workers.dev"
+                    className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500 font-mono text-sm"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    Default: <code className="text-zinc-300">/api/proxy</code>. When switching accounts, paste your new Worker URL (e.g.{" "}
+                    <code className="text-zinc-300">https://my-proxy.username.workers.dev</code>).
+                  </p>
+                </div>
+
+                {proxyTestResult && (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${
+                      proxyTestResult.ok
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-red-500/30 bg-red-500/10 text-red-300"
+                    }`}
+                  >
+                    {proxyTestResult.ok ? (
+                      <CheckCircle className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{proxyTestResult.msg}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={testVideoProxyUrl}
+                      disabled={testingProxy}
+                      className="border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                    >
+                      {testingProxy ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <Activity className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                      )}
+                      Test Proxy
+                    </Button>
+                    {normalizeVideoProxyUrl(videoProxyUrl) !== DEFAULT_VIDEO_PROXY_URL && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveVideoProxyUrl(DEFAULT_VIDEO_PROXY_URL)}
+                        disabled={updateSetting.isPending}
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                        Reset to Default
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => saveVideoProxyUrl()}
+                    disabled={updateSetting.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {updateSetting.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save Proxy URL
+                  </Button>
+                </div>
+
+                {/* Collapsible Backup Cloudflare Worker Deployment Guide */}
+                <div className="pt-2 border-t border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowWorkerCode((v) => !v)}
+                    className="flex items-center justify-between w-full text-left text-xs font-medium text-zinc-300 hover:text-white py-1"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Code2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Backup Cloudflare Worker Code (for 2nd account deploy)
+                    </span>
+                    {showWorkerCode ? (
+                      <ChevronUp className="w-4 h-4 text-zinc-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    )}
+                  </button>
+
+                  {showWorkerCode && (
+                    <div className="mt-3 space-y-2.5">
+                      <ol className="text-xs text-zinc-400 space-y-1 list-decimal list-inside">
+                        <li>Log in to your 2nd Cloudflare account &rarr; <strong className="text-zinc-200">Workers &amp; Pages &rarr; Create Worker</strong>.</li>
+                        <li>Click <strong className="text-zinc-200">Edit code</strong>, paste the script below, and click <strong className="text-zinc-200">Deploy</strong>.</li>
+                        <li>Copy the deployed <code className="text-zinc-200">https://...workers.dev</code> URL, paste it above, test, and save.</li>
+                      </ol>
+                      <div className="relative">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={copyWorkerCode}
+                          className="absolute top-2 right-2 h-7 text-xs border-zinc-700 bg-zinc-900/90 text-zinc-200 hover:bg-zinc-800"
+                        >
+                          <Copy className="w-3 h-3 mr-1" /> Copy Code
+                        </Button>
+                        <pre className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 pr-28 text-[11px] text-zinc-300 overflow-x-auto max-h-60 font-mono">
+                          {STANDALONE_WORKER_CODE}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

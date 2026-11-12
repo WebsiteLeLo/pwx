@@ -1090,6 +1090,12 @@ proxyRouter.get(["/pdf", "/proxy-pdf"], async (req, res) => {
 });
 
 proxyRouter.get("/proxy", async (req, res) => {
+  if (req.query.ping === "1") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json({ ok: true, service: "pwx-video-proxy" });
+    return;
+  }
+
   let rawUrl = req.query.url as string | undefined;
   if (!rawUrl) {
     res.status(400).json({ error: "Missing url" });

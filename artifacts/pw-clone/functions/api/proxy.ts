@@ -18,6 +18,17 @@ export async function onRequest(context: { request: Request }): Promise<Response
   }
 
   const reqUrl = new URL(req.url);
+  if (reqUrl.searchParams.get("ping") === "1") {
+    return new Response(JSON.stringify({ ok: true, service: "pwx-video-proxy" }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      },
+    });
+  }
+
   let targetUrl = reqUrl.searchParams.get("url");
 
   if (!targetUrl) {

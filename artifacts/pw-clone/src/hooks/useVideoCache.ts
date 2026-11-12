@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { buildVideoProxyUrl, refreshVideoProxyUrl } from "@/lib/videoProxyStore";
 
 const STORE_KEY = "pwx-offline-cache-v1";
 
@@ -212,6 +213,7 @@ export function useVideoCache() {
         }
 
         if (!resolvedMpdUrl) throw new Error("Video not available for offline download");
+        await refreshVideoProxyUrl();
         const mpdUrl = resolvedMpdUrl;
 
         if (signal?.aborted) return "error";
@@ -224,9 +226,9 @@ export function useVideoCache() {
           mpdText = await directRes.text();
           // Update resolvedMpdUrl in case it redirected
         } else {
-          // Fallback: server-side proxy tries 3 referrer/origin variants
+          // Fallback: edge/worker proxy
           const proxyRes = await fetch(
-            `/api/proxy?url=${encodeURIComponent(resolvedMpdUrl)}`,
+            buildVideoProxyUrl(resolvedMpdUrl),
             { signal }
           );
           if (!proxyRes.ok) throw new Error(`Cannot access video stream (${proxyRes.status}). The video may be DRM-protected or geo-restricted.`);
@@ -247,7 +249,7 @@ export function useVideoCache() {
         async function fetchSegment(url: string) {
           if (signal?.aborted) return;
           try {
-            const fetchUrl = url.includes("herokuapp.com") ? `/api/proxy?url=${encodeURIComponent(url)}` : url;
+            const fetchUrl = url.includes("herokuapp.com") ? buildVideoProxyUrl(url) : url;
             await fetch(fetchUrl, { signal });
           } catch { /* individual segment failure is ok */ }
           done++;
