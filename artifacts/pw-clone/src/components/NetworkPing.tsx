@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Gauge, RefreshCw, Wifi, WifiOff } from "lucide-react";
-import { apiUrl } from "@/lib/apiUrl";
+import {
+  buildVideoProxyTestUrl,
+  getVideoProxyUrl,
+  refreshVideoProxyUrl,
+} from "@/lib/videoProxyStore";
 
 type PingState = "checking" | "good" | "slow" | "offline" | "error";
 
@@ -9,6 +13,7 @@ interface PingResult {
   latency: number | null;
   checkedAt: number | null;
   message: string;
+  target?: string;
 }
 
 const INITIAL_RESULT: PingResult = {
@@ -54,37 +59,53 @@ export function NetworkPing({ accent = "#5a4bda" }: { accent?: string }) {
       return;
     }
 
-    setResult((current) => ({ ...current, state: "checking", message: "Checking connection…" }));
-    const started = performance.now();
+    setResult((current) => ({ ...current, state: "checking", message: "Checking proxy connection…" }));
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 8000);
 
     try {
-      // apiUrl already includes the configured API base ("/api" in the
-      // proxied app), so adding "/api" here would request "/api/api/healthz".
-      const response = await fetch(apiUrl("/healthz"), {
+      await refreshVideoProxyUrl();
+      const proxyBase = getVideoProxyUrl();
+      const testUrl = buildVideoProxyTestUrl(proxyBase);
+      let targetHost = proxyBase;
+      try {
+        targetHost = proxyBase.startsWith("/") ? proxyBase : new URL(proxyBase).host;
+      } catch {}
+
+      const started = performance.now();
+      const response = await fetch(testUrl, {
         cache: "no-store",
         signal: controller.signal,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = response.ok ? null : await response.clone().json().catch(() => null);
+      const isReachable = response.ok || (response.status === 400 && Boolean(data?.error));
+      if (!isReachable) throw new Error(`HTTP ${response.status}`);
+
       const latency = Math.max(1, Math.round(performance.now() - started));
       const state = classifyPing(latency);
       setResult({
         state,
         latency,
         checkedAt: Date.now(),
+        target: targetHost,
         message:
           state === "good"
-            ? "Connection looks good."
-            : "Connection may cause buffering. Try lowering video quality.",
+            ? "Video proxy connection looks good."
+            : "Proxy latency is high. Try lowering video quality.",
       });
     } catch {
+      const proxyBase = getVideoProxyUrl();
+      let targetHost = proxyBase;
+      try {
+        targetHost = proxyBase.startsWith("/") ? proxyBase : new URL(proxyBase).host;
+      } catch {}
       setResult({
         state: navigator.onLine ? "error" : "offline",
         latency: null,
         checkedAt: Date.now(),
+        target: targetHost,
         message: navigator.onLine
-          ? "Server did not respond. Playback may pause."
+          ? "Video proxy did not respond. Playback may pause."
           : "Your device is offline.",
       });
     } finally {
@@ -151,9 +172,12 @@ export function NetworkPing({ accent = "#5a4bda" }: { accent?: string }) {
         >
           <div className="mb-2 flex items-center gap-2">
             <Gauge className="h-4 w-4" style={{ color }} />
-            <span className="text-[13px] font-semibold text-white">Network ping</span>
+            <span className="text-[13px] font-semibold text-white">Proxy ping</span>
           </div>
           <div className="mb-1 text-[17px] font-bold text-white">{stateLabel(result)}</div>
+          {result.target && (
+            <div className="mb-1 truncate font-mono text-[10px] text-white/45">{result.target}</div>
+          )}
           <p className="mb-3 text-[11px] leading-relaxed text-white/55">{result.message}</p>
           <button
             type="button"
