@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertCircle, BookOpen, User, PlayCircle, Plus, Check, Layers, Share2, X, CheckCircle2, CalendarDays, Radio, Clock, RefreshCw, FileText, Dumbbell, Zap, FlaskConical, Calculator, Dna, BookText, ChevronLeft, ChevronRight, ClipboardList, Trophy, Timer, HelpCircle, Target } from "lucide-react";
 import { ogUrl } from "@/lib/apiUrl";
+import { useVerifiedAccess } from "@/hooks/useAdmin";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function getLectureStatus(item: ScheduleItem): "live" | "upcoming" | "completed" {
@@ -73,6 +74,7 @@ const KIND_META: Record<string, { label: string; icon: React.ReactNode; color: s
 
 // ── Schedule card (PW-style) ──────────────────────────────────────────────────
 function LiveScheduleCard({ item }: { item: ScheduleItem }) {
+  const { ensureAccessOrRedirect } = useVerifiedAccess();
   const status    = getLectureStatus(item);
   const kind      = getScheduleItemKind(item);
   const isVideo   = kind === "video";
@@ -121,6 +123,7 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
 
   const handleMaterialOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!ensureAccessOrRedirect()) return;
     if (item.data.attachmentIds && item.data.attachmentIds.length > 0) {
       const pdfUrl = getPdfUrl(item.data.attachmentIds[0]);
       if (pdfUrl) { window.open(pdfUrl, "_blank", "noopener,noreferrer"); return; }
@@ -489,6 +492,7 @@ function getDifficultyColor(level?: string) {
 }
 
 function TestCard({ test, batchId }: { test: Test; batchId: string }) {
+  const { ensureAccessOrRedirect } = useVerifiedAccess();
   const status = getTestStatusMeta(test.testActivityStatus, test.tag1);
   const canStart = !["upcoming", "scheduled"].includes((test.tag1 || "").toLowerCase());
   const [syllabusOpen, setSyllabusOpen] = useState(false);
@@ -501,6 +505,7 @@ function TestCard({ test, batchId }: { test: Test; batchId: string }) {
   const hasHindi = !!instrData?.data?.syllabus?.["hi"];
 
   const handleStart = () => {
+    if (!ensureAccessOrRedirect()) return;
     const url = `https://vidcloud.eu.org/start-test/?batch_id=${batchId}&test_id=${test._id}`;
     const win = window.open("", "_blank");
     if (win) {

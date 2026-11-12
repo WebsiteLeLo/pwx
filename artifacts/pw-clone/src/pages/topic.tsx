@@ -13,7 +13,7 @@ import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { useToast } from "@/hooks/use-toast";
 import { PW_API } from "@/lib/pwApiStore";
 import { apiUrl } from "@/lib/apiUrl";
-import { getStoredAccessKey } from "@/lib/access-key";
+import { useVerifiedAccess } from "@/hooks/useAdmin";
 import JSZip from "jszip";
 
 type TabKey = ContentType;
@@ -148,18 +148,11 @@ function OpenPdfButton({
 }) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { ensureAccessOrRedirect } = useVerifiedAccess();
   
   const handleOpen = async () => {
-    // Check access key before opening protected document
-    const key = getStoredAccessKey();
-    if (!key) {
-      const currentUrl = window.location.pathname + window.location.search;
-      try {
-        localStorage.setItem("pwx_access_redirect", currentUrl);
-      } catch {}
-      window.location.href = `/access?redirect=${encodeURIComponent(currentUrl)}`;
-      return;
-    }
+    // Check verified access key before opening protected document
+    if (!ensureAccessOrRedirect()) return;
 
     // Open a blank tab synchronously during user gesture so browser doesn't block it
     const newTab = window.open("", "_blank");
@@ -636,6 +629,7 @@ function NotesTabContent({ batchId, subjectId, topicId, contentType }: TabConten
 function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabContentProps) {
   const { data, isLoading, isError, refetch } = useAllTopicContents(batchId, subjectId, topicId, contentType);
   const { toggle, isCompleted } = useCompletedItems();
+  const { hasAccess, isChecking, ensureAccessOrRedirect } = useVerifiedAccess();
 
   if (isLoading) {
     return (
@@ -771,12 +765,15 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                   </button>
                   {vid?._id && (
                     <button
+                      disabled={isChecking}
+                      title={hasAccess ? "Download via Telegram" : "Access key required to download"}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (!ensureAccessOrRedirect()) return;
                         window.open(`https://t.me/AS_MultiverseRoBot?start=${batchId}_${vid._id}`, "_blank", "noopener,noreferrer");
                       }}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer"
+                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer disabled:opacity-50"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>

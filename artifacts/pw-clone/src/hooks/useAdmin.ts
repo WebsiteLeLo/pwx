@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/apiUrl";
+import { getStoredAccessKey, verifyAccessKey } from "@/lib/access-key";
 
 const api = (path: string) => apiUrl(path);
 
@@ -69,6 +70,40 @@ export function useAccessGateSetting() {
 }
 
 export const useTelegramGateSetting = useAccessGateSetting;
+
+export function redirectToAccessGate() {
+  const currentUrl = window.location.pathname + window.location.search;
+  try {
+    localStorage.setItem("pwx_access_redirect", currentUrl);
+  } catch {}
+  window.location.href = `/access?redirect=${encodeURIComponent(currentUrl)}`;
+}
+
+export function useVerifiedAccess() {
+  const { data: setting, isLoading: settingLoading } = useAccessGateSetting();
+  const accessGateEnabled = setting?.value?.enabled ?? true;
+  const storedKey = getStoredAccessKey();
+
+  const verification = useQuery({
+    queryKey: ["access-key-verification", storedKey],
+    queryFn: () => verifyAccessKey(storedKey),
+    enabled: accessGateEnabled && Boolean(storedKey),
+    staleTime: 1000 * 60,
+    refetchOnMount: true,
+  });
+
+  const isChecking = settingLoading || (accessGateEnabled && Boolean(storedKey) && verification.isLoading);
+  const hasAccess = !accessGateEnabled || (Boolean(storedKey) && verification.data === true);
+
+  const ensureAccessOrRedirect = (): boolean => {
+    if (isChecking) return false;
+    if (hasAccess) return true;
+    redirectToAccessGate();
+    return false;
+  };
+
+  return { hasAccess, isChecking, accessGateEnabled, ensureAccessOrRedirect };
+}
 
 // ─── Admin ───────────────────────────────────────────────────────
 

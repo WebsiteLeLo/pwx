@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
 import { useTodaysSchedule, getScheduleItemKind, getPdfUrl, type ScheduleItem } from "@/hooks/usePWApi";
 import { useEnrolledBatches } from "@/hooks/useEnrolledBatches";
+import { useVerifiedAccess } from "@/hooks/useAdmin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,6 +69,7 @@ const KIND_META: Record<string, { label: string; icon: ReactNode; color: string 
 interface ScheduleCardProps { item: ScheduleItem; batchName: string; now: number; }
 
 function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
+  const { ensureAccessOrRedirect } = useVerifiedAccess();
   const status      = getLectureStatus(item);
   const kind        = getScheduleItemKind(item);
   const isVideo     = kind === "video";
@@ -99,6 +101,7 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
 
   const handleMaterialOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!ensureAccessOrRedirect()) return;
     if (item.data.attachmentIds && item.data.attachmentIds.length > 0) {
       const pdfUrl = getPdfUrl(item.data.attachmentIds[0]);
       if (pdfUrl) { window.open(pdfUrl, "_blank", "noopener,noreferrer"); return; }
