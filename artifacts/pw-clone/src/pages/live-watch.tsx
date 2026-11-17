@@ -58,6 +58,23 @@ export default function LiveWatch() {
       let cancelled = false;
       (async () => {
         try {
+          // 0. Try Own PW Token Resolver first
+          try {
+            const ownRes = await fetch(
+              `${PROXY_BASE}/own-stream-url?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(videoId)}&videoId=${encodeURIComponent(videoId)}`
+            );
+            if (ownRes.ok) {
+              const ownJson = await ownRes.json();
+              if (!cancelled && ownJson?.success && ownJson?.url) {
+                setState({
+                  kind: "ready",
+                  stream: { streamUrl: ownJson.url, clearKeys: {}, title, backUrl },
+                });
+                return;
+              }
+            }
+          } catch {}
+
           const res = await fetch(
             `${PROXY_BASE}/pwmarco-stream-url?parentId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(videoId)}&urlType=penpencilvdo&videoId=${encodeURIComponent(videoId)}&topicId=${encodeURIComponent(topicId)}`
           );
@@ -66,12 +83,13 @@ export default function LiveWatch() {
 
           if (cancelled) return;
 
+          const pwMarcoOrigin = (typeof json?.baseUrl === "string" && json.baseUrl) || "https://pwmarco.xyz";
           let d = (json.data ?? json) as any;
           if (json?.v === "1" && json?.d) {
             const decoded = decodePwMarco(json.d);
             if (decoded?.success && decoded?.data?.url) {
               d = decoded.data;
-              d.streamUrl = "https://m.pwmarco.site" + d.url;
+              d.streamUrl = d.url.startsWith("/") ? `${pwMarcoOrigin}${d.url}` : d.url;
             }
           }
 

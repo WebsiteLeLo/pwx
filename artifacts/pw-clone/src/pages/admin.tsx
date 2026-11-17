@@ -26,6 +26,8 @@ import {
   useDeleteNotification,
   useAdminSettings,
   useUpdateSetting,
+  useCheckPwTokensStatus,
+  type PwTokenStatusInfo,
   verifyAdminKey,
   useAdminAuth,
   useAdminAccessKeys,
@@ -348,9 +350,11 @@ const STANDALONE_WORKER_CODE = `export default {
       });
     }
 
+    const cookieOverride = reqUrl.searchParams.get("ck")?.trim() || "";
+
     const extraParams = new URLSearchParams();
     for (const [key, value] of reqUrl.searchParams.entries()) {
-      if (key !== "url" && !targetUrl.includes(key + "=")) {
+      if (key !== "url" && key !== "ck" && !targetUrl.includes(key + "=")) {
         extraParams.set(key, value);
       }
     }
@@ -359,11 +363,28 @@ const STANDALONE_WORKER_CODE = `export default {
       targetUrl += (targetUrl.includes("?") ? "&" : "?") + extraStr;
     }
 
+    let parsedTarget;
+    try {
+      parsedTarget = new URL(targetUrl);
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid url parameter" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    const useTargetOrigin =
+      Boolean(cookieOverride) ||
+      parsedTarget.hostname.includes("pwmarco") ||
+      parsedTarget.pathname.includes("/recorded-stream/");
+    const upstreamOrigin = useTargetOrigin ? parsedTarget.origin : "https://www.pw.live";
+
     const upstreamHeaders = new Headers();
     upstreamHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-    upstreamHeaders.set("Origin", "https://www.pw.live");
-    upstreamHeaders.set("Referer", "https://www.pw.live/");
+    upstreamHeaders.set("Origin", upstreamOrigin);
+    upstreamHeaders.set("Referer", upstreamOrigin + "/");
     upstreamHeaders.set("Accept", "*/*");
+    if (cookieOverride) upstreamHeaders.set("Cookie", cookieOverride);
     const range = req.headers.get("Range");
     if (range) upstreamHeaders.set("Range", range);
 
@@ -374,10 +395,15 @@ const STANDALONE_WORKER_CODE = `export default {
         redirect: "follow",
       });
 
-      const isMpd = targetUrl.includes(".mpd") || targetUrl.includes(".m3u8") || targetUrl.includes(".xml");
-      if (isMpd && upstream.status < 300) {
+      const contentType = (upstream.headers.get("content-type") || "").toLowerCase();
+      const lowerPath = parsedTarget.pathname.toLowerCase();
+      const isDash = lowerPath.endsWith(".mpd") || lowerPath.endsWith(".xml") || contentType.includes("dash+xml");
+      const isHls = lowerPath.endsWith(".m3u8") || contentType.includes("mpegurl");
+
+      if (isDash && upstream.status < 300) {
         const text = await upstream.text();
-        const basePath = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+        const rawNoQuery = targetUrl.split("?")[0];
+        const basePath = rawNoQuery.substring(0, rawNoQuery.lastIndexOf("/") + 1);
         const rewritten = text.includes("<BaseURL>")
           ? text.replace(/<BaseURL>.*?<\\/BaseURL>/g, \`<BaseURL>\${basePath}</BaseURL>\`)
           : text.replace(/<Period([^>]*)>/, \`<Period$1>\\n    <BaseURL>\${basePath}</BaseURL>\`);
@@ -387,6 +413,34 @@ const STANDALONE_WORKER_CODE = `export default {
             "Content-Type": "application/dash+xml",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Cache-Control": "no-cache",
+          },
+        });
+      }
+
+      if (isHls && upstream.status < 300) {
+        const text = await upstream.text();
+        const rewritten = text
+          .split(/\\r?\\n/)
+          .map((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return line;
+            if (trimmed.startsWith("#")) {
+              return line.replace(/URI="([^"]+)"/g, (_m, uri) => {
+                try { return \`URI="\${new URL(uri, parsedTarget.href).href}"\`; } catch { return \`URI="\${uri}"\`; }
+              });
+            }
+            try { return new URL(trimmed, parsedTarget.href).href; } catch { return line; }
+          })
+          .join("\\n");
+        return new Response(rewritten, {
+          status: upstream.status,
+          headers: {
+            "Content-Type": "application/vnd.apple.mpegurl",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
             "Cache-Control": "no-cache",
           },
         });
@@ -395,6 +449,7 @@ const STANDALONE_WORKER_CODE = `export default {
       const respHeaders = new Headers(upstream.headers);
       respHeaders.set("Access-Control-Allow-Origin", "*");
       respHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      respHeaders.set("Access-Control-Allow-Headers", "*");
       respHeaders.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
       respHeaders.delete("x-frame-options");
       respHeaders.delete("content-security-policy");
@@ -421,6 +476,7 @@ const STANDALONE_WORKER_CODE = `export default {
 function SettingsTab() {
   const { data: settings = [], isLoading, refetch } = useAdminSettings();
   const updateSetting = useUpdateSetting();
+  const checkPwTokensStatus = useCheckPwTokensStatus();
   const { data: accessKeys = [], isLoading: keysLoading } = useAdminAccessKeys();
   const createAccessKey = useCreateAccessKey();
   const toggleAccessKey = useToggleAccessKey();
@@ -438,6 +494,14 @@ function SettingsTab() {
 
   const [pwApiUrl, setPwApiUrl] = useState("https://proxy.streamvideo.co.in/fetch/api.penpencil.co");
   const [apiLoaded, setApiLoaded] = useState(false);
+
+  const [pwMarcoUrl, setPwMarcoUrl] = useState("https://pwmarco.xyz");
+  const [pwMarcoLoaded, setPwMarcoLoaded] = useState(false);
+
+  const [pwTokensText, setPwTokensText] = useState("");
+  const [pwTokensLoaded, setPwTokensLoaded] = useState(false);
+  const [showPwTokens, setShowPwTokens] = useState(false);
+  const [pwTokenStatuses, setPwTokenStatuses] = useState<PwTokenStatusInfo[] | null>(null);
 
   const [videoProxyUrl, setVideoProxyUrl] = useState(DEFAULT_VIDEO_PROXY_URL);
   const [videoProxyLoaded, setVideoProxyLoaded] = useState(false);
@@ -470,6 +534,27 @@ function SettingsTab() {
       if (p?.value) setPwApiUrl(p.value as string);
       setApiLoaded(true);
     }
+    if (!isLoading && !pwMarcoLoaded) {
+      const pm = (settings as any[]).find((s) => s.key === "pwmarco_url");
+      if (typeof pm?.value === "string" && pm.value.trim()) {
+        setPwMarcoUrl(pm.value.trim());
+      }
+      setPwMarcoLoaded(true);
+    }
+    if (!isLoading && !pwTokensLoaded) {
+      const pt = (settings as any[]).find((s) => s.key === "pw_auth_tokens");
+      if (Array.isArray(pt?.value)) {
+        setPwTokensText(
+          pt.value
+            .map((t: any) => (typeof t === "string" ? t.trim() : ""))
+            .filter(Boolean)
+            .join("\n")
+        );
+      } else if (typeof pt?.value === "string" && pt.value.trim()) {
+        setPwTokensText(pt.value.trim());
+      }
+      setPwTokensLoaded(true);
+    }
     if (!isLoading && !videoProxyLoaded) {
       const vp = (settings as any[]).find((s) => s.key === "video_proxy_url");
       const rawVal = typeof vp?.value === "string" ? vp.value : vp?.value?.url;
@@ -481,7 +566,7 @@ function SettingsTab() {
       if (a?.value?.hours) setArolinksValidity(Number(a.value.hours));
       setArolinksLoaded(true);
     }
-  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded, videoProxyLoaded, arolinksLoaded]);
+  }, [settings, isLoading, mLoaded, accessLoaded, apiLoaded, pwMarcoLoaded, videoProxyLoaded, arolinksLoaded]);
 
   async function saveMaintenance() {
     try {
@@ -509,6 +594,55 @@ function SettingsTab() {
       toast({ title: "API URL updated successfully!" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function savePwMarcoUrl() {
+    const trimmed = pwMarcoUrl.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(trimmed)) {
+      toast({
+        title: "Invalid PWMarco URL",
+        description: "URL must start with https:// (e.g. https://pwmarco.xyz)",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await updateSetting.mutateAsync({ key: "pwmarco_url", value: trimmed });
+      setPwMarcoUrl(trimmed);
+      toast({ title: "PWMarco Resolver URL updated!" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function savePwTokens() {
+    const tokens = pwTokensText
+      .split(/[\r\n,]+/)
+      .map((line) => line.trim().replace(/^Bearer\s+/i, ""))
+      .filter(Boolean);
+    try {
+      await updateSetting.mutateAsync({ key: "pw_auth_tokens", value: tokens });
+      setPwTokensText(tokens.join("\n"));
+      toast({
+        title: tokens.length > 0 ? `Saved ${tokens.length} PW auth token(s)` : "Cleared PW auth tokens",
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function verifyPwTokens() {
+    try {
+      const res = await checkPwTokensStatus.mutateAsync();
+      setPwTokenStatuses(res.tokens || []);
+      const validCount = (res.tokens || []).filter((t) => t.valid).length;
+      toast({
+        title: `Checked ${res.tokens?.length || 0} token(s)`,
+        description: `${validCount} active & verified with PenPencil`,
+      });
+    } catch (e: any) {
+      toast({ title: "Verification failed", description: e.message, variant: "destructive" });
     }
   }
 
@@ -833,6 +967,175 @@ function SettingsTab() {
                   >
                     {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Save API URL
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Own PenPencil Stream Resolver Auth Tokens */}
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-900/30 text-emerald-400 flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-white">PW Auth Tokens (Own Stream Resolver)</h3>
+                    <p className="text-zinc-400 text-sm">
+                      Add one or more Physics Wallah Bearer tokens (one per line) to resolve lectures directly without external resolvers. Stored privately on the server.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPwTokens((v) => !v)}
+                    className="border-zinc-700 text-zinc-300 hover:text-white shrink-0"
+                  >
+                    {showPwTokens ? <EyeOff className="w-3.5 h-3.5 mr-1.5" /> : <Eye className="w-3.5 h-3.5 mr-1.5" />}
+                    {showPwTokens ? "Hide" : "Reveal"}
+                  </Button>
+                </div>
+
+                <div>
+                  <Label className="text-zinc-300 text-xs mb-1.5 block">
+                    Bearer JWT Token Pool (one per line, &quot;Bearer &quot; prefix optional)
+                  </Label>
+                  {showPwTokens ? (
+                    <Textarea
+                      value={pwTokensText}
+                      onChange={(e) => setPwTokensText(e.target.value)}
+                      rows={3}
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500 font-mono text-xs"
+                    />
+                  ) : (
+                    <Input
+                      type="password"
+                      readOnly
+                      value={
+                        pwTokensText.trim()
+                          ? `${pwTokensText.split(/[\r\n,]+/).filter((l) => l.trim()).length} token(s) configured — click Reveal to edit`
+                          : ""
+                      }
+                      placeholder="No PW tokens configured yet — click Reveal to paste"
+                      onClick={() => setShowPwTokens(true)}
+                      className="bg-zinc-800 border-zinc-600 text-zinc-300 placeholder:text-zinc-500 text-sm cursor-pointer"
+                    />
+                  )}
+                </div>
+
+                {pwTokenStatuses && (
+                  <div className="space-y-2 pt-1">
+                    {pwTokenStatuses.length === 0 ? (
+                      <p className="text-xs text-zinc-400">No tokens saved on the server yet.</p>
+                    ) : (
+                      pwTokenStatuses.map((t, idx) => (
+                        <div
+                          key={`${t.preview}-${idx}`}
+                          className={`p-3 rounded-lg border text-xs space-y-1 ${
+                            t.valid
+                              ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-200"
+                              : "bg-red-950/30 border-red-800/50 text-red-200"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-mono font-semibold">{t.preview}</span>
+                            <div className="flex items-center gap-2">
+                              {t.username && <span className="text-zinc-300">User: {t.username}</span>}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  t.valid
+                                    ? "border-emerald-500/50 text-emerald-300"
+                                    : "border-red-500/50 text-red-300"
+                                }
+                              >
+                                {t.valid
+                                  ? `Active • ${t.enrolledBatchCount} batches`
+                                  : t.expired
+                                  ? "Expired"
+                                  : "Invalid"}
+                              </Badge>
+                            </div>
+                          </div>
+                          {t.expiresAt && (
+                            <p className="text-[11px] text-zinc-400">
+                              Expires: {new Date(t.expiresAt).toLocaleString()}
+                            </p>
+                          )}
+                          {t.error && <p className="text-[11px] text-red-300">{t.error}</p>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={verifyPwTokens}
+                    disabled={checkPwTokensStatus.isPending}
+                    className="border-emerald-700/60 text-emerald-300 hover:bg-emerald-950/40"
+                  >
+                    {checkPwTokensStatus.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Verify Tokens &amp; Batches
+                  </Button>
+                  <Button
+                    onClick={savePwTokens}
+                    disabled={updateSetting.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {updateSetting.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save Tokens
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PWMarco Stream Resolver URL */}
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-900/30 text-cyan-400 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-white">PWMarco Resolver URL</h3>
+                  <p className="text-zinc-400 text-sm">
+                    Primary stream URL &amp; DRM ClearKeys resolver domain (update here if PWMarco changes domain again).
+                    Fallback stream URL &amp; DRM ClearKeys resolver domain when a batch isn&apos;t covered by your own PW tokens.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-zinc-300 text-xs mb-1.5 block">PWMarco Base URL</Label>
+                  <Input
+                    value={pwMarcoUrl}
+                    onChange={(e) => setPwMarcoUrl(e.target.value)}
+                    placeholder="https://pwmarco.xyz"
+                    className="bg-zinc-800 border-zinc-600 text-white placeholder:text-zinc-500 font-mono text-sm"
+                  />
+                </div>
+                <div className="flex justify-end pt-2">
+                  <Button
+                    onClick={savePwMarcoUrl}
+                    disabled={updateSetting.isPending}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                  >
+                    {updateSetting.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save PWMarco URL
                   </Button>
                 </div>
               </div>

@@ -37,6 +37,7 @@ import VerifyPage from "@/pages/verify";
 import DownloadVerifyPage from "@/pages/download-verify";
 import InfinitePractice from "@/pages/infinite-practice";
 import InfinitePracticeHub from "@/pages/infinite-practice-hub";
+import TelegramPlayerPage from "@/pages/telegram-player";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -147,6 +148,9 @@ function Router() {
                   <Route path="/schedule-details" component={Watch} />
                   <Route path="/live-watch" component={LiveWatch} />
                   <Route path="/schedule-watch" component={ScheduleWatch} />
+                  <Route path="/telegram-player" component={TelegramPlayerPage} />
+                  <Route path="/tg-player" component={TelegramPlayerPage} />
+                  <Route path="/telegram-watch" component={TelegramPlayerPage} />
                   <Route path="/materials" component={Materials} />
                   <Route path="/schedule" component={Schedule} />
                   <Route path="/my-mix" component={MyMixList} />

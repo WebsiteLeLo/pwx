@@ -154,8 +154,8 @@ function DueCard({
   const [recalling, setRecalling] = useState(false);
   const isOverdue = item.nextRevisionAt < Date.now();
 
-  const watchUrl = item.subjectId && item.topicId
-    ? `/watch?batchId=${item.batchId}&subjectId=${item.subjectId}&topicId=${item.topicId}&videoId=${item.id}&title=${encodeURIComponent(item.title)}`
+  const tgUrl = item.batchId && item.id
+    ? `https://t.me/AS_MultiverseRoBot?start=${item.batchId.trim()}_${item.id.trim()}`
     : null;
 
   const notesUrl = item.subjectId && item.topicId
@@ -220,14 +220,14 @@ function DueCard({
               exit={{ opacity: 0 }}
               className="flex gap-2 flex-wrap"
             >
-              {/* Re-watch */}
-              {item.type === "video" && watchUrl && (
-                <Link href={watchUrl}>
-                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all">
+              {/* Re-watch via Telegram */}
+              {item.type === "video" && tgUrl && (
+                <a href={tgUrl} target="_blank" rel="noopener noreferrer">
+                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 transition-all cursor-pointer">
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    Re-watch
+                    Watch in Telegram
                   </button>
-                </Link>
+                </a>
               )}
 
               {/* View Notes */}

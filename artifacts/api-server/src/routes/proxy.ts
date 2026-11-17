@@ -4,6 +4,7 @@ import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { resolvePdfKey, getResolverDiagnostics } from "../lib/pdfResolver";
 import { resolveStreamWithVidcloud } from "../lib/streamResolver";
+import { resolveWithOwnPwTokens } from "../lib/ownStreamResolver";
 
 const proxyRouter = Router();
 
@@ -19,6 +20,69 @@ export async function getPwApiUrl() {
   }
 }
 
+const DEFAULT_PWMARCO_URL = "https://pwmarco.xyz";
+let cachedPwMarcoUrl = DEFAULT_PWMARCO_URL;
+let cachedPwMarcoAt = 0;
+let latestPwMarcoCookie = "";
+
+function extractCookieHeader(headers: Headers): string {
+  const rawList: string[] =
+    typeof (headers as any).getSetCookie === "function"
+      ? (headers as any).getSetCookie()
+      : headers.get("set-cookie")
+        ? [headers.get("set-cookie")!]
+        : [];
+  return rawList
+    .flatMap((entry) => entry.split(/,(?=\s*[A-Za-z0-9_.-]+=)/))
+    .map((part) => part.split(";")[0]?.trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+function rewriteM3u8Manifest(manifestText: string, baseHref: string): string {
+  return manifestText
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (trimmed.startsWith("#")) {
+        return line.replace(/URI="([^"]+)"/g, (_m, uri) => {
+          try {
+            return `URI="${new URL(uri, baseHref).href}"`;
+          } catch {
+            return `URI="${uri}"`;
+          }
+        });
+      }
+      try {
+        return new URL(trimmed, baseHref).href;
+      } catch {
+        return line;
+      }
+    })
+    .join("\n");
+}
+
+export async function getPwMarcoUrl(): Promise<string> {
+  const now = Date.now();
+  if (now - cachedPwMarcoAt < 30_000) {
+    return cachedPwMarcoUrl;
+  }
+  try {
+    const [setting] = await db
+      .select()
+      .from(siteSettingsTable)
+      .where(eq(siteSettingsTable.key, "pwmarco_url"));
+    const raw = typeof setting?.value === "string" ? setting.value.trim() : "";
+    const normalized = /^https?:\/\//i.test(raw) ? raw.replace(/\/+$/, "") : DEFAULT_PWMARCO_URL;
+    cachedPwMarcoUrl = normalized;
+    cachedPwMarcoAt = now;
+    return normalized;
+  } catch {
+    return DEFAULT_PWMARCO_URL;
+  }
+}
+
 const CDN_HOSTS = [
   "sec-prod-mediacdn.pw.live",
   "prod-mediacdn.pw.live",
@@ -28,6 +92,8 @@ const CDN_HOSTS = [
   "herokuapp.com",           // devcoderz video stream host
   "streamvideo.co.in",       // stream.testuk.org DASH CDN
   "stream.testuk.org",       // video-url-details API host
+  "pwmarco.xyz",
+  "pwmarco.site",
 ];
 const PDF_HOSTS = ["static.pw.live", "pw.live", "cdn.pw.live", "d2bps9p1kiy4ka.cloudfront.net", "testwave.cc"];
 
@@ -403,9 +469,48 @@ proxyRouter.post("/save-stream", async (req, res) => {
   }
 });
 
+// ── Own PW Token stream resolver (independent of external third-party APIs) ──
+proxyRouter.get("/own-stream-url", async (req, res) => {
+  const bId = ((req.query.batchId || req.query.parentId || req.query.batch_id) as string) || "";
+  const cId = ((req.query.childId || req.query.child_id) as string) || "";
+  const vId = ((req.query.videoId || req.query.video_id) as string) || "";
+
+  if (!bId || (!cId && !vId)) {
+    res.status(400).json({ success: false, error: "Missing batchId or childId" });
+    return;
+  }
+
+  try {
+    const resolved = await resolveWithOwnPwTokens({
+      batchId: bId,
+      childId: cId || vId,
+      videoId: vId || undefined,
+    });
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (!resolved) {
+      res.status(404).json({
+        success: false,
+        error: "Batch not enrolled in configured PW tokens or stream unavailable",
+      });
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      success: true,
+      url: resolved.url,
+      container: resolved.container,
+      source: resolved.source,
+      expiresAt: resolved.signatureExpireAt ?? null,
+    });
+  } catch (err: any) {
+    req.log.error({ err }, "own-stream-url failed");
+    res.status(502).json({ success: false, error: err?.message || "Own resolver failed" });
+  }
+});
+
 // ── pwmarco video URL proxy ───────────────────────────────────────────────────
 proxyRouter.get("/pwmarco-video-url", async (req, res) => {
-  const { batchId, childId, subjectId } = req.query as Record<string, string>;
+  const { batchId, childId, subjectId, urlType, videoId, topicId } = req.query as Record<string, string>;
 
   // Check cached / known streams
   if (childId && STREAM_CACHE.has(childId)) {
@@ -420,26 +525,77 @@ proxyRouter.get("/pwmarco-video-url", async (req, res) => {
     return;
   }
 
-  const url = `https://m.pwmarco.site/api/get-video-url?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}&urlType=penpencilvdo`;
+  const base = await getPwMarcoUrl();
+  const params = new URLSearchParams({
+    batchId: batchId || "",
+    childId: childId || "",
+    subjectId: subjectId || "",
+    urlType: urlType || "penpencilvdo",
+  });
+  if (videoId || childId) params.set("videoId", videoId || childId);
+  if (topicId || childId) params.set("topicId", topicId || childId);
+
+  const url = `${base}/api/get-video-url?${params.toString()}`;
   try {
-    const upstream = await fetch(url);
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Origin": base,
+        "Referer": `${base}/`,
+        "Accept": "application/json, text/plain, */*",
+      },
+      signal: AbortSignal.timeout(25000),
+    });
+    const cookieStr = extractCookieHeader(upstream.headers);
+    if (cookieStr) {
+      latestPwMarcoCookie = cookieStr;
+    }
     const data = await upstream.json();
-    res.json(data);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      res.status(upstream.status).json({
+        ...data,
+        baseUrl: base,
+        ...(cookieStr ? { sessionCookie: cookieStr } : {}),
+      });
+      return;
+    }
+    res.status(upstream.status).json(data);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(502).json({ error: e.message });
   }
 });
 
 // ── pwmarco stream URL proxy ───────────────────────────────────────────────────
 proxyRouter.get("/pwmarco-stream-url", async (req, res) => {
   const query = new URLSearchParams(req.query as any).toString();
-  const url = `https://m.pwmarco.site/api/stream-url?${query}`;
+  const base = await getPwMarcoUrl();
+  const url = `${base}/api/stream-url?${query}`;
   try {
-    const upstream = await fetch(url);
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Origin": base,
+        "Referer": `${base}/`,
+        "Accept": "application/json, text/plain, */*",
+      },
+      signal: AbortSignal.timeout(25000),
+    });
+    const cookieStr = extractCookieHeader(upstream.headers);
+    if (cookieStr) {
+      latestPwMarcoCookie = cookieStr;
+    }
     const data = await upstream.json();
-    res.json(data);
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      res.status(upstream.status).json({
+        ...data,
+        baseUrl: base,
+        ...(cookieStr ? { sessionCookie: cookieStr } : {}),
+      });
+      return;
+    }
+    res.status(upstream.status).json(data);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(502).json({ error: e.message });
   }
 });
 
@@ -979,7 +1135,7 @@ proxyRouter.get("/pw-video/:videoId", async (req, res) => {
 proxyRouter.options(["/proxy", "/pdf", "/proxy-pdf", "/GetPdf", "/get-pdf", "/getPdf", "/dash-seg/*path"], (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "*");
   res.status(204).end();
 });
 
@@ -1102,10 +1258,12 @@ proxyRouter.get("/proxy", async (req, res) => {
     return;
   }
 
+  const cookieOverride = typeof req.query.ck === "string" ? req.query.ck.trim() : "";
+
   // Safeguard: If query parameters like Signature, Key-Pair-Id, Policy were split by Express query parser
   const extraParams = new URLSearchParams();
   for (const [key, value] of Object.entries(req.query)) {
-    if (key !== "url" && typeof value === "string") {
+    if (key !== "url" && key !== "ck" && typeof value === "string") {
       if (!rawUrl.includes(key + "=")) {
         extraParams.set(key, value);
       }
@@ -1124,85 +1282,104 @@ proxyRouter.get("/proxy", async (req, res) => {
     return;
   }
 
-  if (!isAllowedCdnHost(parsed.hostname)) {
+  let pwMarcoHost = "";
+  try {
+    pwMarcoHost = new URL(await getPwMarcoUrl()).hostname;
+  } catch {}
+
+  if (!isAllowedCdnHost(parsed.hostname) && (!pwMarcoHost || parsed.hostname !== pwMarcoHost)) {
     res.status(403).json({ error: "Host not allowed" });
     return;
   }
 
-  const isMpd =
-    rawUrl.includes(".mpd") ||
-    rawUrl.includes(".m3u8") ||
-    rawUrl.includes(".xml");
+  const isPwMarcoTarget =
+    (pwMarcoHost && parsed.hostname === pwMarcoHost) ||
+    parsed.hostname.includes("pwmarco") ||
+    parsed.pathname.includes("/recorded-stream/");
 
-  if (isMpd) {
-    try {
-      const { status, contentType, buffer } = await fetchCdn(rawUrl);
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-      res.status(status);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
 
-      if (status < 300) {
-        const mpdText = new TextDecoder().decode(buffer);
-        res.setHeader("Content-Type", "application/dash+xml");
-        
-        // Extract the absolute base path from the original URL (e.g., https://host/path/to/)
-        const basePath = rawUrl.substring(0, rawUrl.lastIndexOf("/") + 1);
-        
-        // Inject the absolute original BaseURL into the MPD.
-        const rewritten = injectBaseUrl(mpdText, basePath);
-        res.end(rewritten);
-      } else {
-        res.setHeader("Content-Type", contentType);
-        res.end(Buffer.from(buffer));
-      }
-    } catch (err) {
-      req.log.error({ err }, "proxy MPD fetch failed");
-      res.status(502).json({ error: "Upstream fetch failed" });
-    }
-  } else {
-    // For large video segments (.m4s, .mp4, .ts), stream directly instead of buffering in memory
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
-    
-    try {
-      const variants = rawUrl.includes("cloudfront.net")
+  try {
+    const effectiveCookie = cookieOverride || latestPwMarcoCookie;
+    const variants: Record<string, string>[] = isPwMarcoTarget
+      ? [
+          {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Origin": parsed.origin,
+            "Referer": `${parsed.origin}/`,
+            "Accept": "*/*",
+            ...(effectiveCookie ? { "Cookie": effectiveCookie } : {}),
+          },
+        ]
+      : rawUrl.includes("cloudfront.net")
         ? [CDN_HEADER_VARIANTS[2], CDN_HEADER_VARIANTS[0], CDN_HEADER_VARIANTS[1], CDN_HEADER_VARIANTS[3]]
         : CDN_HEADER_VARIANTS;
 
-      let upstream: Response | null = null;
-      for (const baseHeaders of variants) {
-        const headers: Record<string, string> = { ...baseHeaders };
-        if (req.headers.range) {
-          headers["Range"] = req.headers.range;
-        }
-        upstream = await fetch(rawUrl, { headers });
-        if (upstream.status !== 403) break;
+    let upstream: Response | null = null;
+    for (const baseHeaders of variants) {
+      const headers: Record<string, string> = { ...baseHeaders };
+      if (req.headers.range) {
+        headers["Range"] = req.headers.range;
       }
-      if (!upstream) {
-        const headers: Record<string, string> = {};
-        if (req.headers.range) headers["Range"] = req.headers.range;
-        upstream = await fetch(rawUrl, { headers });
-      }
-      
-      res.status(upstream.status);
-      res.setHeader("Content-Type", upstream.headers.get("content-type") || "video/mp4");
-      const cr = upstream.headers.get("content-range");
-      if (cr) res.setHeader("Content-Range", cr);
-      const ar = upstream.headers.get("accept-ranges");
-      if (ar) res.setHeader("Accept-Ranges", ar);
-      const cl = upstream.headers.get("content-length");
-      if (cl) res.setHeader("Content-Length", cl);
-      
-      if (upstream.body) {
-        Readable.fromWeb(upstream.body as any).pipe(res);
-      } else {
-        res.end();
-      }
-    } catch (err) {
-      req.log.error({ err }, "proxy segment fetch failed");
-      res.status(502).end();
+      upstream = await fetch(rawUrl, { headers });
+      if (upstream.status !== 403) break;
     }
+    if (!upstream) {
+      const headers: Record<string, string> = {};
+      if (req.headers.range) headers["Range"] = req.headers.range;
+      upstream = await fetch(rawUrl, { headers });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "";
+    const lowerCT = contentType.toLowerCase();
+    const lowerPath = parsed.pathname.toLowerCase();
+    const isDashManifest =
+      lowerPath.endsWith(".mpd") ||
+      lowerPath.endsWith(".xml") ||
+      lowerCT.includes("dash+xml");
+    const isHlsManifest =
+      lowerPath.endsWith(".m3u8") ||
+      lowerCT.includes("mpegurl");
+
+    if (upstream.status < 300 && isDashManifest) {
+      const mpdText = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader("Content-Type", "application/dash+xml");
+      const rawNoQuery = rawUrl.split("?")[0];
+      const basePath = rawNoQuery.substring(0, rawNoQuery.lastIndexOf("/") + 1);
+      res.end(injectBaseUrl(mpdText, basePath));
+      return;
+    }
+
+    if (upstream.status < 300 && isHlsManifest) {
+      const m3u8Text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      res.setHeader("Cache-Control", "no-cache");
+      res.end(rewriteM3u8Manifest(m3u8Text, parsed.href));
+      return;
+    }
+
+    res.status(upstream.status);
+    res.setHeader("Content-Type", contentType || "video/mp4");
+    const cr = upstream.headers.get("content-range");
+    if (cr) res.setHeader("Content-Range", cr);
+    const ar = upstream.headers.get("accept-ranges");
+    if (ar) res.setHeader("Accept-Ranges", ar);
+    const cl = upstream.headers.get("content-length");
+    if (cl) res.setHeader("Content-Length", cl);
+
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body as any).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    req.log.error({ err }, "proxy fetch failed");
+    if (!res.headersSent) res.status(502).json({ error: "Upstream fetch failed" });
   }
 });
 

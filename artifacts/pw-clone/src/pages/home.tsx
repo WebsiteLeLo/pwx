@@ -340,7 +340,7 @@ function ContinueWatchingSection({
 
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin" style={{ WebkitOverflowScrolling: "touch" }}>
         {history.map((item) => {
-          const watchUrl = `/schedule-watch?batchId=${item.batchId}&subjectId=${item.subjectId}&scheduleId=${item.scheduleId}&title=${encodeURIComponent(item.title)}${item.thumbnail ? `&thumbnail=${encodeURIComponent(item.thumbnail)}` : ""}${item.subjectName ? `&subjectName=${encodeURIComponent(item.subjectName)}` : ""}`;
+          const tgUrl = `https://t.me/AS_MultiverseRoBot?start=${item.batchId.trim()}_${item.scheduleId.trim()}`;
           return (
             <motion.div
               key={item.scheduleId}
@@ -349,7 +349,7 @@ function ContinueWatchingSection({
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex-shrink-0 w-52 sm:w-60 group relative"
             >
-              <Link href={watchUrl} className="block">
+              <a href={tgUrl} target="_blank" rel="noopener noreferrer" className="block text-inherit no-underline">
                 <div className="relative aspect-video rounded-xl overflow-hidden bg-muted mb-2">
                   {item.thumbnail ? (
                     <img
@@ -364,7 +364,7 @@ function ContinueWatchingSection({
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <div className="w-9 h-9 rounded-full bg-primary/90 flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
+                    <div className="w-9 h-9 rounded-full bg-sky-500/90 flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200">
                       <Play className="w-4 h-4 fill-white text-white" />
                     </div>
                   </div>
@@ -375,7 +375,7 @@ function ContinueWatchingSection({
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   {item.subjectName ? `${item.subjectName} · ` : ""}{timeAgo(item.watchedAt)}
                 </p>
-              </Link>
+              </a>
               <button
                 onClick={() => onRemove(item.scheduleId)}
                 className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-black/90 touch-manipulation"

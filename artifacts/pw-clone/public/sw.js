@@ -1,6 +1,6 @@
-const CACHE_NAME = "pwx-v4";
-const SEG_CACHE_NAME = "pwx-segments-v2";
-const API_CACHE_NAME = "pwx-api-v1";
+const CACHE_NAME = "pwx-v5";
+const SEG_CACHE_NAME = "pwx-segments-v3";
+const API_CACHE_NAME = "pwx-api-v2";
 
 const SEG_MAX = 8000;  // max DASH segment entries (high for full offline lectures)
 const API_MAX = 500;   // max API response entries
@@ -92,14 +92,22 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/@") || url.pathname.startsWith("/node_modules")) return;
 
   // ── 1. DASH video segments (same-origin proxy) — cache-first ─────────────
-  if (url.pathname.includes("/api/dash-seg/") || url.pathname.includes("/api/proxy")) {
+  // Skip manifests, ping checks, pwmarco byte-range streams, and Range requests
+  if (
+    (url.pathname.includes("/api/dash-seg/") || url.pathname.includes("/api/proxy")) &&
+    !request.headers.has("Range") &&
+    !url.search.includes("ping=1") &&
+    !url.search.includes(".m3u8") &&
+    !url.search.includes(".mpd") &&
+    !url.search.includes("/recorded-stream/")
+  ) {
     const cacheKey = new Request(url.href); // Must include query string!
     event.respondWith(
       caches.open(SEG_CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(cacheKey);
         if (cached) return cached;
         const response = await fetch(request);
-        if (response.ok) {
+        if (response.status === 200) {
           cache.put(cacheKey, response.clone());
           trimCache(SEG_CACHE_NAME, SEG_MAX);
         }
@@ -108,6 +116,9 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  // Never cache dynamic same-origin backend API responses (tokens/streams/settings)
+  if (url.pathname.startsWith("/api/")) return;
 
   // ── 2. Cross-origin PW API calls — stale-while-revalidate ────────────────
   if (isApiRequest(url)) {

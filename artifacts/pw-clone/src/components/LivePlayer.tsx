@@ -175,7 +175,7 @@ export function LivePlayer({
   }, []);
 
   /* ── Detect HLS vs DASH ─────────────────────────────────────────────── */
-  const isHls = /\.m3u8/i.test(streamUrl) || streamUrl.includes("m3u8");
+  const isHls = /\.m3u8/i.test(streamUrl) || streamUrl.includes("m3u8") || streamUrl.includes("/recorded-stream/");
   const isDash = /\.mpd/i.test(streamUrl) || streamUrl.includes("mpd");
 
   /* ── Core setup ──────────────────────────────────────────────────────── */

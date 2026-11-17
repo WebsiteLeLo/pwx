@@ -7,13 +7,14 @@ import { Link, useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, Play, FileText, Clock, BookOpen, ExternalLink, Calendar, Download, CheckCircle2, Loader2, Send } from "lucide-react";
 import { SaveOfflineButton } from "@/components/save-offline-button";
 import { useCompletedItems } from "@/hooks/useCompletedItems";
 import { useToast } from "@/hooks/use-toast";
 import { PW_API } from "@/lib/pwApiStore";
 import { apiUrl } from "@/lib/apiUrl";
 import { useVerifiedAccess } from "@/hooks/useAdmin";
+import { fetchTelegramVideo } from "@/lib/telegramVideoApi";
 import JSZip from "jszip";
 
 type TabKey = ContentType;
@@ -64,7 +65,7 @@ function getPdfsFromContent(content: any, isDpp: boolean): ExtractedPdf[] {
       let p = priority;
       if (url) {
         if (!url.includes('.pdf') && !url.includes('.doc')) {
-           p -= 50; // lower priority for suspected bad URLs
+          p -= 50; // lower priority for suspected bad URLs
         }
       } else {
         url = null;
@@ -149,7 +150,7 @@ function OpenPdfButton({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { ensureAccessOrRedirect } = useVerifiedAccess();
-  
+
   const handleOpen = async () => {
     // Check verified access key before opening protected document
     if (!ensureAccessOrRedirect()) return;
@@ -163,7 +164,7 @@ function OpenPdfButton({
     setLoading(true);
     try {
       let finalUrl = fallbackUrl && (fallbackUrl.includes('.pdf') || fallbackUrl.includes('.doc') || fallbackUrl.startsWith('http')) ? fallbackUrl : "";
-      
+
       // 1. Lazy on-demand key resolution via /api/GetPdf
       if (!finalUrl) {
         try {
@@ -189,34 +190,34 @@ function OpenPdfButton({
           if (res.ok) {
             const json = await res.json();
             const schedData = json.data;
-            
+
             const urls: string[] = [];
             const extractAtts = (atts: any[]) => {
               if (!atts) return;
               atts.forEach(att => {
-                 const u = getPdfUrl(att);
-                 if (u && (u.includes('.pdf') || u.includes('.doc') || u.startsWith('http'))) urls.push(u);
+                const u = getPdfUrl(att);
+                if (u && (u.includes('.pdf') || u.includes('.doc') || u.startsWith('http'))) urls.push(u);
               });
             };
-            
+
             if (isDpp) {
-               if (schedData?.dpp?.homeworkIds) {
-                 schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-               } else if (schedData?.homeworkIds) {
-                 schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-               }
+              if (schedData?.dpp?.homeworkIds) {
+                schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+              } else if (schedData?.homeworkIds) {
+                schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+              }
             } else {
-               if (schedData?.homeworkIds) {
-                 schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-               }
-               if (schedData?.attachmentIds) {
-                 extractAtts(schedData.attachmentIds);
-               }
+              if (schedData?.homeworkIds) {
+                schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+              }
+              if (schedData?.attachmentIds) {
+                extractAtts(schedData.attachmentIds);
+              }
             }
             if (schedData?.urls) {
-               schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+              schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
             }
-            
+
             if (urls[index]) {
               finalUrl = urls[index];
             } else if (urls.length > 0 && !finalUrl) {
@@ -227,7 +228,7 @@ function OpenPdfButton({
           console.warn("Failed to fetch schedule-details", err);
         }
       }
-      
+
       if (finalUrl && (finalUrl.includes('.pdf') || finalUrl.includes('.doc') || finalUrl.startsWith('http'))) {
         if (newTab) {
           newTab.location.href = finalUrl;
@@ -287,11 +288,10 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2, delay: (baseIndex + i) * 0.04 }}
-            className={`flex items-center gap-4 p-4 bg-card rounded-xl border transition-all ${
-              done
+            className={`flex items-center gap-4 p-4 bg-card rounded-xl border transition-all ${done
                 ? "border-green-500/40 bg-green-500/5"
                 : "border-border/50 hover:border-primary/30 hover:bg-card/80"
-            }`}
+              }`}
             data-testid={`card-note-${content._id}-${i}`}
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${done ? "bg-green-500/15 text-green-500" : "bg-primary/10 text-primary"}`}>
@@ -312,23 +312,22 @@ function NoteItem({ batchId, subjectId, content, contentType, baseIndex }: NoteI
                     toggle({ id: itemId, type: "dpp", batchId, title })
                   }
                   title={done ? "Mark as incomplete" : "Mark as done"}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all touch-manipulation ${
-                    done
+                  className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all touch-manipulation ${done
                       ? "bg-green-500/15 border-green-500/40 text-green-500 hover:bg-green-500/25"
                       : "border-border/50 text-muted-foreground hover:border-green-500/50 hover:text-green-500 hover:bg-green-500/10"
-                  }`}
+                    }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                 </button>
               )}
-              <OpenPdfButton 
-                batchId={batchId} 
-                subjectId={subjectId} 
-                contentId={content._id} 
+              <OpenPdfButton
+                batchId={batchId}
+                subjectId={subjectId}
+                contentId={content._id}
                 homeworkId={homeworkId}
-                isDpp={isDpp} 
-                index={i} 
-                fallbackUrl={url || ""} 
+                isDpp={isDpp}
+                index={i}
+                fallbackUrl={url || ""}
               />
             </div>
           </motion.div>
@@ -353,7 +352,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   const [total, setTotal] = useState(0);
   const [isZipping, setIsZipping] = useState(false);
 
-  
+
   useEffect(() => {
     if (sessionStorage.getItem("pwx_download_unlocked") === "true") {
       sessionStorage.removeItem("pwx_download_unlocked");
@@ -365,7 +364,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   const handleDownload = async (skipAd = false) => {
     if (downloading) return;
     setDownloading(true);
-    
+
     if (!skipAd) {
       localStorage.setItem("pwx_download_intent", window.location.pathname);
       window.location.href = "https://arolinks.com/JlLtYn";
@@ -378,7 +377,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
 
     const pdfs: { title: string, url: string }[] = [];
     const isDpp = contentType === "DppNotes";
-    
+
     // Step 1: Get attachment URLs directly from content
     const zip = new JSZip();
 
@@ -387,32 +386,32 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
       const extractAtts = (atts: any[]) => {
         if (!atts) return;
         atts.forEach(att => {
-           const u = getPdfUrl(att);
-           if (u && (u.includes('.pdf') || u.includes('.doc'))) urls.push(u);
+          const u = getPdfUrl(att);
+          if (u && (u.includes('.pdf') || u.includes('.doc'))) urls.push(u);
         });
       };
-      
+
       if (isDpp) {
-         if (schedData.dpp?.homeworkIds) {
-           schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         } else if (schedData.homeworkIds) {
-           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         }
+        if (schedData.dpp?.homeworkIds) {
+          schedData.dpp.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+        } else if (schedData.homeworkIds) {
+          schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+        }
       } else {
-         if (schedData.homeworkIds) {
-           schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
-         }
-         extractAtts(schedData.attachmentIds);
+        if (schedData.homeworkIds) {
+          schedData.homeworkIds.forEach((hw: any) => extractAtts(hw.attachmentIds));
+        }
+        extractAtts(schedData.attachmentIds);
       }
       if (schedData.urls) {
-         schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
+        schedData.urls.forEach((u: any) => { if (u.url) urls.push(u.url); });
       }
       return urls;
     };
 
     for (const content of items) {
       const extractedPdfs = getPdfsFromContent(content, isDpp);
-      
+
       // Try to get real URLs from schedule-details
       let realUrls: string[] = [];
       try {
@@ -428,7 +427,7 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
       for (let i = 0; i < extractedPdfs.length; i++) {
         const pdf = extractedPdfs[i];
         let finalUrl = realUrls[i] || pdf.url;
-        
+
         // If not found in schedule-details, resolve on-demand via /api/GetPdf
         if (!finalUrl || (!finalUrl.includes('.pdf') && !finalUrl.includes('.doc') && !finalUrl.startsWith('http'))) {
           try {
@@ -469,8 +468,8 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
         const res = await fetch(proxiedUrl);
         if (!res.ok) throw new Error("Fetch failed");
         const blob = await res.blob();
-        
-        const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '-').trim() || `Document_${i+1}`;
+
+        const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '-').trim() || `Document_${i + 1}`;
         zip.file(`${safeTitle}.pdf`, blob);
       } catch (err) {
         console.error("Failed to download", title, err);
@@ -505,9 +504,9 @@ function DownloadAllButton({ items, contentType, batchId, subjectId }: { items: 
   if (items.length === 0) return null;
 
   return (
-    <Button 
-      size="sm" 
-      variant="outline" 
+    <Button
+      size="sm"
+      variant="outline"
       className="text-xs h-8 gap-1.5 bg-background/50 hover:bg-background shadow-sm"
       onClick={() => handleDownload(false)}
       disabled={downloading}
@@ -630,6 +629,8 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
   const { data, isLoading, isError, refetch } = useAllTopicContents(batchId, subjectId, topicId, contentType);
   const { toggle, isCompleted } = useCompletedItems();
   const { hasAccess, isChecking, ensureAccessOrRedirect } = useVerifiedAccess();
+  const { toast } = useToast();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -677,22 +678,24 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
           ? new Date(content.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
 
-        const watchUrl = `/watch?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(content._id)}`;
+        const videoId = vid?._id || content._id;
+        const tgBotUrl = `https://t.me/AS_MultiverseRoBot?start=${batchId.trim()}_${videoId.trim()}`;
         const done = isCompleted(content._id);
-        
+
         return (
-          <Link
+          <a
             key={content._id}
-            href={watchUrl}
-            className="block" // Layout maintain rakhne ke liye
+            href={tgBotUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-inherit no-underline"
           >
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: index * 0.04 }}
-              className={`group flex flex-col bg-card rounded-xl border overflow-hidden transition-colors cursor-pointer ${
-                done ? "border-green-500/40" : "border-border/50 hover:border-primary/50"
-              }`}
+              className={`group flex flex-col bg-card rounded-xl border overflow-hidden transition-colors cursor-pointer ${done ? "border-green-500/40" : "border-border/50 hover:border-primary/50"
+                }`}
               data-testid={`card-video-${content._id}`}
             >
               <div className="relative aspect-video bg-muted overflow-hidden">
@@ -708,16 +711,15 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     <Play className="w-10 h-10 text-muted-foreground opacity-40" />
                   </div>
                 )}
-                
-                {/* ... Baaki ka existing video card code same rahega ... */}
-                
+
                 <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                  <div className="w-11 h-11 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                    <Play className="w-5 h-5 fill-current" />
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500/90 text-white text-xs font-semibold shadow-lg opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Watch in Telegram</span>
                   </div>
                 </div>
                 {done && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                     <div className="w-12 h-12 rounded-full bg-green-500/90 flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-white fill-white" />
                     </div>
@@ -729,13 +731,6 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                     {dur}
                   </div>
                 )}
-                <SaveOfflineButton
-                  videoId={vid?._id || vid?.video_id || content._id}
-                  batchId={batchId}
-                  subjectId={subjectId}
-                  title={title}
-                  thumbnail={thumb ?? undefined}
-                />
               </div>
               <div className="p-4 flex flex-col gap-1.5">
                 <h3 className={`font-semibold text-sm leading-snug line-clamp-2 transition-colors ${done ? "text-muted-foreground line-through" : "group-hover:text-primary"}`}>
@@ -754,34 +749,29 @@ function VideosTabContent({ batchId, subjectId, topicId, contentType }: TabConte
                       e.stopPropagation();
                       toggle({ id: content._id, type: "video", batchId, subjectId, topicId, title });
                     }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      done
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${done
                         ? "bg-green-500/15 text-green-500 border-green-500/30 hover:bg-green-500/25"
                         : "bg-muted hover:bg-muted/80 text-muted-foreground border-border/40 hover:border-green-500/40 hover:text-green-600"
-                    }`}
+                      }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     {done ? "Completed" : "Mark Done"}
                   </button>
-                  {vid?._id && (
-                    <button
-                      disabled={isChecking}
-                      title={hasAccess ? "Download via Telegram" : "Access key required to download"}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!ensureAccessOrRedirect()) return;
-                        window.open(`https://t.me/AS_MultiverseRoBot?start=${batchId}_${vid._id}`, "_blank", "noopener,noreferrer");
-                      }}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <button
+                    title="Download / Watch in Telegram Bot"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(tgBotUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 hover:border-sky-500/40 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             </motion.div>
-          </Link>
+          </a>
         );
       })}
     </div>
@@ -837,18 +827,18 @@ export default function Topic() {
 
   const breadcrumbs = fromMix
     ? [
-        { label: "Home", href: "/" },
-        { label: "My Mix", href: "/my-mix" },
-        { label: fromMixName || "Mix", href: `/my-mix/${fromMix}` },
-        { label: subjectName, href: subjectHref },
-        { label: topicName },
-      ]
+      { label: "Home", href: "/" },
+      { label: "My Mix", href: "/my-mix" },
+      { label: fromMixName || "Mix", href: `/my-mix/${fromMix}` },
+      { label: subjectName, href: subjectHref },
+      { label: topicName },
+    ]
     : [
-        { label: "Home", href: "/" },
-        { label: batchName, href: `/batch/${batchId}` },
-        { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
-        { label: topicName },
-      ];
+      { label: "Home", href: "/" },
+      { label: batchName, href: `/batch/${batchId}` },
+      { label: subjectName, href: `/batch/${batchId}/subject/${subjectId}` },
+      { label: topicName },
+    ];
 
   return (
     <Layout breadcrumbs={breadcrumbs}>
@@ -863,11 +853,10 @@ export default function Topic() {
             key={key}
             onClick={() => setActiveTab(key)}
             data-testid={`tab-${key}`}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 sm:flex-none justify-center sm:justify-start ${
-              activeTab === key
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 sm:flex-none justify-center sm:justify-start ${activeTab === key
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
             {label}

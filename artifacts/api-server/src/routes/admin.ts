@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createHash, randomBytes } from "node:crypto";
 import { db, pool, accessKeysTable, notificationsTable, siteSettingsTable } from "@workspace/db";
 import { eq, and, or, isNull, gt, desc } from "drizzle-orm";
+import { invalidateOwnTokenCache, getOwnPwTokensStatus } from "../lib/ownStreamResolver";
 
 const router = Router();
 const AROLINKS_SOURCE = "arolinks";
@@ -220,6 +221,10 @@ router.delete("/admin/notifications/:id", adminAuth, async (req, res) => {
 
 // GET a setting (public - used for maintenance check)
 router.get("/settings/:key", async (req, res) => {
+  if (req.params.key === "pw_auth_tokens" || req.params.key.startsWith("secret_")) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   try {
     const [row] = await db
       .select()
@@ -414,6 +419,16 @@ router.delete("/admin/access-keys/:id", adminAuth, async (req, res) => {
   }
 });
 
+// GET token health & enrolled batch count for own stream resolver (admin)
+router.get("/admin/pw-tokens/status", adminAuth, async (_req, res) => {
+  try {
+    const status = await getOwnPwTokensStatus();
+    res.json({ tokens: status });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || "Failed to verify tokens" });
+  }
+});
+
 // PUT upsert setting
 router.put("/admin/settings/:key", adminAuth, async (req, res) => {
   try {
@@ -426,6 +441,9 @@ router.put("/admin/settings/:key", adminAuth, async (req, res) => {
         set: { value, updatedAt: new Date() },
       })
       .returning();
+    if (req.params.key === "pw_auth_tokens") {
+      invalidateOwnTokenCache();
+    }
     res.json(row);
   } catch (e) {
     res.status(500).json({ error: "Failed to update setting" });

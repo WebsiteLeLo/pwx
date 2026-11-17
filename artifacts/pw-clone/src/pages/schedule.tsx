@@ -90,13 +90,8 @@ function ScheduleCard({ item, batchName, now: _now }: ScheduleCardProps) {
 
   const handleClick = () => {
     if (!isVideo || status === "upcoming") return;
-    const params = new URLSearchParams({
-      batchId, subjectId, videoId: scheduleId,
-      title: item.data.topic.trim(),
-      backUrl: `/schedule`,
-      ...(status === "live" ? { video_type: "live", topicId } : {}),
-    });
-    window.location.href = `/watch?${params.toString()}`;
+    const tgUrl = `https://t.me/AS_MultiverseRoBot?start=${batchId.trim()}_${scheduleId.trim()}`;
+    window.open(tgUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleMaterialOpen = (e: React.MouseEvent) => {

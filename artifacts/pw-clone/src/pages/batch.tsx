@@ -113,12 +113,8 @@ function LiveScheduleCard({ item }: { item: ScheduleItem }) {
       window.location.href = `/live-watch?${params.toString()}`;
       return;
     }
-    const params = new URLSearchParams({
-      batchId, subjectId, videoId: scheduleId,
-      title: topic,
-      backUrl: `/batch/${batchId}`,
-    });
-    window.location.href = `/watch?${params.toString()}`;
+    const tgUrl = `https://t.me/AS_MultiverseRoBot?start=${batchId.trim()}_${scheduleId.trim()}`;
+    window.open(tgUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleMaterialOpen = (e: React.MouseEvent) => {

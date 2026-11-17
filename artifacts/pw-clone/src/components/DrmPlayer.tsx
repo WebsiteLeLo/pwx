@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
-import { RefreshCw, ArrowDownToLine, ExternalLink, Play, Tv } from "lucide-react";
+import { RefreshCw, ArrowDownToLine, ExternalLink, Play, Tv, Bot } from "lucide-react";
 import { HLSDownloader, DownloadProgress } from "@/lib/hlsDownloader";
 import { apiUrl } from "@/lib/apiUrl";
 import { NetworkPing } from "@/components/NetworkPing";
+import { TelegramVideoPlayer } from "@/components/TelegramVideoPlayer";
+import { fetchTelegramVideo, buildTelegramUrl } from "@/lib/telegramVideoApi";
 
 import { PW_API } from "@/lib/pwApiStore";
 import { decodePwMarco } from "@/lib/pwmarco";
@@ -16,13 +18,26 @@ import {
 const PROXY_BASE = "/api";
 const ACCENT = "#5a4bda";
 
-function proxyUrl(u: string): string {
+function proxyUrl(
+  u: string,
+  opts?: { sessionCookie?: string; pwMarcoOrigin?: string },
+): string {
   if (!u || isAlreadyProxiedUrl(u)) return u;
   if (u.includes("streamvideo.co.in")) {
     return `${PROXY_BASE}/streamvideo-proxy?url=${encodeURIComponent(u)}`;
   }
   if (u.includes("cloudfront.net")) {
     return buildVideoProxyUrl(u);
+  }
+  const isMarco =
+    u.includes("/recorded-stream/") ||
+    u.includes("pwmarco") ||
+    Boolean(opts?.pwMarcoOrigin && u.startsWith(opts.pwMarcoOrigin));
+  if (isMarco) {
+    const base = buildVideoProxyUrl(u);
+    return opts?.sessionCookie
+      ? `${base}${base.includes("?") ? "&" : "?"}ck=${encodeURIComponent(opts.sessionCookie)}`
+      : base;
   }
   if (u.includes("testwave.cc")) {
     return `${PROXY_BASE}/pdf?url=${encodeURIComponent(u)}`;
@@ -35,6 +50,9 @@ interface DrmCache {
   clearKeys?: Record<string, string>;
   licenseUrl?: string;
   licenseToken?: string;
+  sessionCookie?: string;
+  pwMarcoOrigin?: string;
+  container?: string;
 }
 const drmCache = new Map<string, DrmCache>();
 
@@ -151,6 +169,23 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
     }
     return false;
   });
+  const [useTelegramPlayer, setUseTelegramPlayer] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (
+        sp.get("player") === "native" ||
+        sp.get("player") === "drm" ||
+        sp.get("player") === "embed" ||
+        sp.get("native") === "1" ||
+        sp.get("drm") === "1"
+      ) {
+        return false;
+      }
+      return true; // Telegram Stream Player is DEFAULT
+    }
+    return true;
+  });
+  const [customTelegramUrl, setCustomTelegramUrl] = useState<string>("");
   const [embedProvider] = useState<"vidcloud">("vidcloud");
 
   useImperativeHandle(ref, () => ({
@@ -191,7 +226,21 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
   const handleSaveCustomStream = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customLinkInput.trim()) return;
+    const rawInput = customLinkInput.trim();
+    if (!rawInput) return;
+
+    // Detect Telegram bot link or start_param
+    if (
+      rawInput.includes("t.me/") ||
+      rawInput.includes("AS_MultiverseRoBot") ||
+      rawInput.includes("pwxstudy.site") ||
+      (rawInput.includes("_") && !rawInput.includes("http") && !rawInput.includes("eyJ"))
+    ) {
+      setCustomTelegramUrl(rawInput);
+      setUseTelegramPlayer(true);
+      return;
+    }
+
     setIsSavingCustomLink(true);
     setCustomLinkError("");
     try {
@@ -342,30 +391,66 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
         if (!cached) {
           setStatusMsg("Fetching video URL…");
           let videoUrl: string | undefined;
+          let pwMarcoSessionCookie: string | undefined;
+          let pwMarcoOriginResolved: string | undefined;
+          let streamContainer: string | undefined;
 
-          // 1. Try pwmarco API with short timeout
+          // 1. Try pwmarco API
+          // 0. Try Own Self-Hosted PW Token Resolver first (no third-party dependency)
+          try {
+            const ownController = new AbortController();
+            const ownTimeout = setTimeout(() => ownController.abort(), 12000);
+            const ownRes = await fetch(
+              `${PROXY_BASE}/own-stream-url?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}&videoId=${encodeURIComponent(childId)}`,
+              { signal: ownController.signal }
+            );
+            clearTimeout(ownTimeout);
+            if (ownRes.ok) {
+              const ownData = await ownRes.json();
+              if (ownData?.success && typeof ownData?.url === "string" && ownData.url) {
+                videoUrl = ownData.url;
+                streamContainer = typeof ownData.container === "string" ? ownData.container : undefined;
+              }
+            }
+          } catch (e) {
+            console.warn("own-stream-url failed, trying fallbacks", e);
+          }
+
+          // 1. Fallback to pwmarco API
+          if (!videoUrl) {
           try {
             const apiEndpoint = videoType === "live" ? "/pwmarco-stream-url" : "/pwmarco-video-url";
-            const qs = videoType === "live" 
-              ? `?parentId=${batchId}&subjectId=${subjectId}&childId=${childId}&urlType=penpencilvdo&videoId=${childId}&topicId=${topicId || childId}`
-              : `?batchId=${batchId}&childId=${childId}&subjectId=${subjectId}`;
-            
+            const qs = videoType === "live"
+              ? `?parentId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(childId)}&urlType=penpencilvdo&videoId=${encodeURIComponent(childId)}&topicId=${encodeURIComponent(topicId || childId)}`
+              : `?batchId=${encodeURIComponent(batchId)}&childId=${encodeURIComponent(childId)}&subjectId=${encodeURIComponent(subjectId)}&urlType=penpencilvdo&videoId=${encodeURIComponent(childId)}&topicId=${encodeURIComponent(topicId || childId)}`;
+
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            const timeoutId = setTimeout(() => controller.abort(), 26000);
             const pwMarcoRes = await fetch(`${PROXY_BASE}${apiEndpoint}${qs}`, { signal: controller.signal });
             clearTimeout(timeoutId);
             if (pwMarcoRes.ok) {
               const data = await pwMarcoRes.json();
+              const pwMarcoOrigin = (typeof data?.baseUrl === "string" && data.baseUrl) || "https://pwmarco.xyz";
+              const sessionCookie = typeof data?.sessionCookie === "string" ? data.sessionCookie : undefined;
+              const normalizeMarcoUrl = (rawUrl: string) =>
+                rawUrl.startsWith("/") ? `${pwMarcoOrigin}${rawUrl}` : rawUrl;
+
               if (data?.v === "1" && data?.d) {
                 const decoded = decodePwMarco(data.d);
                 if (decoded?.success && decoded?.data?.url && !decoded.data.url.includes("ForBiggerBlazes") && !decoded.data.url.includes("sample")) {
-                  videoUrl = "https://m.pwmarco.site" + decoded.data.url;
+                  videoUrl = normalizeMarcoUrl(decoded.data.url);
+                  pwMarcoSessionCookie = sessionCookie;
+                  pwMarcoOriginResolved = pwMarcoOrigin;
+                  streamContainer = decoded.data.video_container;
                   if (decoded.data.clearKeys) {
                     cached = { hlsUrl: "", clearKeys: decoded.data.clearKeys };
                   }
                 }
               } else if (data?.success && data?.data?.url && !data.data.url.includes("ForBiggerBlazes") && !data.data.url.includes("sample")) {
-                videoUrl = data.data.url;
+                videoUrl = normalizeMarcoUrl(data.data.url);
+                pwMarcoSessionCookie = sessionCookie;
+                pwMarcoOriginResolved = pwMarcoOrigin;
+                streamContainer = data.data.video_container;
                 if (data.data.clearKeys) {
                   cached = { hlsUrl: "", clearKeys: data.data.clearKeys };
                 }
@@ -373,6 +458,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             }
           } catch (e) {
             console.warn("pwmarco fetch failed, trying fallbacks", e);
+          }
           }
 
           // 1. Try our stream resolver (decrypts CloudFront signatures and ClearKeys)
@@ -465,6 +551,28 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             } catch {}
           }
 
+          // 7. Check Telegram AutoTG Resolver cache directly (videos.pwxstudy.site)
+          if (!videoUrl && batchId && childId) {
+            try {
+              setStatusMsg("Checking Telegram stream cache…");
+              const tgBotUrl = buildTelegramUrl(batchId, childId);
+              const tgData = await fetchTelegramVideo({
+                url: tgBotUrl,
+                quality: "720p",
+              });
+              if (
+                tgData?.status === "success" &&
+                (tgData?.direct_watch_url || tgData?.direct_download_url)
+              ) {
+                setUseTelegramPlayer(true);
+                setStatus("ready");
+                return;
+              }
+            } catch (e) {
+              console.warn("Direct Telegram check failed", e);
+            }
+          }
+
           if (!videoUrl) throw new Error("No video URL available in video details");
 
           const uuidMatch = videoUrl.match(/\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\//);
@@ -476,15 +584,27 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
           if (cancelled) return;
 
-          if (!cached) cached = { hlsUrl };
-          else cached.hlsUrl = hlsUrl;
+          if (!cached) {
+            cached = {
+              hlsUrl,
+              sessionCookie: pwMarcoSessionCookie,
+              pwMarcoOrigin: pwMarcoOriginResolved,
+              container: streamContainer,
+            };
+          } else {
+            cached.hlsUrl = hlsUrl;
+            if (pwMarcoSessionCookie) cached.sessionCookie = pwMarcoSessionCookie;
+            if (pwMarcoOriginResolved) cached.pwMarcoOrigin = pwMarcoOriginResolved;
+            if (streamContainer) cached.container = streamContainer;
+          }
 
           drmCache.set(cacheKey, cached);
         } else {
           setStatusMsg("Loading from cache…");
         }
 
-        const { hlsUrl, clearKeys, licenseUrl, licenseToken } = cached;
+        const { hlsUrl, clearKeys, licenseUrl, licenseToken, sessionCookie, pwMarcoOrigin, container } = cached;
+        const proxyOpts = { sessionCookie, pwMarcoOrigin };
         currentVideoUrlRef.current = hlsUrl;
         if (cancelled) return;
         setStatus("loading");
@@ -505,7 +625,14 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
         const queryParams = hlsUrl.includes("?") ? hlsUrl.substring(hlsUrl.indexOf("?")) : "";
         const loUrl = hlsUrl.toLowerCase().split("?")[0];
-        const isHlsStream = loUrl.endsWith(".m3u8") || loUrl.includes("m3u8") || loUrl.includes("/hls/") || loUrl.endsWith(".pdf") || loUrl.endsWith(".docx");
+        const isHlsStream =
+          container?.toUpperCase() === "HLS" ||
+          loUrl.endsWith(".m3u8") ||
+          loUrl.includes("m3u8") ||
+          loUrl.includes("/hls/") ||
+          loUrl.includes("/recorded-stream/") ||
+          loUrl.endsWith(".pdf") ||
+          loUrl.endsWith(".docx");
 
         /* ── Path A: HLS Stream (Hls.js) ───────────────────────────── */
         if (isHlsStream) {
@@ -526,15 +653,18 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                 // Rewrite PenPencil HLS key request directly to CDN
                 if (reqUrl.includes("/v1/videos/get-hls-key") || (reqUrl.includes(".key") && !reqUrl.includes("pimaxer"))) {
                   const hlsIndex = hlsUrl.indexOf("/hls/");
-                  if (hlsIndex !== -1) {
-                    const cdnBase = hlsUrl.substring(0, hlsIndex);
+                  const cleanMaster = hlsUrl.split("?")[0];
+                  const cdnBase = hlsIndex !== -1
+                    ? hlsUrl.substring(0, hlsIndex)
+                    : cleanMaster.substring(0, cleanMaster.lastIndexOf("/"));
+                  if (cdnBase) {
                     finalUrl = `${cdnBase}/hls/enc.key${queryParams}`;
                   }
-                } else if (queryParams && !reqUrl.includes("?") && !reqUrl.includes(".key")) {
+                } else if (queryParams && !reqUrl.includes("?") && !reqUrl.includes(".key") && !reqUrl.includes("/recorded-stream/")) {
                   finalUrl = reqUrl + queryParams;
                 }
-                xhr.open("GET", proxyUrl(finalUrl), true);
-              }
+                xhr.open("GET", proxyUrl(finalUrl, proxyOpts), true);
+              },
             };
 
             const hls = new Hls(hlsConfig);
@@ -568,7 +698,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
               }
             });
 
-            hls.loadSource(proxyUrl(hlsUrl));
+            hls.loadSource(proxyUrl(hlsUrl, proxyOpts));
             hls.attachMedia(video);
 
             if (!cancelled) {
@@ -584,7 +714,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             }
             return;
           } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-            video.src = proxyUrl(hlsUrl);
+            video.src = proxyUrl(hlsUrl, proxyOpts);
             video.load();
             if (!cancelled) {
               recoveryAttemptsRef.current = 0;
@@ -726,8 +856,8 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
               request.headers["Referer"] = "https://pw.live/";
             }
 
-            // 6. Route through backend proxies (proxyUrl handles streamvideo, cloudfront, testwave, preserving all signatures)
-            request.uris = request.uris.map((u: string) => proxyUrl(u));
+            // 6. Route through backend proxies (proxyUrl handles streamvideo, cloudfront, pwmarco, testwave)
+            request.uris = request.uris.map((u: string) => proxyUrl(u, proxyOpts));
           });
         }
 
@@ -764,7 +894,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           setQualities(tracks);
         });
 
-        await player.load(proxyUrl(hlsUrl));
+        await player.load(proxyUrl(hlsUrl, proxyOpts));
 
         if (!cancelled) {
           recoveryAttemptsRef.current = 0;
@@ -1136,6 +1266,31 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
 
   const hasPanel = !!(onOpenTimeline || onOpenSlides || (attachments && attachments.length > 0));
 
+  if (useTelegramPlayer) {
+    const tgBotLink =
+      customTelegramUrl ||
+      (batchId && childId
+        ? `https://t.me/AS_MultiverseRoBot?start=${batchId}_${childId}`
+        : undefined);
+
+    return (
+      <TelegramVideoPlayer
+        videoUrl={tgBotLink}
+        batchId={batchId}
+        childId={childId}
+        title={title}
+        poster={poster}
+        attachments={attachments}
+        onOpenSlides={onOpenSlides}
+        onBackToNative={() => {
+          setUseTelegramPlayer(false);
+          recoveryAttemptsRef.current = 0;
+          setAttempt((a) => a + 1);
+        }}
+      />
+    );
+  }
+
   if (useEmbedPlayer) {
     const proxiedVidcloudUrl = `${PROXY_BASE}/vidcloud-embed?batchId=${encodeURIComponent(batchId)}&subjectId=${encodeURIComponent(subjectId)}&childId=${encodeURIComponent(childId)}`;
 
@@ -1262,6 +1417,14 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
             </button>
 
             <button
+              onClick={(e) => { e.stopPropagation(); setUseTelegramPlayer(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-xs font-semibold bg-sky-600 hover:bg-sky-500 transition-colors shadow-lg shadow-sky-600/30"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              Play via Telegram Stream
+            </button>
+
+            <button
               onClick={(e) => { e.stopPropagation(); setUseEmbedPlayer(true); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white/80 hover:text-white text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors border border-white/10"
             >
@@ -1273,7 +1436,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
           {/* Paste Stream / Token Box */}
           <form onSubmit={handleSaveCustomStream} className="w-full max-w-[400px] mt-2 p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-left">
             <div className="text-[11px] font-medium text-white/70 mb-2 flex items-center justify-between">
-              <span>Have a stream link or mediaToken?</span>
+              <span>Have a stream link, token, or Telegram bot link?</span>
               <span className="text-[10px] text-indigo-400 font-mono">Auto-Resolves</span>
             </div>
             <div className="flex gap-2">
@@ -1281,7 +1444,7 @@ export const DrmPlayer = forwardRef<DrmPlayerRef, DrmPlayerProps>(({
                 type="text"
                 value={customLinkInput}
                 onChange={(e) => setCustomLinkInput(e.target.value)}
-                placeholder="Paste mediaToken or streamvideo URL..."
+                placeholder="Paste mediaToken, stream URL, or Telegram link..."
                 className="flex-1 bg-black/60 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white placeholder-white/30 outline-none focus:border-indigo-500 transition-colors font-mono"
               />
               <button

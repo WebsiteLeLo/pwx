@@ -259,6 +259,30 @@ export function useUpdateSetting() {
   });
 }
 
+export interface PwTokenStatusInfo {
+  preview: string;
+  userId?: string;
+  username?: string;
+  expiresAt?: string;
+  expired: boolean;
+  valid: boolean;
+  enrolledBatchCount: number;
+  sampleBatches: string[];
+  error?: string;
+}
+
+export function useCheckPwTokensStatus() {
+  return useMutation({
+    mutationFn: async (): Promise<{ tokens: PwTokenStatusInfo[] }> => {
+      const r = await fetch(withKey(api("/admin/pw-tokens/status")), {
+        headers: adminHeaders(),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+  });
+}
+
 export async function verifyAdminKey(key: string): Promise<boolean> {
   try {
     const r = await fetch(api("/admin/auth"), {

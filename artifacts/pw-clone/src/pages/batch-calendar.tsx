@@ -369,7 +369,8 @@ export default function BatchCalendar() {
                     const thumb = getThumb(vid);
                     const title = vid?.name ?? content.topic ?? "Lecture Video";
                     const dur = fmtDur(vid?.duration);
-                    const watchUrl = `/watch?batchId=${encodeURIComponent(batchId!)}&subjectId=${encodeURIComponent(content.subjectId)}&videoId=${encodeURIComponent(content._id)}&title=${encodeURIComponent(title)}&backUrl=${encodeURIComponent(`/batch/${batchId}/calendar`)}`;
+                    const videoId = vid?._id || content._id;
+                    const tgBotUrl = `https://t.me/AS_MultiverseRoBot?start=${(batchId || "").trim()}_${videoId.trim()}`;
 
                     return (
                       <motion.div
@@ -378,7 +379,7 @@ export default function BatchCalendar() {
                         animate={{ opacity:1, y:0 }}
                         transition={{ delay: idx*0.04 }}
                       >
-                        <Link href={watchUrl}>
+                        <a href={tgBotUrl} target="_blank" rel="noopener noreferrer" className="block text-inherit no-underline">
                           <div className="group flex gap-3 sm:gap-4 p-3 sm:p-4 bg-card border border-border/50 rounded-xl hover:border-primary/40 hover:bg-card/80 transition-all cursor-pointer">
                             {/* Thumbnail */}
                             <div className="relative w-28 sm:w-36 md:w-44 shrink-0 aspect-video rounded-lg overflow-hidden bg-muted">
@@ -392,7 +393,7 @@ export default function BatchCalendar() {
                               )}
                               {/* Play overlay */}
                               <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                <div className="w-8 h-8 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                                <div className="w-8 h-8 rounded-full bg-sky-500/90 text-white flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
                                   <Play className="w-3.5 h-3.5 fill-current" />
                                 </div>
                               </div>
@@ -415,7 +416,7 @@ export default function BatchCalendar() {
                               </p>
                             </div>
                           </div>
-                        </Link>
+                        </a>
                       </motion.div>
                     );
                   })}
