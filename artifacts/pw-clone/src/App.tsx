@@ -97,7 +97,11 @@ function AccessGate({ children }: { children: React.ReactNode }) {
   if (!isProtected) return <>{children}</>;
 
   if (settingLoading || (accessGateEnabled && Boolean(storedKey) && verification.isLoading)) {
-    return <div className="min-h-screen bg-[#0a0a0f]" />;
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
   }
   if (accessGateEnabled && (!storedKey || verification.data !== true)) {
     const returnTarget = location + (typeof window !== "undefined" ? window.location.search : "");
@@ -171,11 +175,10 @@ function Router() {
 }
 
 function AppInit({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
   useEffect(() => {
-    initializePwApi().then(() => setReady(true));
+    // Refresh dynamic API/proxy settings in the background without blocking initial render
+    initializePwApi();
   }, []);
-  if (!ready) return <div className="min-h-screen bg-[#0a0a0f]" />;
   return <>{children}</>;
 }
 

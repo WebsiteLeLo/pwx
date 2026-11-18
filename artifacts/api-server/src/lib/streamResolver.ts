@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { JSDOM } from "jsdom";
 import CryptoJS from "crypto-js";
 import { logger } from "./logger";
 
@@ -80,6 +79,7 @@ export async function resolveStreamWithVidcloud(
       return null;
     }
 
+    const { JSDOM } = await import("jsdom");
     const dom = new JSDOM(html, {
       url: "https://vidcloud.eu.org/play.php",
       runScripts: "outside-only",

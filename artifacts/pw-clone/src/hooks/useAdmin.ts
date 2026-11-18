@@ -41,17 +41,32 @@ export function usePublicNotifications() {
   });
 }
 
+async function fetchWithTimeout(url: string, timeoutMs = 4000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function useMaintenanceMode() {
   return useQuery({
     queryKey: ["settings", "maintenance"],
     queryFn: async () => {
-      const r = await fetch(api("/settings/maintenance"));
-      if (!r.ok) return null;
-      return r.json();
+      try {
+        const r = await fetchWithTimeout(api("/settings/maintenance"), 4000);
+        if (!r.ok) return null;
+        return r.json();
+      } catch {
+        return null;
+      }
     },
     staleTime: 1000 * 60 * 5,      // 5 min fresh
     refetchInterval: 1000 * 60 * 5, // poll every 5 minutes (was every 15 sec)
     refetchOnMount: true,
+    retry: 0,
   });
 }
 
@@ -59,13 +74,18 @@ export function useAccessGateSetting() {
   return useQuery({
     queryKey: ["settings", "access_gate"],
     queryFn: async () => {
-      const r = await fetch(api("/settings/access_gate"));
-      if (!r.ok) return null;
-      return r.json();
+      try {
+        const r = await fetchWithTimeout(api("/settings/access_gate"), 4000);
+        if (!r.ok) return null;
+        return r.json();
+      } catch {
+        return null;
+      }
     },
     staleTime: 1000 * 30,
     refetchInterval: 1000 * 30,
     refetchOnMount: true,
+    retry: 0,
   });
 }
 

@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import fs from "node:fs";
 import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -42,26 +43,32 @@ app.get("/sitemap.xml", (_req, res) => {
   res.send(getSitemapXml());
 });
 
-// In production, Express serves the built Vite output with SSR meta injection.
-// In dev, Vite dev server handles the frontend; this block is skipped entirely.
+// In production, serve the built Vite frontend only when dist/public exists.
+// In API-only deployments (no frontend bundled), skip static/SSR and expose a clean root health check.
 if (process.env.NODE_ENV === "production") {
   const frontendDist = path.resolve(
     import.meta.dirname,
     "../../pw-clone/dist/public",
   );
 
-  // Serve static assets (JS, CSS, images) with long-lived cache headers
-  app.use(
-    express.static(frontendDist, {
-      index: false, // Don't auto-serve index.html; SSR middleware injects meta first
-      maxAge: "1y",
-      immutable: true,
-    }),
-  );
+  if (fs.existsSync(path.join(frontendDist, "index.html"))) {
+    // Serve static assets (JS, CSS, images) with long-lived cache headers
+    app.use(
+      express.static(frontendDist, {
+        index: false, // Don't auto-serve index.html; SSR middleware injects meta first
+        maxAge: "1y",
+        immutable: true,
+      }),
+    );
 
-  // SPA catch-all: inject per-route meta into index.html for every non-file request
-  const ssrMiddleware = createSsrMiddleware(frontendDist);
-  app.get("/{*path}", ssrMiddleware);
+    // SPA catch-all: inject per-route meta into index.html for every non-file request
+    const ssrMiddleware = createSsrMiddleware(frontendDist);
+    app.get("/{*path}", ssrMiddleware);
+  } else {
+    app.get("/", (_req, res) => {
+      res.json({ status: "ok", service: "pwx-api", mode: "api-only" });
+    });
+  }
 }
 
 export default app;
